@@ -1,0 +1,334 @@
+#!/bin/bash
+
+# Harness CLI - 将 harness skill 和 agent 部署到目标项目
+# 用法: harness <backend|fullstack> [options]
+
+set -e
+
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HARNESS_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# 显示帮助信息
+show_help() {
+    cat << 'EOF'
+用法: harness <command> [options]
+
+命令:
+  backend      部署或更新 backend skill 和 agents
+  fullstack    部署或更新 fullstack skill 和 agents
+  status       检查当前项目的 harness 安装状态
+
+选项:
+  -h, --help   显示此帮助信息
+  -f, --force  强制覆盖，不提示确认
+
+示例:
+  harness backend       # 安装或更新 backend harness
+  harness fullstack     # 安装或更新 fullstack harness
+  harness backend -f    # 强制更新，不提示
+  harness status        # 检查状态
+EOF
+}
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 日志函数
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 获取当前项目目录（用户执行命令的目录）
+get_target_dir() {
+    pwd
+}
+
+# 检测目标项目已安装的 harness 类型
+detect_installed_type() {
+    local target_dir="$1"
+    local claude_dir="$target_dir/.claude"
+
+    if [[ ! -d "$claude_dir" ]]; then
+        echo "none"
+        return
+    fi
+
+    # 检查是否有 harness 标记
+    if [[ -f "$claude_dir/.harness-type" ]]; then
+        cat "$claude_dir/.harness-type"
+        return
+    fi
+
+    # 兼容旧版本：通过文件结构检测
+    local has_backend=false
+    local has_fullstack=false
+
+    if [[ -f "$claude_dir/agents/backend-planner.md" ]] || [[ -f "$claude_dir/agents/backend-builder.md" ]]; then
+        has_backend=true
+    fi
+
+    if [[ -f "$claude_dir/agents/planner.md" ]] && [[ ! -f "$claude_dir/agents/backend-planner.md" ]]; then
+        has_fullstack=true
+    fi
+
+    if [[ "$has_backend" == "true" && "$has_fullstack" == "true" ]]; then
+        echo "both"
+    elif [[ "$has_backend" == "true" ]]; then
+        echo "backend"
+    elif [[ "$has_fullstack" == "true" ]]; then
+        echo "fullstack"
+    else
+        echo "none"
+    fi
+}
+
+# 检查特定类型是否已安装
+is_type_installed() {
+    local target_dir="$1"
+    local check_type="$2"
+    local installed_type=$(detect_installed_type "$target_dir")
+
+    if [[ "$installed_type" == "$check_type" ]] || [[ "$installed_type" == "both" ]]; then
+        return 0
+    fi
+    return 1
+}
+
+# 复制文件函数
+copy_files() {
+    local source_dir="$1"
+    local target_dir="$2"
+    local force="$3"
+
+    # 创建目标目录
+    mkdir -p "$target_dir/.claude/agents"
+    mkdir -p "$target_dir/.claude/skills"
+
+    # 执行复制
+    log_info "正在复制文件..."
+
+    # 复制 agents
+    if [[ -d "$source_dir/agents" ]]; then
+        cp -r "$source_dir/agents/"* "$target_dir/.claude/agents/"
+        log_info "已复制 agents"
+    fi
+
+    # 复制 skills
+    if [[ -d "$source_dir/skill" ]]; then
+        # 检查 skill 目录中的 SKILL.md
+        if [[ -f "$source_dir/skill/SKILL.md" ]]; then
+            # 根据类型复制到不同的 skill 目录
+            local skill_name=""
+            if [[ "$source_dir" == *"backend"* ]]; then
+                skill_name="harness-backend"
+            else
+                skill_name="harness"
+            fi
+            mkdir -p "$target_dir/.claude/skills/$skill_name"
+            cp "$source_dir/skill/SKILL.md" "$target_dir/.claude/skills/$skill_name/"
+            log_info "已复制 skill: $skill_name"
+        fi
+    fi
+
+    return 0
+}
+
+# 保存安装类型标记
+save_harness_type() {
+    local target_dir="$1"
+    local type="$2"
+    echo "$type" > "$target_dir/.claude/.harness-type"
+}
+
+# 部署 backend
+deploy_backend() {
+    local target_dir="$1"
+    local force="$2"
+
+    # 检测当前状态
+    local installed_type=$(detect_installed_type "$target_dir")
+    local is_update=false
+
+    # 如果已经安装了 backend
+    if is_type_installed "$target_dir" "backend"; then
+        is_update=true
+        if [[ "$force" != "true" ]]; then
+            log_warning "检测到当前项目已安装 Backend Harness"
+            read -p "是否更新? [y/N]: " confirm
+            if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+                log_info "操作已取消"
+                exit 0
+            fi
+        fi
+        log_info "正在更新 Backend Harness..."
+    else
+        log_info "部署 Backend Harness..."
+    fi
+
+    log_info "源: $HARNESS_ROOT/harness/backend"
+    log_info "目标: $target_dir/.claude"
+
+    copy_files "$HARNESS_ROOT/harness/backend" "$target_dir" "$force"
+
+    # 更新类型标记
+    if [[ "$installed_type" == "fullstack" ]]; then
+        save_harness_type "$target_dir" "both"
+    else
+        save_harness_type "$target_dir" "backend"
+    fi
+
+    if [[ "$is_update" == "true" ]]; then
+        log_success "Backend Harness 更新完成!"
+    else
+        log_success "Backend Harness 部署完成!"
+    fi
+    log_info "使用方法: 在 Claude Code 中输入 /harness-backend <需求>"
+}
+
+# 部署 fullstack
+deploy_fullstack() {
+    local target_dir="$1"
+    local force="$2"
+
+    # 检测当前状态
+    local installed_type=$(detect_installed_type "$target_dir")
+    local is_update=false
+
+    # 如果已经安装了 fullstack
+    if is_type_installed "$target_dir" "fullstack"; then
+        is_update=true
+        if [[ "$force" != "true" ]]; then
+            log_warning "检测到当前项目已安装 Fullstack Harness"
+            read -p "是否更新? [y/N]: " confirm
+            if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+                log_info "操作已取消"
+                exit 0
+            fi
+        fi
+        log_info "正在更新 Fullstack Harness..."
+    else
+        log_info "部署 Fullstack Harness..."
+    fi
+
+    log_info "源: $HARNESS_ROOT/harness/fullstack"
+    log_info "目标: $target_dir/.claude"
+
+    copy_files "$HARNESS_ROOT/harness/fullstack" "$target_dir" "$force"
+
+    # 更新类型标记
+    if [[ "$installed_type" == "backend" ]]; then
+        save_harness_type "$target_dir" "both"
+    else
+        save_harness_type "$target_dir" "fullstack"
+    fi
+
+    if [[ "$is_update" == "true" ]]; then
+        log_success "Fullstack Harness 更新完成!"
+    else
+        log_success "Fullstack Harness 部署完成!"
+    fi
+    log_info "使用方法: 在 Claude Code 中输入 /harness <需求>"
+}
+
+# 状态检查
+show_status() {
+    local target_dir="$1"
+
+    echo ""
+    echo "=== Harness 状态 ==="
+    echo "项目目录: $target_dir"
+
+    local installed_type=$(detect_installed_type "$target_dir")
+
+    case "$installed_type" in
+        "backend")
+            echo -e "安装类型: ${GREEN}Backend${NC}"
+            echo "触发命令: /harness-backend"
+            echo "更新命令: harness backend"
+            ;;
+        "fullstack")
+            echo -e "安装类型: ${GREEN}Fullstack${NC}"
+            echo "触发命令: /harness"
+            echo "更新命令: harness fullstack"
+            ;;
+        "both")
+            echo -e "安装类型: ${GREEN}Backend + Fullstack${NC}"
+            echo "触发命令: /harness 或 /harness-backend"
+            echo "更新命令: harness backend 或 harness fullstack"
+            ;;
+        "none")
+            echo -e "安装类型: ${RED}未安装${NC}"
+            echo "安装命令:"
+            echo "  harness backend    # 安装 backend harness"
+            echo "  harness fullstack  # 安装 fullstack harness"
+            ;;
+    esac
+    echo ""
+}
+
+# 主函数
+main() {
+    # 检查参数
+    if [[ $# -eq 0 ]]; then
+        show_help
+        exit 1
+    fi
+
+    local command="$1"
+    local force="false"
+
+    # 解析选项
+    for arg in "$@"; do
+        case "$arg" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -f|--force)
+                force="true"
+                ;;
+        esac
+    done
+
+    local target_dir=$(get_target_dir)
+
+    # 执行命令
+    case "$command" in
+        backend)
+            deploy_backend "$target_dir" "$force"
+            ;;
+        fullstack)
+            deploy_fullstack "$target_dir" "$force"
+            ;;
+        status)
+            show_status "$target_dir"
+            ;;
+        -h|--help|help)
+            show_help
+            ;;
+        *)
+            log_error "未知命令: $command"
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

@@ -1,0 +1,22 @@
+{
+  "autoMemoryEnabled": true,
+  "effortLevel": "high",
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "jdtls-lsp@claude-plugins-official": true,
+    "openclaw-assistant": true,
+    "playwright@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
+  },
+  "language": "简体中文",
+  "skipDangerousModePermissionPrompt": true,
+  "statusLine": {
+    "command": "/Users/yangchengwu/.claude/statusline-command.sh",
+    "type": "command"
+  },
+  "teammateMode": "tmux"
+}
