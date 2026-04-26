@@ -1,0 +1,15 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "",
+    "ANTHROPIC_BASE_URL": "https://maas-coding-api.cn-huabei-1.xf-yun.com/anthropic",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "astron-code-latest",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "astron-code-latest",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "astron-code-latest",
+    "ANTHROPIC_MODEL": "astron-code-latest",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_NO_FLICKER": "1"
+  },
+  "model": "opus[1m]"
+}
