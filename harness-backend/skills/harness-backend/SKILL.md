@@ -40,7 +40,7 @@ Agent 之间通过 send-keys 直接对话，消息驱动，零轮询：
 
 **使用 AskUserQuestion 工具**询问用户使用哪个 CLI 启动 Agent：
 - 选项一：「claude（原生 Claude Code）」
-- 选项二：「自定义命令前缀」（用户通过 Other 输入，例如 `cfuse -cc`；该命令需兼容 `--agent` / `--permission-mode` 参数）
+- 选项二：「自定义命令前缀」（用户通过 Other 输入完整命令前缀；该命令需兼容 `--agent` / `--permission-mode` 参数）
 
 根据用户选择设置 `HARNESS_CLI`：
 - 选项一 → `export HARNESS_CLI="claude"`
