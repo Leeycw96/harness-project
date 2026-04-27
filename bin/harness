@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Harness 部署 CLI:harness <mode> [target-dir]
+# 把 common/、harness-plan/、harness-<mode>/ 部署到目标项目的 .claude/
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HARNESS_ROOT="$(dirname "$SCRIPT_DIR")"
+
+usage() {
+  cat <<'EOF'
+用法: harness <mode> [target-dir]
+
+部署 harness 模块到指定项目的 .claude/ 目录。
+
+参数:
+  mode         模式名(对应源仓库的 harness-<mode>/ 目录)
+  target-dir   目标项目目录,默认当前目录
+
+部署内容:
+  common/                       → <target>/.claude/common/
+  harness-plan/skills/*         → <target>/.claude/skills/   (通用,自动)
+  harness-plan/agents/*         → <target>/.claude/agents/   (通用,自动)
+  harness-<mode>/skills/*       → <target>/.claude/skills/
+  harness-<mode>/agents/*       → <target>/.claude/agents/
+
+行为:
+  - 同名文件直接覆盖
+  - 其他已有 skill / agent 不受影响
+
+示例:
+  harness backend                # 部署到当前目录
+  harness backend /path/to/proj  # 部署到指定目录
+EOF
+}
+
+if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  usage
+  exit 0
+fi
+
+mode="$1"
+target_arg="${2:-.}"
+
+mode_dir="$HARNESS_ROOT/harness-$mode"
+if [ ! -d "$mode_dir" ]; then
+  echo "错误: 未找到模式 'harness-$mode'" >&2
+  echo "       期望路径: $mode_dir" >&2
+  exit 1
+fi
+
+if [ ! -d "$target_arg" ]; then
+  echo "错误: 目标目录不存在: $target_arg" >&2
+  exit 1
+fi
+
+target="$(cd "$target_arg" && pwd)"
+echo "部署到: $target/.claude/"
+
+mkdir -p "$target/.claude/skills" "$target/.claude/agents" "$target/.claude/common"
+
+deploy_module() {
+  local src="$1" name="$2"
+  if [ -d "$src/skills" ] && [ -n "$(ls -A "$src/skills" 2>/dev/null)" ]; then
+    echo "  [$name] skills → .claude/skills/"
+    cp -r "$src/skills/." "$target/.claude/skills/"
+  fi
+  if [ -d "$src/agents" ] && [ -n "$(ls -A "$src/agents" 2>/dev/null)" ]; then
+    echo "  [$name] agents → .claude/agents/"
+    cp -r "$src/agents/." "$target/.claude/agents/"
+  fi
+}
+
+# 1) common 通用脚本
+echo "[common] common/ → .claude/common/"
+cp -r "$HARNESS_ROOT/common/." "$target/.claude/common/"
+
+# 2) harness-plan 通用模块(无条件部署)
+if [ -d "$HARNESS_ROOT/harness-plan" ]; then
+  deploy_module "$HARNESS_ROOT/harness-plan" "harness-plan"
+fi
+
+# 3) 用户指定的 mode 模块
+deploy_module "$mode_dir" "harness-$mode"
+
+echo ""
+echo "完成。在目标项目的 Claude Code 中可使用:"
+echo "  /harness-plan       生成 plan 文件"
+echo "  /harness-$mode   消费 plan 启动构建与验收"
