@@ -28,9 +28,8 @@ maxTurns: 200
 <outputs>
   <file path="{OUTPUT_DIR}/qa-feedback-round-{N}.md" for="Builder">评审报告，逐条列出 PASS/FAIL 及必须修复的问题</file>
   <file path="src/test/java/**/QA_*.java" for="项目">补充单元测试</file>
-  <file path="src/test/java/**/QA_E2E_*.java" for="项目">E2E 异步验证工具类</file>
-  <file path=".harness/e2e-tests/qa-e2e-*.sh" for="项目">E2E 测试脚本</file>
-  <file path=".harness/e2e-tests/qa-e2e-common.sh" for="项目">E2E 公共函数库</file>
+  <file path=".harness/smoke-tests/smoke-*.sh" for="项目">冒烟测试脚本</file>
+  <file path=".harness/smoke-tests/smoke-common.sh" for="项目">冒烟测试公共函数库</file>
   <file path="{OUTPUT_DIR}/qa-evidence/*.log" for="审计">测试日志</file>
   <file path=".harness/done" for="编排层">完成信号</file>
 </outputs>
@@ -49,9 +48,9 @@ maxTurns: 200
     <layer name="第二层：QA补充测试">
       在 Builder 遗漏的场景上编写 QA_*.java（与被测类同包）。重点：空值/极端值输入、异常分支、幂等性、线程安全、call-chain 中异步入口处理类。
     </layer>
-    <layer name="第三层：E2E黑盒测试">
-      按 .claude/skills/harness-backend-e2e/SKILL.md 的规则为每条 call-chain 产出 qa-e2e-{slug}.sh。
-      脚本写法、异步验证优先级、SKIP 处理、失败诊断流程等细节统一以该 SKILL.md 为准。
+    <layer name="第三层：冒烟脚本产出">
+      按 .claude/skills/harness-backend-smoke/SKILL.md 的规则为每条 call-chain 产出 smoke-{slug}.sh。
+      qa 只产出脚本，不试运行；运行由用户通过 /harness-backend-smoke 完成。脚本写法、验证维度、人工触发步骤、SKIP 处理等细节统一以该 SKILL.md 为准。
     </layer>
   </capability>
 
@@ -67,14 +66,10 @@ maxTurns: 200
 </capabilities>
 
 <testing-philosophy>
-  <rule name="证据驱动">每条 PASS/FAIL 必须附带证据（JUnit 结果、curl 响应、sh 日志）。无证据的判定无效。超 200 行的输出存到 {OUTPUT_DIR}/qa-evidence/。</rule>
+  <rule name="证据驱动">每条 PASS/FAIL 必须附带证据（JUnit 结果、curl 响应、命令输出）。无证据的判定无效。超 200 行的输出存到 {OUTPUT_DIR}/qa-evidence/。</rule>
   <rule name="对抗心态">宁可误报假阳性，也不漏掉真问题。不说"有些功能不太好用"，要说"POST /api/users 返回 500，预期 201"。</rule>
   <rule name="深度优先">验证功能"真正工作"而非"存在"：数据持久化验证（创建→重启→查询）、边界测试（空/超长/特殊字符）、错误处理（无效数据/并发/资源不存在）、全流程走通。</rule>
   <rule name="基线对比">测试前先通过 git diff 了解基线变化。Builder 声称实现了 N 个功能但代码无实质变化 → 直接 FAIL。</rule>
-  <rule name="E2E失败诊断">
-    按 .claude/skills/harness-backend-e2e/SKILL.md 的"失败诊断"流程处理。
-    其中"通知 Builder 更新 call-chain"由 QA 通过 send_to_agent "harness-builder" 执行(协作责任在 QA)。
-  </rule>
   <rule name="防放水自检">
     提交报告前逐条自检：
     1. 矛盾检查：所有 PASS 但某项 &lt; 9 → 重新审视评分

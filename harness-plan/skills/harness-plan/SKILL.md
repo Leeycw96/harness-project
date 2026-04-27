@@ -82,7 +82,7 @@ cat .claude/skills/harness-plan/assets/plan-template.xml
 
 **为什么用这个 XML 格式：**
 - 这份 plan 文件的下游消费者是 Builder 和 QA 两个 AI Agent，不是人类。XML 标签自带边界，Agent 解析时不会混淆哪段内容属于哪个字段。
-- `<feature>` 上的 `slug` 属性会贯穿整个构建链路——build-scope、call-chain 文件名、E2E 测试脚本名都用它，所以需要在 plan 阶段就确定。
+- `<feature>` 上的 `slug` 属性会贯穿整个构建链路——build-scope、call-chain 文件名、冒烟测试脚本名都用它，所以需要在 plan 阶段就确定。
 - `<acceptance-criteria>` 中的每条 `<criterion>` 是 QA 验收的直接依据。如果写得模糊（如"功能正常工作"），QA 无法判定 PASS/FAIL，会导致反复沟通。具体可测的断言（如"POST /api/users 返回 201"）能让 Builder 和 QA 对齐预期。
 - `<out-of-scope>` 告诉 Builder "不要做什么"，防止过度构建；也告诉 QA "不要把这些判为遗漏"。
 - 不在 XML 标签外混入 markdown 内容，是因为 Agent 解析时只认标签内的数据，标签外的内容会被忽略或造成干扰。

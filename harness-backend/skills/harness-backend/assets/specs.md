@@ -2,7 +2,7 @@
 
 本文档定义 harness-backend 流程中所有工件的格式要求。Builder 和 QA 在产出对应文件时必须遵循这些规格。
 
-> 所有工件读写于**产出目录**（`{OUTPUT_DIR}`，格式为 `.harness/iterations/{branch}/run-{N}/`），启动时从消息中提取路径。例外：call-chain、e2e-tests 位于项目根目录。
+> 所有工件读写于**产出目录**（`{OUTPUT_DIR}`，格式为 `.harness/iterations/{branch}/run-{N}/`），启动时从消息中提取路径。例外：call-chain、smoke-tests 位于项目根目录。
 
 ---
 
@@ -16,10 +16,9 @@
 | `user-adjustment-round-{N}.md` | Builder | `{OUTPUT_DIR}/` | 用户调整阶段每轮一份 |
 | `{slug}.md` | Builder | `.harness/call-chain/` | 跨迭代持久，功能变更时更新 |
 | `QA_*.java` | QA | `src/test/java/` | Git 跟踪 |
-| `QA_E2E_*.java` | QA | `src/test/java/` | Git 跟踪 |
-| `qa-e2e-common.sh` | QA | `.harness/e2e-tests/` | 跨迭代持久 |
-| `qa-e2e-{slug}.sh` | QA | `.harness/e2e-tests/` | 跨迭代持久 |
-| `README.md` | QA | `.harness/e2e-tests/` | 跨迭代持久 |
+| `smoke-common.sh` | QA | `.harness/smoke-tests/` | 跨迭代持久 |
+| `smoke-{slug}.sh` | QA | `.harness/smoke-tests/` | 跨迭代持久 |
+| `README.md` | QA | `.harness/smoke-tests/` | 跨迭代持久 |
 | `*.log` | QA | `{OUTPUT_DIR}/qa-evidence/` | 运行副产品 |
 | `done` | QA | `.harness/` | 完成信号 |
 
@@ -164,13 +163,15 @@ QA 验证时逐条对照此文件与代码变更（git diff），确认 Builder 
 
 ---
 
-## E2E 测试脚本
+## 冒烟测试脚本
 
-位置：`.harness/e2e-tests/`（项目根目录，跨迭代持久）
+位置：`.harness/smoke-tests/`（项目根目录，跨迭代持久）
 
-### qa-e2e-common.sh — 公共函数库
+定位：把 call-chain 描述的业务流程脚本化为半自动冒烟测试——HTTP 步骤自动跑，非 HTTP 触发（Scheduler / MQ / RPC）引导用户手动完成。全程真实链路，不写 Mock 代码、不新增 Java 测试类。
 
-提供所有 E2E 脚本复用的函数：
+### smoke-common.sh — 公共函数库
+
+提供所有冒烟脚本复用的函数：
 
 | 函数 | 用途 |
 |------|------|
@@ -180,31 +181,40 @@ QA 验证时逐条对照此文件与代码变更（git diff），确认 Builder 
 | `login()` | 调用登录接口，导出 TOKEN 变量 |
 | `assert_status()` | 检查 HTTP 状态码 |
 | `assert_json_field()` | 检查 JSON 响应字段 |
-| `assert_db()` | 通过 DB CLI 检查数据库状态 |
-| `wait_and_verify_async()` | 轮询异步完成条件，超时失败 |
-| `run_async_verify_test()` | 调用 Java 测试类验证异步结果 |
+| `assert_db_row()` | DB 查询单行，校验字段值 |
+| `assert_db_count()` | DB 查询行数，校验数量 |
+| `db_query()` | 任意 DB 查询，返回结果供脚本捕获 |
+| `wait_until()` | 通用条件轮询（HTTP 或 DB），超时失败 |
+| `wait_user_action()` | 人工触发步骤：打印指令并阻塞 read，接受 c/s/a；非交互环境（`HARNESS_NONINTERACTIVE=1`）自动 SKIP |
 | `skip_if_unavailable()` | 检查外部依赖，不可用时输出 SKIP（不判 FAIL） |
 | `log_pass()` / `log_fail()` / `log_skip()` | 结果记录 |
 
-### qa-e2e-{slug}.sh — 功能 E2E 脚本
+### smoke-{slug}.sh — 功能冒烟脚本
 
-每个脚本是自包含的完整生命周期测试：启动服务 → 等待就绪 → [登录] → 业务操作 → 同步验证 → [异步验证] → 停止服务。
+每个脚本是自包含的完整生命周期：启动服务 → 等待就绪 → [登录] → 业务步骤（接口断言 + DB 断言）→ [异步轮询 / 人工触发等待 → 后置 DB 断言] → 停止服务。
 
 编写规则：
-- 简单功能（登录）：启动 → curl → 验证 → 关闭
-- 业务功能（创建订单）：启动 → 登录 → 请求 → 同步验证 → 异步验证 → 关闭
-- 跨功能流程：在一个脚本中串联多步骤
-- 异步验证优先级：HTTP 轮询 > DB CLI 查询 > Java 测试类
+- 简单功能（登录）：启动 → curl → 接口断言 → DB 断言 → 关闭
+- 业务功能（创建订单）：启动 → 登录 → 请求 → 接口断言 → DB 断言 → [异步轮询 / 人工触发 → 后置 DB 断言] → 关闭
+- 跨功能流程：一个脚本中串联多步骤；步骤间通过捕获接口返回值（orderNo 等）作为下一步 DB 查询条件或入参
+- 验证维度：每步至少接口断言 + 数据状态断言；仅断言 HTTP 200 不算冒烟测试
+- 异步与人工触发：自动可达走 `wait_until`；自动不可达（Scheduler / MQ / RPC）走 `wait_user_action` 引导用户手动触发，完成后立刻执行后置 DB 断言
 - 外部依赖 `[未就绪]`：用 `skip_if_unavailable` 包裹，保留完整逻辑以便依赖就绪后启用
 
-### QA_E2E_*.java — 异步验证工具类
+### 人工触发步骤片段
 
-仅当异步结果无法通过 HTTP 轮询或 DB CLI 验证时编写。每个方法验证一个异步产物，由 sh 脚本通过 `mvn test -Dtest="QA_E2E_XxxVerify#methodName"` 调用。
+```bash
+wait_user_action \
+  "请触发 OrderTimeoutScheduler 任务（订单超时关单）" \
+  "管理后台 → 任务调度 → OrderTimeoutScheduler → 立即执行"
+# 用户输入 c 后到达此处，立刻执行后置 DB 断言
+assert_db_row "orders" "order_no='${ORDER_NO}'" "status" "CLOSED"
+```
 
 ### README.md
 
 必须包含：
 - 概述和前置条件（JDK 版本、数据库、端口、CLI 工具）
-- 文件清单表（脚本 | 测试功能 | 涉及接口 | 是否含异步验证 | 外部依赖）
+- 文件清单表（脚本 | 测试功能 | 涉及接口 | 是否含人工触发 | 外部依赖）
 - 外部依赖状态表（服务 | 影响脚本 | 被 skip 步骤 | 负责人 | 预计就绪时间）
 - 运行方式和维护说明
