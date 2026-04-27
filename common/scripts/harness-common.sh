@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# harness-common.sh — Agent 间通信工具函数
+# 无副作用的纯函数库，供任何 Agent 在 Bash 工具中 source 后使用
+# 用法：source .claude/common/scripts/harness-common.sh
+
+# 通过脚本自身路径推导项目根目录，避免 Agent cd 子目录后 $(pwd) 漂移
+if [ -n "${BASH_SOURCE[0]:-}" ]; then
+  PROJECT_DIR="${PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)}"
+else
+  PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
+fi
+HARNESS_REGISTRY="$PROJECT_DIR/.harness/agent-registry"
+
+# 查询 Agent 的 tmux pane ID
+get_agent_pane() {
+  local agent="$1"
+  [ -f "$HARNESS_REGISTRY" ] && grep "^${agent}=" "$HARNESS_REGISTRY" | cut -d= -f2
+}
+
+# 检查 Agent 的 pane 是否仍然存活
+is_agent_alive() {
+  local pane
+  pane=$(get_agent_pane "$1")
+  [ -n "$pane" ] && tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -q "^${pane}$"
+}
+
+# 向已注册的 Agent 发送消息（通过 tmux send-keys）
+# 用法：send_to_agent "Builder" "消息内容"
+send_to_agent() {
+  local agent="$1" message="$2"
+  local pane
+  pane=$(get_agent_pane "$agent")
+
+  if [ -z "$pane" ]; then
+    echo "错误：Agent '${agent}' 未注册" >&2
+    return 1
+  fi
+
+  if ! tmux list-panes -a -F '#{pane_id}' 2>/dev/null | grep -q "^${pane}$"; then
+    echo "错误：Agent '${agent}' 的 pane ${pane} 已不存在" >&2
+    return 1
+  fi
+
+  tmux send-keys -t "$pane" -l "$message"
+  tmux send-keys -t "$pane" Enter
+}
+
+# 阶段完成通知：验证产出文件存在后通知对方
+# 用法：complete_and_notify "harness-qa" "消息内容" [产出文件路径]
+complete_and_notify() {
+  local target="$1" message="$2" artifact="${3:-}"
+  if [ -n "$artifact" ] && [ ! -f "$artifact" ]; then
+    echo "错误：产出文件 ${artifact} 不存在，请先完成产出再通知" >&2
+    return 1
+  fi
+  send_to_agent "$target" "$message"
+}
