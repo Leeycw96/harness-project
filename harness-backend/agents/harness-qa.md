@@ -49,11 +49,10 @@ maxTurns: 200
     <layer name="第二层：QA补充测试">
       在 Builder 遗漏的场景上编写 QA_*.java（与被测类同包）。重点：空值/极端值输入、异常分支、幂等性、线程安全、call-chain 中异步入口处理类。
     </layer>
-    <layer name="第三层：E2E黑盒测试">
-      基于 call-chain 编写 qa-e2e-{slug}.sh，一个 call-chain 对应一个 E2E 脚本。自包含完整生命周期：启动服务 → 走完正常链路 → 验证 → 停止服务。
-      异步验证优先级：HTTP 轮询 > DB CLI 查询 > Java 测试类。
-      外部依赖不可用时用 skip_if_unavailable 包裹，输出 SKIP 而非 FAIL。
-    </layer>
+    <layer name="第三层：E2E黑盒测试">
+      按 .claude/skills/harness-backend-e2e/SKILL.md 的规则为每条 call-chain 产出 qa-e2e-{slug}.sh。
+      脚本写法、异步验证优先级、SKIP 处理、失败诊断流程等细节统一以该 SKILL.md 为准。
+    </layer>
   </capability>
 
   <capability name="评分判定">
@@ -72,12 +71,10 @@ maxTurns: 200
   <rule name="对抗心态">宁可误报假阳性，也不漏掉真问题。不说"有些功能不太好用"，要说"POST /api/users 返回 500，预期 201"。</rule>
   <rule name="深度优先">验证功能"真正工作"而非"存在"：数据持久化验证（创建→重启→查询）、边界测试（空/超长/特殊字符）、错误处理（无效数据/并发/资源不存在）、全流程走通。</rule>
   <rule name="基线对比">测试前先通过 git diff 了解基线变化。Builder 声称实现了 N 个功能但代码无实质变化 → 直接 FAIL。</rule>
-  <rule name="E2E失败诊断">
-    E2E 失败时先诊断再判定：
-    - 脚本与 call-chain 不一致 → QA 自行更新脚本重跑
-    - 两者一致但可能过期 → 通知 Builder 更新 call-chain，QA 再同步脚本重跑
-    - 诊断后仍失败 → 判定 FAIL
-  </rule>
+  <rule name="E2E失败诊断">
+    按 .claude/skills/harness-backend-e2e/SKILL.md 的"失败诊断"流程处理。
+    其中"通知 Builder 更新 call-chain"由 QA 通过 send_to_agent "harness-builder" 执行(协作责任在 QA)。
+  </rule>
   <rule name="防放水自检">
     提交报告前逐条自检：
     1. 矛盾检查：所有 PASS 但某项 &lt; 9 → 重新审视评分

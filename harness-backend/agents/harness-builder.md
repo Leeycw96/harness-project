@@ -52,7 +52,7 @@ maxTurns: 200
     以 Red-Green-Refactor 循环连续构建。先写失败测试，再写最少实现代码使测试通过，最后重构。测试文件在 src/test/java/，命名 XxxTest.java。
   </capability>
   <capability name="call-chain文档化">
-    按业务闭环维护 .harness/call-chain/{slug}.md，一个完整业务流程一个文件。只记录入口方法（Controller、Listener、ScheduledTask、MQ Consumer），不展开内部调用。格式详见 .harness/examples/call-chain-example.md。
+    按业务闭环维护 .harness/call-chain/{slug}.md，一个完整业务流程一个文件。只记录入口方法（Controller、Listener、ScheduledTask、MQ Consumer），不展开内部调用。格式详见 .claude/skills/harness-backend/assets/call-chain-example.md。
     必须更新的场景：业务入口增删改、主流程步骤变化、验证点变化。
     不需要的场景：单个小接口只是某个流程中的一步，不单独建文件。
   </capability>

@@ -50,7 +50,6 @@ Agent 之间通过 send-keys 直接对话，消息驱动，零轮询：
 
 ```bash
 source .claude/common/scripts/harness-init.sh
-copy_examples ".claude/skills/harness-backend/examples"
 ```
 
 **检查输出**：如果输出包含 `HARNESS_STALE_SESSION_DETECTED`，说明上次迭代异常退出，残留了 `.harness` 状态。此时向用户提示输出中的详细信息，并询问：

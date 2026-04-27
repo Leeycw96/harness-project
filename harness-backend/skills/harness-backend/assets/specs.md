@@ -160,7 +160,7 @@ QA 验证时逐条对照此文件与代码变更（git diff），确认 Builder 
 - **数据依赖**：前置状态条件
 - **验证点**：该步骤的可测试断言
 
-详细格式示例见 `.harness/examples/call-chain-example.md`。
+详细格式示例见 `.claude/skills/harness-backend/assets/call-chain-example.md`。
 
 ---
 
