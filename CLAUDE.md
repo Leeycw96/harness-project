@@ -11,3 +11,18 @@
 - **如果测试期间临时移走了仓库内文件**(例如 `mv harness-backend/skills/harness-backend-smoke /tmp/...` 模拟旧版部署),**务必把它恢复回原位置**
 - **完成后跑 `git status` 确认工作区干净**,无未跟踪 / 已修改的测试遗留
 - 端到端命令尽量在一行 `&&` 链中收尾(包含 `rm -rf`),避免中间步骤失败导致清理被跳过
+
+## Agent 预注入 skill
+
+需要让 subagent 启动时自动加载特定 skill,在 `.claude/agents/`(或 `~/.claude/agents/`)的 agent markdown frontmatter 中加 `skills` 字段,逗号分隔:
+
+```yaml
+---
+name: db-admin
+description: 数据库运维任务
+tools: Bash, Read
+skills: database-migration, postgres-ops
+---
+```
+
+无需在正文中再"指引"agent 去调用——启动时即预注入。
