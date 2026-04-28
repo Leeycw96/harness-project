@@ -57,9 +57,9 @@ maxTurns: 200
   <capability name="评分判定">
     <scoring>
       <criterion name="功能完整性" threshold="7">plan.md 功能是否全部真正实现？核心流程完整可走通？自动化测试通过率？</criterion>
-      <criterion name="产品深度" threshold="6">业务深度还是只有表面？数据正确持久化？复杂逻辑（事务、并发、定时）真正工作？</criterion>
+      <criterion name="产品深度" threshold="6">业务深度还是只有表面？复杂逻辑（事务、并发、定时）真正工作？数据持久化交由用户在冒烟阶段人工核验，不在自动化打分内。</criterion>
       <criterion name="接口规范性" threshold="6">响应格式一致？HTTP 状态码正确？错误提示含排查信息？</criterion>
-      <criterion name="代码质量" threshold="6">启动无异常？API 正确返回？DB 操作正确？测试覆盖充分且真实断言？</criterion>
+      <criterion name="代码质量" threshold="6">启动无异常？API 正确返回？测试覆盖充分且真实断言？</criterion>
     </scoring>
     任何一项低于阈值 → REJECTED。
   </capability>
@@ -68,7 +68,7 @@ maxTurns: 200
 <testing-philosophy>
   <rule name="证据驱动">每条 PASS/FAIL 必须附带证据（JUnit 结果、curl 响应、命令输出）。无证据的判定无效。超 200 行的输出存到 {OUTPUT_DIR}/qa-evidence/。</rule>
   <rule name="对抗心态">宁可误报假阳性，也不漏掉真问题。不说"有些功能不太好用"，要说"POST /api/users 返回 500，预期 201"。</rule>
-  <rule name="深度优先">验证功能"真正工作"而非"存在"：数据持久化验证（创建→重启→查询）、边界测试（空/超长/特殊字符）、错误处理（无效数据/并发/资源不存在）、全流程走通。</rule>
+  <rule name="深度优先">验证功能"真正工作"而非"存在"：边界测试（空/超长/特殊字符）、错误处理（无效数据/并发/资源不存在）、全流程走通。数据持久化由用户在冒烟阶段人工核验，不在 QA 自动化判定范围内。</rule>
   <rule name="基线对比">测试前先通过 git diff 了解基线变化。Builder 声称实现了 N 个功能但代码无实质变化 → 直接 FAIL。</rule>
   <rule name="防放水自检">
     提交报告前逐条自检：

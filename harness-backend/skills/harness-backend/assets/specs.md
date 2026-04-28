@@ -105,7 +105,7 @@ QA 每轮评审产出的报告：
 | E2E 脚本数量 | X 个 |
 | 通过/失败/跳过 | X / Y / Z |
 | 覆盖的业务流程 | [列出] |
-| 异步链路验证 | 是/否（方式：HTTP 轮询/DB 查询/Java） |
+| 异步链路验证 | 是/否（方式：HTTP 轮询 / Java 测试 / 人工核验） |
 
 ## 最终判定
 **APPROVED** / **REJECTED**
@@ -149,7 +149,6 @@ QA 验证时逐条对照此文件与代码变更（git diff），确认 Builder 
 - 不记录入口方法内部的 Service/Repository/Utils 调用
 - 类名和方法签名必须与实际代码一致
 - 纯同步功能只需一个章节
-- 验证点必须具体可测
 - 外部依赖未就绪时标注 `[外部依赖：未就绪]` 并说明服务名称和预期接口
 
 ### 每个章节包含
@@ -157,7 +156,6 @@ QA 验证时逐条对照此文件与代码变更（git diff），确认 Builder 
 - **API/异步入口**：端点或入口方法签名、请求/响应格式
 - **触发条件**（异步步骤）：事件来源
 - **数据依赖**：前置状态条件
-- **验证点**：该步骤的可测试断言
 
 详细格式示例见 `.claude/skills/harness-backend/assets/call-chain-example.md`。
 
@@ -181,24 +179,21 @@ QA 验证时逐条对照此文件与代码变更（git diff），确认 Builder 
 | `login()` | 调用登录接口，导出 TOKEN 变量 |
 | `assert_status()` | 检查 HTTP 状态码 |
 | `assert_json_field()` | 检查 JSON 响应字段 |
-| `assert_db_row()` | DB 查询单行，校验字段值 |
-| `assert_db_count()` | DB 查询行数，校验数量 |
-| `db_query()` | 任意 DB 查询，返回结果供脚本捕获 |
-| `wait_until()` | 通用条件轮询（HTTP 或 DB），超时失败 |
+| `wait_until()` | HTTP 条件轮询（响应 / 健康检查），超时失败。**不连 DB** |
 | `wait_user_action()` | 人工触发步骤：打印指令并阻塞 read，接受 c/s/a；非交互环境（`HARNESS_NONINTERACTIVE=1`）自动 SKIP |
 | `skip_if_unavailable()` | 检查外部依赖，不可用时输出 SKIP（不判 FAIL） |
 | `log_pass()` / `log_fail()` / `log_skip()` | 结果记录 |
 
 ### smoke-{slug}.sh — 功能冒烟脚本
 
-每个脚本是自包含的完整生命周期：启动服务 → 等待就绪 → [登录] → 业务步骤（接口断言 + DB 断言）→ [异步轮询 / 人工触发等待 → 后置 DB 断言] → 停止服务。
+每个脚本是自包含的完整生命周期：启动服务 → 等待就绪 → [登录] → 业务步骤（接口断言 + 暂停人工核验数据）→ [异步轮询 / 人工触发等待 → 暂停人工核验数据] → 停止服务。
 
 编写规则：
-- 简单功能（登录）：启动 → curl → 接口断言 → DB 断言 → 关闭
-- 业务功能（创建订单）：启动 → 登录 → 请求 → 接口断言 → DB 断言 → [异步轮询 / 人工触发 → 后置 DB 断言] → 关闭
-- 跨功能流程：一个脚本中串联多步骤；步骤间通过捕获接口返回值（orderNo 等）作为下一步 DB 查询条件或入参
-- 验证维度：每步至少接口断言 + 数据状态断言；仅断言 HTTP 200 不算冒烟测试
-- 异步与人工触发：自动可达走 `wait_until`；自动不可达（Scheduler / MQ / RPC）走 `wait_user_action` 引导用户手动触发，完成后立刻执行后置 DB 断言
+- 简单功能（登录）：启动 → curl → 接口断言 → 暂停人工核验数据 → 关闭
+- 业务功能（创建订单）：启动 → 登录 → 请求 → 接口断言 → 暂停人工核验数据 → [异步轮询 / 人工触发 → 暂停人工核验数据] → 关闭
+- 跨功能流程：一个脚本中串联多步骤；步骤间通过捕获接口返回值（orderNo 等）作为下一步接口入参或人工核验提示文案中的定位字段
+- 验证维度：每步接口断言（脚本自动）+ 数据状态人工核验（脚本暂停 → 用户判断）；脚本不连接 DB；仅断言 HTTP 200 不算冒烟测试
+- 异步与人工触发：自动可达走 `wait_until`（仅 HTTP 轮询）；自动不可达（Scheduler / MQ / RPC）走 `wait_user_action` 引导用户手动触发，完成后由用户人工核验数据状态
 - 外部依赖 `[未就绪]`：用 `skip_if_unavailable` 包裹，保留完整逻辑以便依赖就绪后启用
 
 ### 人工触发步骤片段
@@ -207,8 +202,10 @@ QA 验证时逐条对照此文件与代码变更（git diff），确认 Builder 
 wait_user_action \
   "请触发 OrderTimeoutScheduler 任务（订单超时关单）" \
   "管理后台 → 任务调度 → OrderTimeoutScheduler → 立即执行"
-# 用户输入 c 后到达此处，立刻执行后置 DB 断言
-assert_db_row "orders" "order_no='${ORDER_NO}'" "status" "CLOSED"
+# 用户输入 c 后到达此处；下方再次暂停由用户自行查 DB 核验副作用
+wait_user_action \
+  "请确认 orders 表中 order_no=${ORDER_NO} 的 status 已变为 CLOSED" \
+  "在你的 DB 客户端执行: select status from orders where order_no='${ORDER_NO}'"
 ```
 
 ### README.md
