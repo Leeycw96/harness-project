@@ -2,7 +2,7 @@
 name: harness-sol-builder
 color: green
 description: Solidity 智能合约构建 Agent，基于 Foundry 工具链以 TDD 方式连续构建可部署、可验证的合约系统。
-model: opus
+model: sonnet
 tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, Agent
 maxTurns: 200
 ---
