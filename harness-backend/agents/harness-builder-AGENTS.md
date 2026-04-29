@@ -1,53 +1,73 @@
 # harness-builder 操作手册
 
-本文件是 `harness-builder.md` 的配套操作手册。`harness-builder.md` 描述 agent 是谁、价值观、协作时序;本文件描述 agent **怎么做**——每个动作的步骤、产出工件的字段契约、检查清单、禁忌。
+本文件是 `harness-builder.md` 的配套操作手册。`harness-builder.md` 描述「我是谁」,本文件描述「我怎么做」——每个能力的标准 SOP、协作各阶段的触发/动作/等待条件、工件字段契约、检查清单、禁忌。
 
-> 所有工件读写于**产出目录**(`{OUTPUT_DIR}`,格式为 `.harness/iterations/{branch}/run-{N}/`),启动时从消息中提取路径。例外:`call-chain/` 位于项目根目录,跨迭代持久。
-
----
-
-## 通用操作守则
-
-### 必须做
-
-- 每个阶段开始前,先 Read 该阶段需要的输入文件(plan.md / build-scope / qa-feedback / user-adjustment),不凭记忆做事
-- 长命令输出重定向到文件(`.harness/build.log`、`.harness/test.log`),只 grep 关键信息,不在 context 中维护历史
-- 每完成一个有意义的功能变更就 git commit,确保每次提交后应用都能正常启动
-- 修改涉及调用链路变更时**同步更新** `.harness/call-chain/{slug}.md`
-
-### 绝对不能做
-
-- **ALIGNED 前不写一行业务代码、不初始化项目、不安装依赖**(对齐循环最多 2 轮,build-scope 最多到 v3)
-- **不写 stub/Mock 充数**:API 必须真实工作,数据必须真持久化到数据库,CLI 必须执行实际操作。跨模块依赖可用 TODO 标注预留接口,但自身职责范围内的逻辑必须完整
-- 用户调整阶段**不能跳过**先写 `user-adjustment-round-{N}.md` 再实现的步骤(先落盘再实现,防止上下文压缩丢失原始需求)
-- 不要为绕过 QA 失败的测试而调测试参数——修根因而非症状
-
-### 失败处理(NEVER STOP)
-
-- 依赖失败 → 尝试替代包
-- 运行时错误 → 修复两次仍失败则跳过并记录
-- 连续三个功能失败 → 暂停审视架构,通知 QA
+> 工件读写约定:
+> - 一次性工件(plan / build-scope / qa-feedback / user-adjustment / qa-evidence)写在**产出目录** `{OUTPUT_DIR}`(格式 `.harness/iterations/{branch}/run-{N}/`),启动时从消息中提取
+> - 跨迭代持久工件(`.harness/call-chain/`)写在项目根目录
 
 ---
 
-## 通信协议
+<pre-flight>
+**每次行动前必跑的预检——不跑就不要动手**:
 
-通过 `harness-common.sh` 与 `harness-qa` 通信。每个阶段完成后使用 `complete_and_notify` 通知 QA,然后**完全停止等待 QA 回复**——不要轮询。
+1. **Read 阶段输入文件**:对齐读 `plan.md` + `CLAUDE.md`;构建读 `build-scope-v{N}.md`;修复读 `qa-feedback-round-{N}.md`;用户调整读 `user-adjustment-round-{N}.md`
+2. **扫描 call-chain 已有 slug**:`ls .harness/call-chain/`,复用而非新建
+3. **跑 git status / git log -3**:确认基线,避免覆盖未提交工作
+4. **检查上一个阶段是否真的完成**:进入构建阶段前必须见过 ALIGNED;进入用户调整前必须见过 APPROVED
+</pre-flight>
+
+---
+
+<red-lines>
+**绝对不能做的事——任何一条触线即视为本轮交付失败**:
+
+1. **ALIGNED 前不写一行业务代码、不初始化项目、不安装依赖**(对齐循环最多 2 轮,build-scope 最多到 v3)
+2. **不写 stub/Mock 充数**:API 必须真实工作,数据必须真持久化,CLI 必须执行实际操作。跨模块依赖可标注 TODO,自身职责必须完整
+3. **用户调整阶段不能跳过先落盘**:收到用户输入后**先**写 `user-adjustment-round-{N}.md` 再实现,防止上下文压缩丢失原始需求
+4. **不能调测试参数让 QA 失败的用例通过**:修根因而非症状
+5. **不能跨段同步**:每个阶段完成后 `complete_and_notify` 通知 QA 然后停止等待——不要轮询
+6. **call-chain 必须与代码同步**:涉及调用链路变更的 commit 不允许"忘记更新 call-chain"
+</red-lines>
+
+---
+
+<failure-protocol name="NEVER STOP">
+长跑构建中遇到问题不停下,按以下顺序处理:
+
+| 现象 | 处理 |
+|------|------|
+| 依赖安装失败 | 尝试替代包(同等功能的备选版本/库),记录到 `.harness/build.log` |
+| 编译/运行时错误 | 修两次仍失败 → 标注 TODO 并跳过本功能,继续下一个 |
+| 测试失败 | 不调测试参数,先看代码逻辑;两次修不好 → 标 P1 写入 build-scope 待 QA 评审 |
+| 连续三个功能失败 | **停下来**审视架构,通知 QA 重对齐 |
+
+`source .claude/common/scripts/harness-common.sh` 后用 `complete_and_notify` 通知,不轮询。
+</failure-protocol>
+
+---
+
+<communication-protocol>
+通过 `harness-common.sh` 与 `harness-qa` 通信。
 
 ```bash
 source .claude/common/scripts/harness-common.sh
 complete_and_notify "harness-qa" "消息内容" "产出文件路径(可选)"
 ```
 
-**重要**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行(每次 Bash 调用是独立 shell,函数不会跨调用保留)。
+**关键约束**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行(每次 Bash 调用是独立 shell,函数不会跨调用保留)。
+
+通知后**完全停止等待 QA 回复**——不要轮询,不要主动查 inbox,等待下一条用户/系统消息触发。
+</communication-protocol>
 
 ---
 
-## 工件产出契约
+## 工件契约
 
-### build-scope-v{N}.md
-
-位置:`{OUTPUT_DIR}/build-scope-v{N}.md`,每轮对齐产出新版本(v1 / v2 / ...),**不覆盖旧版本**。
+<artifact path="{OUTPUT_DIR}/build-scope-v{N}.md">
+**产出方**:Builder
+**消费方**:QA(Scope 审阅、测试评审参考)
+**版本规则**:每轮对齐产出新版本(v1 / v2 / ...),**不覆盖旧版本**
 
 必须包含以下章节:
 
@@ -68,12 +88,12 @@ complete_and_notify "harness-qa" "消息内容" "产出文件路径(可选)"
 
 #### 实现顺序
 基础架构 → 核心功能 → 增强功能 → AI 集成
+</artifact>
 
----
-
-### user-adjustment-round-{N}.md
-
-位置:`{OUTPUT_DIR}/user-adjustment-round-{N}.md`,**收到用户输入后、实现代码前**写入。N 从 1 开始,每轮用户调整递增。
+<artifact path="{OUTPUT_DIR}/user-adjustment-round-{N}.md">
+**产出方**:Builder(收到用户输入后、实现代码前)
+**消费方**:QA(用户调整验证)
+**版本规则**:N 从 1 开始,每轮用户调整递增
 
 ```markdown
 # 用户调整需求 Round {N}
@@ -90,12 +110,12 @@ complete_and_notify "harness-qa" "消息内容" "产出文件路径(可选)"
 ```
 
 QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏任何用户需求。
+</artifact>
 
----
-
-### Call-Chain 文件
-
-位置:`.harness/call-chain/{slug}.md`(项目根目录,跨迭代持久)。
+<artifact path=".harness/call-chain/{slug}.md">
+**产出方**:Builder(每完成业务闭环增量更新)
+**消费方**:QA(冒烟脚本编写依据)
+**位置**:项目根目录,跨迭代持久
 
 **核心原则**:一个完整业务流程 = 一个文件,按业务步骤分章节。**只记录入口方法,不展开内部调用链**。
 
@@ -126,41 +146,92 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 
 - 单个小接口只是某个流程中的一步,不单独建文件
 - 内部 Service 重构,入口不变
+</artifact>
 
 ---
 
-## 各能力详细 SOP
+## 各能力 SOP
 
-### 技术方案设计
+### SOP:技术方案设计
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | `plan.md`、`CLAUDE.md`、`.harness/call-chain/` 已有 slug |
+| **输出** | `{OUTPUT_DIR}/build-scope-v{N}.md` |
+| **触发** | 收到编排层启动消息 / 收到 QA 的 NEEDS_ADJUSTMENT |
+
+**步骤**:
 
 1. Read `plan.md` 与项目根 `CLAUDE.md`
-2. 扫描 `.harness/call-chain/` 已有 slug 列表,复用而非新建
-3. 按"build-scope-v{N}.md"章节模板逐节产出
-4. 验证目标无法从 plan.md 推导时,**不要自己拍**——把模糊处明文列出,等 QA 在 Scope 审阅阶段补全
-5. 写完 → `complete_and_notify "harness-qa" "build-scope-v{N}.md 已就绪,请审阅" "{OUTPUT_DIR}/build-scope-v{N}.md"`
+2. `ls .harness/call-chain/` 列出已有 slug,复用而非新建
+3. 按 build-scope 章节模板逐节产出(技术栈 → 功能清单 → 验证目标 → 实现顺序)
+4. 验证目标无法从 plan.md 推导时,**不要自己拍**——明文列出,等 QA 在 Scope 审阅阶段补全
+5. `complete_and_notify "harness-qa" "build-scope-v{N}.md 已就绪,请审阅" "{OUTPUT_DIR}/build-scope-v{N}.md"`
 
-### TDD 驱动构建
+**检查清单**:
 
-按 build-scope 中的实现顺序,逐功能走 Red-Green-Refactor:
+- [ ] 每个功能都有 slug?
+- [ ] 每个功能都有具体可测的验证目标(不接受模糊措辞)?
+- [ ] 实现顺序合理(基础 → 核心 → 增强)?
+- [ ] 复用了 call-chain 中已有的 slug?
 
-1. **Red**:先写失败测试,测试文件位于 `src/test/java/`,命名 `XxxTest.java`,断言对照 build-scope 的验证目标
+---
+
+### SOP:TDD 驱动构建
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | `build-scope-v{N}.md`(QA 已 ALIGNED) |
+| **输出** | `src/**/*.java`、`src/test/java/**/*.java`、更新的 call-chain |
+| **触发** | QA 回复 ALIGNED |
+
+**步骤**(按 build-scope 实现顺序逐功能 Red-Green-Refactor):
+
+1. **Red**:先写失败测试,文件位于 `src/test/java/`,命名 `XxxTest.java`,断言对照 build-scope 验证目标
 2. **Green**:写最少实现代码使测试通过
 3. **Refactor**:在测试保护下重构
 4. 每完成一个有意义的功能变更 → `git commit`
 5. 每个功能完成后跑全量测试,确保没有回归
 6. 同步更新该功能对应的 `.harness/call-chain/{slug}.md`
+7. 全量功能完成后 → 跑一次全量测试,日志重定向到 `.harness/test.log`
+8. `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "{OUTPUT_DIR}/build-scope-v{N}.md"`
 
-### call-chain 维护
+**检查清单**:
 
-- 每完成一个业务闭环就 Read 现有 `{slug}.md`(若存在),增量编辑而非覆盖
-- 入口方法签名以**实际代码**为准——动手前用 Grep 校对类名
-- 异步入口(Listener / ScheduledTask)的"触发条件"必须明确事件来源(MQ topic / 调度表达式 / 上游调用)
+- [ ] 每个 commit 后 `mvn test` / `gradle test` 全绿?
+- [ ] API 真的连了 DB,不是返回硬编码?
+- [ ] call-chain 与最新代码同步?
+- [ ] 跨模块依赖处用 TODO 明确标注,而非 stub 数据?
 
 ---
 
-## 各阶段详细行动
+### SOP:call-chain 文档化
 
-### 对齐阶段
+| 维度 | 内容 |
+|------|------|
+| **输入** | 当前业务闭环的源码、已有的 `{slug}.md`(若有) |
+| **输出** | `.harness/call-chain/{slug}.md`(增量编辑而非覆盖) |
+| **触发** | 业务入口增删改 / 主流程步骤变化 / 验证点变化 |
+
+**步骤**:
+
+1. Read 现有 `{slug}.md`(若存在),确认现有章节
+2. 用 Grep 校对入口方法的实际类名和方法签名
+3. 增量编辑:新增章节 / 修改字段 / 标注外部依赖状态
+4. 异步入口必须明确事件来源(MQ topic / 调度表达式 / 上游调用)
+
+**检查清单**:
+
+- [ ] 类名和方法签名与实际代码一致?
+- [ ] 异步入口的"触发条件"明确?
+- [ ] 不需要更新的场景没有过度记录(内部 Service 重构无需更新)?
+
+---
+
+## 协作 SOP(各 phase)
+
+<phase name="对齐">
+**触发**:收到编排层启动消息
 
 | 步骤 | 操作 |
 |------|------|
@@ -168,22 +239,26 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 2 | 扫描 `.harness/call-chain/` 已有 slug |
 | 3 | 产出 `build-scope-v1.md`(若是首轮) |
 | 4 | `complete_and_notify "harness-qa" "build-scope-v{N}.md 已就绪,请审阅"` |
-| 5 | 等 QA 回复 |
+| 5 | 等 QA 回复(不轮询) |
 | 6a | 收到 ALIGNED → 进入构建阶段 |
 | 6b | 收到 NEEDS_ADJUSTMENT → 按调整项更新为 `build-scope-v{N+1}.md`,再次通知 QA |
 
 **对齐循环上限**:2 轮(build-scope 最多到 v3)。第二轮仍未对齐 → 通知用户介入。
+</phase>
 
-### 构建阶段
+<phase name="构建">
+**触发**:QA 回复 ALIGNED
 
 | 步骤 | 操作 |
 |------|------|
-| 1 | 按 build-scope 实现顺序逐功能 TDD |
+| 1 | 按 build-scope 实现顺序逐功能 TDD(详见 SOP:TDD 驱动构建) |
 | 2 | 每完成一个功能闭环 → 同步更新 call-chain |
 | 3 | 全量功能完成后 → 跑一次全量测试,日志重定向到 `.harness/test.log` |
 | 4 | `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "{OUTPUT_DIR}/build-scope-v{N}.md"` |
+</phase>
 
-### 修复阶段
+<phase name="修复">
+**触发**:收到 QA 的 REJECTED + qa-feedback-round-{N}.md
 
 | 步骤 | 操作 |
 |------|------|
@@ -192,8 +267,10 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 3 | 修根因而非症状,涉及调用链路变更时同步更新 call-chain |
 | 4 | 跑全量测试(包括 QA 补充的 `QA_*.java`) |
 | 5 | `complete_and_notify "harness-qa" "修复完成,请重新测试" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
+</phase>
 
-### 用户调整阶段
+<phase name="用户调整">
+**触发**:QA 回复 APPROVED
 
 | 步骤 | 操作 |
 |------|------|
@@ -204,3 +281,4 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 5 | `send_to_agent "harness-qa" "用户调整已完成,user-adjustment-round-{N}.md 已更新,请验证调整内容"` |
 | 6 | 等 QA 验证结果。通过则提示用户继续输入或结束;需修复则按修复阶段处理 |
 | 7 | 用户输入"结束迭代"时:`send_to_agent "harness-qa" "用户已确认结束迭代,请执行流程收尾"` |
+</phase>

@@ -1,43 +1,53 @@
 # harness-sol-qa 操作手册
 
-本文件是 `harness-sol-qa.md` 的配套操作手册。`harness-sol-qa.md` 描述 agent 是谁、价值观与原则;本文件描述 agent **怎么做**——每个动作的步骤、产出工件的字段契约、Smoke 脚本编写规则、检查清单、禁忌。
+本文件是 `harness-sol-qa.md` 的配套操作手册。`harness-sol-qa.md` 描述「我是谁」,本文件描述「我怎么做」——每个能力的标准 SOP、协作各阶段的触发/动作/等待、工件字段契约、Smoke 脚本编写规则、检查清单、禁忌。
 
-> 所有工件读写于**产出目录**(`{OUTPUT_DIR}`,格式为 `.harness/iterations/{branch}/run-{N}/`),启动时从消息中提取路径。例外:`contract-graph/`、`script/smoke/`、`test/` 位于项目根目录或 Foundry 标准目录,跨迭代持久。
+> 工件读写约定:
+> - 一次性工件(plan / build-scope / qa-feedback / user-adjustment / qa-evidence)写在**产出目录** `{OUTPUT_DIR}`(格式 `.harness/iterations/{branch}/run-{N}/`)
+> - 跨迭代持久工件(`.harness/contract-graph/`、`script/smoke/`、`test/`)位于项目根目录或 Foundry 标准目录
 >
 > 工具链假设:**Foundry**(forge / cast / anvil / chisel)+ slither。
 
 ---
 
-## 通用操作守则
+<pre-flight>
+**每次行动前必跑的预检——不跑就不要动手**:
 
-### 必须做
+1. **Read 阶段输入文件**:Scope 审阅读 `plan.md` + `build-scope-v{N}.md`;测试评审读 `build-scope-v{N}.md` + 合约源码 + contract-graph;用户调整验证读 `user-adjustment-round-{N}.md` + git diff
+2. **跑 git diff**:了解基线变化——Builder 声称实现了 N 个合约但代码无实质变化 → 直接 FAIL,不需要再测
+3. **检查 contract-graph 完整性**:每个 build-scope 中的合约 slug 是否都有对应 `.harness/contract-graph/{slug}.md`
+4. **检查 selector 漂移**:`forge inspect <Contract> methods` 与上轮对比,未声明的差异 → FAIL
+5. **检查产出目录可写**:`{OUTPUT_DIR}/qa-evidence/` 已创建
+</pre-flight>
 
-- 每次验证前**重新读取源文件**,不凭记忆做事
-- 测试前先 `git diff` 了解基线变化——Builder 声称实现了 N 个合约但代码无实质变化 → 直接 FAIL
-- 每条 PASS/FAIL 必须附带证据(forge test 输出、slither 报告、cast 调用结果、coverage 数据),无证据的判定无效
-- 超 200 行的输出存到 `{OUTPUT_DIR}/qa-evidence/`,报告中只引用关键摘要 + 文件路径
-- 函数 selector / event topic / error selector 与上轮不同 → 检查是否为有意的接口破坏,未在 build-scope / user-adjustment 中声明 → FAIL
+---
 
-### 绝对不能做
+<red-lines>
+**绝对不能做的事**:
 
-- **stub/mock/硬编码 = 自动 FAIL**:"实现"只返回固定值或绕开真实状态变更,没有商量余地
-- **空测试 = 没测**:`assertEq(true, true)` / 空 setUp / 只跑 view 函数 = 视为没测
-- 不能信任 Solidity 0.8 内置溢出检查就忽略 `unchecked { ... }` 块、汇编、类型转换——逐处审查
-- 不能给"功能正常工作"、"接口可用"这种模糊验证目标放行
-- 不能用"重入风险不大"、"主网应该不会触发"这类措辞放水
+1. **stub/mock/硬编码 = 自动 FAIL**:"实现"只返回固定值或绕开真实状态变更,没有商量余地
+2. **空测试 = 没测**:`assertEq(true, true)` / 空 setUp / 只跑 view 函数 = 视为没测
+3. **无证据的 PASS = 无效判定**:必须附 forge test 输出 / slither 报告 / coverage 数据
+4. **不能给"功能正常工作""接口可用"这种模糊验证目标放行**
+5. **不能用放水措辞**:"重入风险不大""主网应该不会触发""考虑到工程进度"
+6. **不能信任 Solidity 0.8 内置溢出检查就忽略 `unchecked` / 汇编 / 类型转换**——逐处审查
+7. **不能跳过 slither 而不标注原因**:工具未安装也要在报告中显式说明
+8. **不能自己运行冒烟脚本**:第三层只产出脚本,运行由用户通过 `/harness-solidity-smoke` 完成
+</red-lines>
 
-### 不可逆性自检
+---
 
-提交报告前问自己:「**如果这版代码现在就部署到主网,会出什么事?**」
+<self-check name="不可逆性自检">
+**提交报告前问自己:「如果这版代码现在就部署到主网,会出什么事?」**
 
 1. **资金路径**:每个能转出 ETH/Token 的函数是否都有授权检查?
 2. **升级路径**(如有):存储布局是否兼容?admin 是否需要 timelock?
 3. **紧急停机**:是否有 pause / emergency exit?
 4. **经济攻击**:闪电贷套利、价格操纵、抢跑(front-running)是否可行?
+</self-check>
 
-### 防放水自检清单
-
-提交报告前**逐条**自检:
+<self-check name="防放水自检清单">
+**提交报告前逐条自检——任意一条不过则重做**:
 
 1. **矛盾检查**:所有 PASS 但某项 < 9 → 重新审视评分
 2. **一致性检查**:分数 ≥ 8 但有 P0/P1 → 修正评分或问题级别
@@ -45,21 +55,21 @@
 4. **措辞检查**:删除"总体不错""小问题不影响使用""主网应该不会触发"
 5. **深度检查**:合约数 ≥ 3 时报告应 ≥ 100 行
 6. **slither 检查**:未跑 slither 必须显式标注原因,不能默认跳过
+</self-check>
 
 ---
 
-## 通信协议
-
-通过 `harness-common.sh` 与 `harness-sol-builder` 通信。每个阶段完成后使用 `complete_and_notify` 通知 Builder,然后**完全停止等待**——不要轮询。
+<communication-protocol>
+通过 `harness-common.sh` 与 `harness-sol-builder` 通信。
 
 ```bash
 source .claude/common/scripts/harness-common.sh
 complete_and_notify "harness-sol-builder" "消息内容" "产出文件路径(可选)"
 ```
 
-**重要**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行。
+**关键约束**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行。通知后**完全停止等待**——不要轮询。
 
-Builder pane 崩溃时回退到 `HARNESS_CLI` 指定的命令启动新进程。检测存活的正确方式:
+Builder pane 崩溃时回退到 `HARNESS_CLI` 指定的命令启动新进程:
 
 ```bash
 source .claude/common/scripts/harness-common.sh
@@ -67,14 +77,15 @@ if ! is_agent_alive "harness-sol-builder"; then
   echo "harness-sol-builder pane 已崩溃,需要恢复"
 fi
 ```
+</communication-protocol>
 
 ---
 
-## 工件产出契约
+## 工件契约
 
-### qa-feedback-round-{N}.md
-
-位置:`{OUTPUT_DIR}/qa-feedback-round-{N}.md`,每轮评审一份。
+<artifact path="{OUTPUT_DIR}/qa-feedback-round-{N}.md">
+**产出方**:QA(每轮评审一份)
+**消费方**:Builder(修复输入)、用户(查阅评审结论)
 
 ```markdown
 # QA 评审报告
@@ -159,14 +170,14 @@ fi
 ```
 
 任意一项分数低于阈值 → REJECTED。
+</artifact>
 
----
-
-### QA_*.t.sol(QA 补充测试合约)
-
-位置:`test/`,Git 跟踪。
+<artifact path="test/QA_*.t.sol">
+**产出方**:QA(在 Builder 遗漏的场景上)
+**位置**:`test/`,Git 跟踪
 
 聚焦场景:
+
 - **Revert 路径完整性**:对照 contract-graph 中每个 `<revert selector="...">`,逐个用 `vm.expectRevert(Contract.ErrName.selector)` 打一发
 - **事件全字段断言**:对照 contract-graph 中每个 `<emit>`,用 `vm.expectEmit(true,true,true,true)` 比对完整字段
 - **访问控制矩阵**:每个 gated 函数被非授权地址调用必须 revert;用 fuzz 随机地址保证覆盖
@@ -175,10 +186,11 @@ fi
 - **不变量**:`invariant_TotalSupplyMatchesSum`、`invariant_VaultSolvency`(vault 余额 ≥ 总义务)、`invariant_AccessControlMonotonic` 等
 - **Fork 测试**(如有外部协议交互):`vm.createSelectFork` 锁定区块号,跑真实 USDC/Uniswap/Aave 调用,校验返回与本地实现一致
 - **升级安全性**(如可升级合约):`forge inspect <contract> storage-layout` 与上一版对比,新增字段必须只能加在末尾
+</artifact>
 
-### 测试日志
-
-位置:`{OUTPUT_DIR}/qa-evidence/`,运行副产品:
+<artifact path="{OUTPUT_DIR}/qa-evidence/">
+**产出方**:QA(运行副产品)
+**用途**:报告中以路径引用,不直接展开 200+ 行内容
 
 | 文件 | 内容 |
 |------|------|
@@ -186,18 +198,52 @@ fi
 | `coverage.txt` | `forge coverage --report summary` |
 | `gas-diff.txt` | `forge snapshot --diff .gas-snapshot` |
 | `slither.txt` | `slither . --filter-paths "lib|test|script"` |
+</artifact>
 
-报告中以路径引用,不直接展开 200+ 行内容。
-
-### .harness/done
-
-位置:`.harness/done`,流程收尾时创建,内容可空,作为完成信号。
+<artifact path=".harness/done">
+**产出方**:QA(流程收尾)
+**内容**:可空,作为完成信号给编排层
+</artifact>
 
 ---
 
-## 四层测试详细 SOP
+## 各能力 SOP
 
-### 第一层:Builder 自测审计
+### SOP:Scope 审阅
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | `plan.md`、`build-scope-v{N}.md` |
+| **输出** | 通过 send-keys 直接回复 Builder:`ALIGNED` 或 `NEEDS_ADJUSTMENT + 调整项` |
+| **触发** | 收到 Builder 的 build-scope 就绪通知 |
+
+**步骤**:
+
+1. Read `plan.md` 与 `build-scope-v{N}.md`
+2. 逐合约比对:合约清单 / 接口契约 / 验证目标 / 安全关注点矩阵 / Gas 预算 是否齐全且具体可测
+3. plan.md 缺少验收标准时,补全 QA 期望的验证目标——重点关注:revert 路径、事件字段断言、gas 上界、访问控制矩阵、fuzz/invariant 性质
+4. 不替 Builder 做技术决策(不规定具体写法),但必须卡住"漏验证目标"的情况
+5. 通过 send-keys 消息直接回复 Builder
+
+**对齐循环上限**:2 轮。
+
+**检查清单**:
+
+- [ ] 接口契约含 function/event/error 三类签名?
+- [ ] 验证目标含 revert selector / 事件 indexed / gas 上界?
+- [ ] 安全关注点矩阵全部填写或显式标 N/A?
+- [ ] 每条 plan 验收标准都映射到至少一个验证目标?
+
+---
+
+### SOP:第一层 Builder 自测审计
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | Builder 的 `test/**/*.t.sol` |
+| **输出** | 测试结果记入 `qa-evidence/forge-test.log`,审计结论写入 qa-feedback 的"Foundry 测试汇总"节 |
+
+**步骤**:
 
 ```bash
 forge test -vvv 2>&1 | tee {OUTPUT_DIR}/qa-evidence/forge-test.log
@@ -220,17 +266,31 @@ forge snapshot --diff .gas-snapshot 2>&1 | tee {OUTPUT_DIR}/qa-evidence/gas-diff
 
 **存量测试修复**:失败的自测合约如果 git 提交人是当前用户(`git log --format='%ae' -1 -- file`),QA 自行修复并提交,提交信息格式:`fix(qa): 修复存量测试 ContractName`。
 
-### 第二层:QA 补充测试
+---
 
-按上文"QA_*.t.sol"列出的场景在 `test/QA_*.t.sol` 编写,与 Builder 自测物理隔离。
+### SOP:第二层 QA 补充测试
 
-### 第三层:Smoke 脚本产出
+| 维度 | 内容 |
+|------|------|
+| **输入** | 第一层标注的未覆盖场景、contract-graph 的所有 revert/event |
+| **输出** | `test/QA_*.t.sol` |
 
-按本手册"Smoke 脚本编写规则"一节为每条 contract-graph 产出 `script/smoke/Smoke_{slug}.s.sol`。
+按上文"QA_*.t.sol"工件契约列出的场景在 `test/QA_*.t.sol` 编写,与 Builder 自测物理隔离。
 
-**只产出脚本,不试运行**。运行由用户通过 `/harness-solidity-smoke` 完成。
+---
 
-### 第四层:静态分析
+### SOP:第三层 Smoke 脚本产出
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | `.harness/contract-graph/{slug}.md` |
+| **输出** | `script/smoke/Smoke_{slug}.s.sol`、首次产出时一并创建 `SmokeCommon.s.sol` 和 `README.md` |
+
+详见下方"Smoke 脚本编写规则"章节。**只产出脚本,不试运行**。运行由用户通过 `/harness-solidity-smoke` 完成。
+
+---
+
+### SOP:第四层 Slither 静态分析
 
 ```bash
 slither . --filter-paths "lib|test|script" 2>&1 | tee {OUTPUT_DIR}/qa-evidence/slither.txt
@@ -246,7 +306,7 @@ slither 未安装时跳过本层并在报告中**显式标注原因**(不能默�
 
 ---
 
-## 评分判定
+### SOP:评分判定
 
 | 标准 | 阈值 | 评分维度 |
 |------|------|---------|
@@ -395,9 +455,10 @@ assertEq(oracle.latestPrice(), expectedPrice, "oracle price not updated");
 
 ---
 
-## 各阶段详细行动
+## 协作 SOP(各 phase)
 
-### Scope 审阅
+<phase name="Scope 审阅">
+**触发**:收到 Builder 的 build-scope-v{N}.md 就绪通知
 
 | 步骤 | 操作 |
 |------|------|
@@ -408,8 +469,10 @@ assertEq(oracle.latestPrice(), expectedPrice, "oracle price not updated");
 | 5 | 通过 send-keys 消息直接回复 Builder:`ALIGNED` 或 `NEEDS_ADJUSTMENT + 具体调整项` |
 
 **对齐循环上限**:2 轮。
+</phase>
 
-### 测试评审
+<phase name="测试评审">
+**触发**:收到 Builder 构建完成通知
 
 | 步骤 | 操作 |
 |------|------|
@@ -419,8 +482,10 @@ assertEq(oracle.latestPrice(), expectedPrice, "oracle price not updated");
 | 4 | 按评分标准打分,执行不可逆性自检 + 防放水自检 |
 | 5 | 产出 `qa-feedback-round-{N}.md` |
 | 6 | `complete_and_notify "harness-sol-builder" "测试完成,APPROVED/REJECTED" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
+</phase>
 
-### 修复循环
+<phase name="修复循环">
+**触发**:Builder 修复完成通知
 
 | 步骤 | 操作 |
 |------|------|
@@ -429,8 +494,10 @@ assertEq(oracle.latestPrice(), expectedPrice, "oracle price not updated");
 | 3 | 产出新一轮 `qa-feedback-round-{N+1}.md` |
 
 **终止条件**:APPROVED(达标)/ 已达 5 轮上限 / 连续 2 轮无改善。无论结果,通知 Builder 进入用户调整阶段。
+</phase>
 
-### 用户调整验证
+<phase name="用户调整验证">
+**触发**:收到 Builder 的"用户调整已完成"消息
 
 | 步骤 | 操作 |
 |------|------|
@@ -442,10 +509,13 @@ assertEq(oracle.latestPrice(), expectedPrice, "oracle price not updated");
 | 6 | 确认未破坏已有功能(回归 + slither) |
 | 7a | 通过 → `send_to_agent "harness-sol-builder" "用户调整验证通过"` |
 | 7b | 不通过 → `send_to_agent "harness-sol-builder" "用户调整验证发现问题:[遗漏的需求序号 / 未声明的接口破坏 / 回归失败项],请修复后回复我"` |
+</phase>
 
-### 流程收尾
+<phase name="流程收尾">
+**触发**:收到 Builder 的"结束迭代"消息
 
 | 步骤 | 操作 |
 |------|------|
 | 1 | 收到 Builder 的"结束迭代"消息 |
 | 2 | 创建 `.harness/done` 完成信号 |
+</phase>

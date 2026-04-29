@@ -1,60 +1,75 @@
 # harness-sol-builder 操作手册
 
-本文件是 `harness-sol-builder.md` 的配套操作手册。`harness-sol-builder.md` 描述 agent 是谁、价值观与原则;本文件描述 agent **怎么做**——每个动作的步骤、产出工件的字段契约、检查清单、禁忌。
+本文件是 `harness-sol-builder.md` 的配套操作手册。`harness-sol-builder.md` 描述「我是谁」,本文件描述「我怎么做」——每个能力的标准 SOP、协作各阶段的触发/动作/等待、工件字段契约、检查清单、禁忌。
 
-> 所有工件读写于**产出目录**(`{OUTPUT_DIR}`,格式为 `.harness/iterations/{branch}/run-{N}/`),启动时从消息中提取路径。例外:`contract-graph/`、`script/`、`test/`、`src/` 位于项目根目录(Foundry 标准目录)。
+> 工件读写约定:
+> - 一次性工件(plan / build-scope / qa-feedback / user-adjustment / qa-evidence)写在**产出目录** `{OUTPUT_DIR}`(格式 `.harness/iterations/{branch}/run-{N}/`),启动时从消息中提取
+> - 跨迭代持久工件(`.harness/contract-graph/`、`script/`、`test/`、`src/`)位于项目根目录或 Foundry 标准目录
 >
 > 工具链假设:**Foundry**(forge / cast / anvil / chisel)。Hardhat 仅在项目 CLAUDE.md 显式声明时启用,等价命令自行映射。
 
 ---
 
-## 通用操作守则
+<pre-flight>
+**每次行动前必跑的预检——不跑就不要动手**:
 
-### 必须做
-
-- 每个阶段开始前,先 Read 该阶段需要的输入文件(plan.md / build-scope / qa-feedback / user-adjustment / contract-graph),不凭记忆做事
-- 长命令输出重定向到文件(`.harness/build.log`、`.harness/test.log`),只 grep 关键信息,不在 context 中维护历史
-- 每完成一个有意义的功能变更就 git commit,确保每次提交后 `forge build` 通过、`forge test` 全绿
-- 修改涉及接口/事件/error 变更时**同步更新** `.harness/contract-graph/{slug}.md`
-- 写函数时默认遵循 **CEI(Checks-Effects-Interactions)** 顺序
-- 所有 external/public 函数写完整 NatSpec(`@notice` / `@param` / `@return` / `@custom:reverts`)
-- 所有 revert 用 `error Xxx();` 形式(不用 string),方便 QA 通过 selector 精确断言
-
-### 绝对不能做
-
-- **ALIGNED 前不写一行业务代码、不 forge init、不引入依赖**(对齐循环最多 2 轮,build-scope 最多到 v3)
-- **不写 stub/Mock 充数**:合约必须真正工作——状态真正变更、事件真正 emit、跨合约调用真正发生、custom error 真正 revert
-- 用户调整阶段**不能跳过**先写 `user-adjustment-round-{N}.md` 再实现的步骤(先落盘再实现)
-- 不要在 src/ 引入测试逻辑;不要用部署脚本绕过权限初始化的真实流程
-- 不要为绕过 QA 失败的测试而调测试参数——修根因而非症状
-- 重入、访问控制、整数边界、存储布局**必须在写代码时就处理**,不留到 QA 阶段才补
-
-### 失败处理(NEVER STOP)
-
-- 依赖失败 → 尝试替代版本
-- 编译错误 → 修复两次仍失败则记录并跳过
-- 连续三个合约失败 → 暂停审视架构,通知 QA
+1. **Read 阶段输入文件**:对齐读 `plan.md` + `CLAUDE.md`;构建读 `build-scope-v{N}.md`;修复读 `qa-feedback-round-{N}.md`;用户调整读 `user-adjustment-round-{N}.md`
+2. **扫描 contract-graph 已有 slug**:`ls .harness/contract-graph/`,复用而非新建
+3. **跑 git status / git log -3**:确认基线,避免覆盖未提交工作
+4. **检查上一阶段是否真的完成**:进入构建阶段前必须见过 ALIGNED;进入用户调整前必须见过 APPROVED
+5. **构建前确认 foundry.toml**:`solc_version`、`optimizer`、`fuzz.runs`、`invariant.runs`、`ffi=true` 是否齐全
+</pre-flight>
 
 ---
 
-## 通信协议
+<red-lines>
+**绝对不能做的事——任何一条触线即视为本轮交付失败**:
 
-通过 `harness-common.sh` 与 `harness-sol-qa` 通信。每个阶段完成后使用 `complete_and_notify` 通知 QA,然后**完全停止等待 QA 回复**——不要轮询。
+1. **ALIGNED 前不写一行业务代码、不 forge init、不引入依赖**(对齐循环最多 2 轮,build-scope 最多到 v3)
+2. **不写 stub/Mock 充数**:合约必须真正工作——状态真正变更、事件真正 emit、跨合约调用真正发生、custom error 真正 revert
+3. **用户调整阶段不能跳过先落盘**:收到用户输入后**先**写 `user-adjustment-round-{N}.md`,在表格中显式标注每条是否破坏接口
+4. **不要在 src/ 引入测试逻辑**;不要用部署脚本绕过权限初始化的真实流程
+5. **不要用 string revert**:全部用 `error Xxx();` 形式,方便 QA 通过 selector 精确断言
+6. **不要为绕过 QA 失败的测试而调测试参数**:修根因而非症状(包括 fuzz seed、`vm.assume` 范围)
+7. **重入、访问控制、整数边界、存储布局必须在写代码时就处理**,不留到 QA 阶段才补
+8. **`unchecked { ... }` 块必须写注释证明溢出不可能**——光"用了 0.8"不算证明
+</red-lines>
+
+---
+
+<failure-protocol name="NEVER STOP">
+长跑构建中遇到问题不停下:
+
+| 现象 | 处理 |
+|------|------|
+| 依赖安装失败 | 尝试替代版本(锁定到具体 tag),记录到 `.harness/build.log` |
+| 编译错误 | 修复两次仍失败 → 标注 TODO 并跳过本合约,继续下一个 |
+| 测试失败 | 不调 fuzz seed / `vm.assume` 范围;两次修不好 → 标 P1 等 QA 评审 |
+| Slither/forge 工具自身崩溃 | 切到备用版本,记录到 build.log |
+| 连续三个合约失败 | **停下来**审视架构,通知 QA 重对齐 |
+</failure-protocol>
+
+---
+
+<communication-protocol>
+通过 `harness-common.sh` 与 `harness-sol-qa` 通信。
 
 ```bash
 source .claude/common/scripts/harness-common.sh
 complete_and_notify "harness-sol-qa" "消息内容" "产出文件路径(可选)"
 ```
 
-**重要**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行。
+**关键约束**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行。通知后**完全停止等待 QA 回复**——不要轮询。
+</communication-protocol>
 
 ---
 
-## 工件产出契约
+## 工件契约
 
-### build-scope-v{N}.md
-
-位置:`{OUTPUT_DIR}/build-scope-v{N}.md`,每轮对齐产出新版本(v1 / v2 / ...),**不覆盖旧版本**。
+<artifact path="{OUTPUT_DIR}/build-scope-v{N}.md">
+**产出方**:Builder
+**消费方**:QA(Scope 审阅 / 测试评审参考)
+**版本规则**:每轮对齐产出新版本(v1 / v2 / ...),**不覆盖旧版本**
 
 必须包含以下章节:
 
@@ -115,12 +130,12 @@ complete_and_notify "harness-sol-qa" "消息内容" "产出文件路径(可选)"
 #### Gas 预算
 
 为每个核心 external 函数声明上限(与 plan 验收标准对应)。Builder 在 TDD 过程中通过 `forge snapshot` 持续校验。
+</artifact>
 
----
-
-### user-adjustment-round-{N}.md
-
-位置:`{OUTPUT_DIR}/user-adjustment-round-{N}.md`,**收到用户输入后、修改合约前**写入。N 从 1 开始,每轮用户调整递增。
+<artifact path="{OUTPUT_DIR}/user-adjustment-round-{N}.md">
+**产出方**:Builder(收到用户输入后、修改合约前)
+**消费方**:QA(用户调整验证)
+**版本规则**:N 从 1 开始,每轮用户调整递增
 
 ```markdown
 # 用户调整需求 Round {N}
@@ -137,14 +152,12 @@ complete_and_notify "harness-sol-qa" "消息内容" "产出文件路径(可选)"
 ```
 
 **接口破坏**(function selector / event topic / error selector 变化)必须显式标注,触发 QA 加做向后兼容审查。
+</artifact>
 
-QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏任何用户需求。
-
----
-
-### Contract-Graph 文件
-
-位置:`.harness/contract-graph/{slug}.md`(项目根目录,跨迭代持久)。
+<artifact path=".harness/contract-graph/{slug}.md">
+**产出方**:Builder(每完成业务循环增量更新)
+**消费方**:QA(冒烟脚本编写依据)
+**位置**:项目根目录,跨迭代持久
 
 **核心原则**:一个完整业务循环 = 一个文件,按用户视角的调用入口 + 跨合约调用 + emit 事件分章节。**只记录入口与跨合约边界,不展开 view 函数和库调用**。
 
@@ -182,33 +195,73 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 - 内部 helper 函数
 - 纯 view 函数
 - 不影响外部行为的内部重构
+</artifact>
 
 ---
 
-## 各能力详细 SOP
+## 各能力 SOP
 
-### 技术方案设计
+### SOP:技术方案设计
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | `plan.md`、`CLAUDE.md`、`.harness/contract-graph/` 已有 slug |
+| **输出** | `{OUTPUT_DIR}/build-scope-v{N}.md` |
+| **触发** | 收到编排层启动消息 / 收到 QA 的 NEEDS_ADJUSTMENT |
+
+**步骤**:
 
 1. Read `plan.md` 与项目根 `CLAUDE.md`
-2. 扫描 `.harness/contract-graph/` 已有 slug 列表,复用而非新建
-3. 按"build-scope-v{N}.md"章节模板逐节产出
-4. 安全关注点矩阵**必须填**——任何一项空着 → QA 必拒
+2. `ls .harness/contract-graph/` 列出已有 slug,复用而非新建
+3. 按 build-scope 章节模板逐节产出
+4. **安全关注点矩阵必须填**——任何一项空着 → QA 必拒
 5. Gas 预算来源于 plan.md 验收标准;plan 没写时给出合理推导(参考同类合约 OpenZeppelin Vault 等),并在 build-scope 中说明依据
-6. 写完 → `complete_and_notify "harness-sol-qa" "build-scope-v{N}.md 已就绪,请审阅" "{OUTPUT_DIR}/build-scope-v{N}.md"`
+6. `complete_and_notify "harness-sol-qa" "build-scope-v{N}.md 已就绪,请审阅" "{OUTPUT_DIR}/build-scope-v{N}.md"`
 
-### Foundry 项目初始化
+**检查清单**:
 
-项目无 `foundry.toml` 时执行 `forge init --no-commit --force`,然后调整:
+- [ ] 每个合约都有 slug 且与 contract-graph 一致?
+- [ ] 接口契约含 function/event/error 三类签名?
+- [ ] 验证目标具体可测(含 revert selector / 事件 indexed / gas 上界 / fuzz/invariant)?
+- [ ] 安全关注点矩阵全部填写或显式标 N/A?
 
-- `solc_version`、`optimizer_runs`、`via_ir`、`evm_version`
-- `fuzz.runs = 256`,关键路径合约后续在测试上调
-- `invariant.runs = 100`、`invariant.depth = 50`
-- `ffi = true`(smoke 脚本需要)
-- 通过 `forge install` 引入 OpenZeppelin v5、forge-std;**锁定到具体 tag** 而非 master
+---
 
-### TDD 驱动构建(Foundry-native)
+### SOP:Foundry 项目初始化
 
-Red-Green-Refactor 循环:
+| 维度 | 内容 |
+|------|------|
+| **输入** | build-scope 中"工具链与依赖锁定"章节 |
+| **输出** | `foundry.toml`、`lib/` 锁定依赖、初始空 `src/` `test/` |
+| **触发** | 项目首次构建,无 `foundry.toml` 时 |
+
+**步骤**:
+
+1. `forge init --no-commit --force`
+2. 调整 `foundry.toml`:
+   - `solc_version`、`optimizer_runs`、`via_ir`、`evm_version`
+   - `fuzz.runs = 256`,关键路径合约后续在测试上调
+   - `invariant.runs = 100`、`invariant.depth = 50`
+   - `ffi = true`(smoke 脚本需要)
+3. `forge install` 引入 OpenZeppelin v5、forge-std,**锁定到具体 tag** 而非 master
+
+**检查清单**:
+
+- [ ] `foundry.toml` 中所有关键配置齐全?
+- [ ] 所有依赖锁定到具体 tag/commit 而非 master?
+- [ ] `ffi = true` 已启用(smoke 依赖)?
+
+---
+
+### SOP:TDD 驱动构建(Foundry-native)
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | `build-scope-v{N}.md`(QA 已 ALIGNED) |
+| **输出** | `src/**/*.sol`、`test/**/*.t.sol`、更新的 contract-graph |
+| **触发** | QA 回复 ALIGNED |
+
+**步骤**(按 build-scope 实现顺序逐合约 Red-Green-Refactor):
 
 1. 先写测试合约 `test/XxxTest.t.sol`,继承 `forge-std/Test.sol`
 2. `setUp()` 部署合约,用 `vm.label` 给地址打标签便于看 trace
@@ -219,28 +272,62 @@ Red-Green-Refactor 循环:
 7. 关键路径加 fuzz 测试,状态守恒类性质加 invariant 测试
 8. 跑 `forge test -vvv` 验证;失败时上调到 `-vvvv` 看完整 trace
 9. 重构后跑 `forge snapshot --diff .gas-snapshot` 校验 gas 不退化
+10. 同步更新该合约对应的 `.harness/contract-graph/{slug}.md`
+11. 每完成一个有意义的功能变更 → `git commit`
 
-### contract-graph 维护
+**检查清单**:
 
-- 每完成一个业务循环就 Read 现有 `{slug}.md`(若存在),增量编辑而非覆盖
-- 函数签名、事件签名以**实际代码**为准——动手前用 Grep 校对
-- 跨合约调用必须列出(如 `SafeERC20.transferFrom`、`oracle.latestPrice()`),包括是否信任失败、是否 wrap 在 `try/catch`
+- [ ] 每个 commit 后 `forge build` + `forge test` 全绿?
+- [ ] 所有 external/public 函数有 NatSpec?
+- [ ] 所有 revert 用 `error Xxx()` 形式?
+- [ ] CEI 顺序遵循?
+- [ ] gas snapshot 没有意外倒退?
+- [ ] contract-graph 与最新代码同步?
 
-### 部署脚本
+---
 
-每个核心合约对应 `script/Deploy{Contract}.s.sol`,继承 `forge-std/Script.sol`。脚本必须支持:
+### SOP:contract-graph 维护
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | 当前业务循环的 .sol 源码、已有的 `{slug}.md`(若有) |
+| **输出** | `.harness/contract-graph/{slug}.md`(增量编辑) |
+| **触发** | external/public 函数签名增删改 / 事件字段变化 / custom error 增删 / 跨合约边界变化 / automation 触发条件变化 |
+
+**步骤**:
+
+1. Read 现有 `{slug}.md`(若存在)
+2. 用 Grep 校对函数签名、事件签名、error selector 与实际代码一致
+3. 跨合约调用必须列出(如 `SafeERC20.transferFrom`、`oracle.latestPrice()`),包括是否信任失败、是否 wrap 在 `try/catch`
+4. 增量编辑而非覆盖
+
+---
+
+### SOP:部署脚本
+
+| 维度 | 内容 |
+|------|------|
+| **输入** | 已实现的合约 |
+| **输出** | `script/Deploy{Contract}.s.sol`,继承 `forge-std/Script.sol` |
+| **触发** | 每个核心合约实现完成后 |
+
+**要求**:
 
 - 通过环境变量读取部署者私钥(`vm.envUint("PRIVATE_KEY")`)
 - 通过 `vm.envOr("CHAIN_NAME", string("local"))` 区分链与配置
 - 部署后 `console.log` 关键地址;生成 broadcast 文件后让 QA 验证
 
-**禁忌**:不要在 src/ 引入测试逻辑;不要用部署脚本绕过权限初始化的真实流程。
+**禁忌**:
+
+- 不要在 src/ 引入测试逻辑
+- 不要用部署脚本绕过权限初始化的真实流程
 
 ---
 
-## 各阶段详细行动
+## 协作 SOP(各 phase)
 
-### 对齐阶段
+<phase name="对齐">
+**触发**:收到编排层启动消息
 
 | 步骤 | 操作 |
 |------|------|
@@ -248,13 +335,15 @@ Red-Green-Refactor 循环:
 | 2 | 扫描 `.harness/contract-graph/` 已有 slug |
 | 3 | 产出 `build-scope-v1.md`(含合约清单、接口契约、验证目标、安全关注点矩阵、gas 预算) |
 | 4 | `complete_and_notify "harness-sol-qa" "build-scope-v{N}.md 已就绪,请审阅"` |
-| 5 | 等 QA 回复 |
+| 5 | 等 QA 回复(不轮询) |
 | 6a | 收到 ALIGNED → 进入构建阶段 |
 | 6b | 收到 NEEDS_ADJUSTMENT → 按调整项更新为 `build-scope-v{N+1}.md`,再次通知 QA |
 
 **对齐循环上限**:2 轮(build-scope 最多到 v3)。
+</phase>
 
-### 构建阶段
+<phase name="构建">
+**触发**:QA 回复 ALIGNED
 
 | 步骤 | 操作 |
 |------|------|
@@ -263,8 +352,10 @@ Red-Green-Refactor 循环:
 | 3 | 每完成一个合约同步更新 `.harness/contract-graph/{slug}.md` |
 | 4 | 跑全量 `forge test` 与 `forge snapshot` |
 | 5 | `complete_and_notify "harness-sol-qa" "构建完成,请开始测试。合约清单:..., 测试入口命令:..., forge build/test 关键产出路径:..."` |
+</phase>
 
-### 修复阶段
+<phase name="修复">
+**触发**:收到 QA 的 REJECTED + qa-feedback-round-{N}.md
 
 | 步骤 | 操作 |
 |------|------|
@@ -274,8 +365,10 @@ Red-Green-Refactor 循环:
 | 4 | 跑全量测试(含 QA 补充的 `QA_*.t.sol`) |
 | 5 | 校验 `forge snapshot` 与 slither 报告 |
 | 6 | `complete_and_notify "harness-sol-qa" "修复完成,请重新测试"` |
+</phase>
 
-### 用户调整阶段
+<phase name="用户调整">
+**触发**:QA 回复 APPROVED
 
 | 步骤 | 操作 |
 |------|------|
@@ -286,3 +379,4 @@ Red-Green-Refactor 循环:
 | 5 | `send_to_agent "harness-sol-qa" "用户调整已完成,user-adjustment-round-{N}.md 已更新,请验证调整内容"` |
 | 6 | 等 QA 验证结果 |
 | 7 | 用户输入"结束迭代"时:`send_to_agent "harness-sol-qa" "用户已确认结束迭代,请执行流程收尾"` |
+</phase>

@@ -1,52 +1,60 @@
 # harness-qa 操作手册
 
-本文件是 `harness-qa.md` 的配套操作手册。`harness-qa.md` 描述 agent 是谁、价值观与原则;本文件描述 agent **怎么做**——每个动作的步骤、产出工件的字段契约、冒烟脚本编写规则、检查清单、禁忌。
+本文件是 `harness-qa.md` 的配套操作手册。`harness-qa.md` 描述「我是谁」,本文件描述「我怎么做」——每个能力的标准 SOP、协作各阶段的触发/动作/等待、工件字段契约、冒烟脚本编写规则、检查清单、禁忌。
 
-> 所有工件读写于**产出目录**(`{OUTPUT_DIR}`,格式为 `.harness/iterations/{branch}/run-{N}/`),启动时从消息中提取路径。例外:`call-chain/`、`smoke-tests/` 位于项目根目录,跨迭代持久。
+> 工件读写约定:
+> - 一次性工件(plan / build-scope / qa-feedback / user-adjustment / qa-evidence)写在**产出目录** `{OUTPUT_DIR}`(格式 `.harness/iterations/{branch}/run-{N}/`)
+> - 跨迭代持久工件(`.harness/call-chain/`、`.harness/smoke-tests/`)写在项目根目录
 
 ---
 
-## 通用操作守则
+<pre-flight>
+**每次行动前必跑的预检——不跑就不要动手**:
 
-### 必须做
+1. **Read 阶段输入文件**:Scope 审阅读 `plan.md` + `build-scope-v{N}.md`;测试评审读 `build-scope-v{N}.md` + 项目代码;用户调整验证读 `user-adjustment-round-{N}.md`
+2. **跑 git diff**:了解基线变化——Builder 声称实现了 N 个功能但代码无实质变化 → 直接 FAIL,不需要再测
+3. **检查 call-chain 完整性**:每个 build-scope 中的功能 slug 是否都有对应 `.harness/call-chain/{slug}.md`
+4. **检查产出目录可写**:`{OUTPUT_DIR}/qa-evidence/` 已创建
+</pre-flight>
 
-- 每次验证前**重新读取源文件**,不凭记忆做事
-- 测试前先 `git diff` 了解基线变化——Builder 声称实现了 N 个功能但代码无实质变化 → 直接 FAIL
-- 每条 PASS/FAIL 必须附带证据(JUnit 结果、curl 响应、命令输出),无证据的判定无效
-- 超 200 行的输出存到 `{OUTPUT_DIR}/qa-evidence/`,报告中只引用关键摘要 + 文件路径
-- Scope 审阅、测试评审、用户调整验证三类阶段都要走完一次再回复
+---
 
-### 绝对不能做
+<red-lines>
+**绝对不能做的事**:
 
-- **stub/mock = 自动 FAIL**:功能声称已实现但只返回假数据或硬编码响应,没有商量余地
-- **空测试 = 没测**:`assertTrue(true)` / 只打 log / 空 setUp 视为没有测试
-- 不能给"功能正常工作"这种模糊验证目标放行——具体可测才算合格
-- 不能用"小问题不影响使用""总体不错"这类措辞放水
+1. **stub/mock = 自动 FAIL**:功能声称已实现但只返回假数据或硬编码响应,没有商量余地
+2. **空测试 = 没测**:`assertTrue(true)` / 只打 log / 空 setUp 视为没有测试
+3. **无证据的 PASS = 无效判定**:必须附 JUnit 输出 / curl 响应 / 文件路径
+4. **不能给"功能正常工作"这种模糊验证目标放行**:具体可测才算合格
+5. **不能用放水措辞**:"小问题不影响使用""总体不错""考虑到 Builder 的努力"
+6. **不能自己运行冒烟脚本**:第三层只产出脚本,运行由用户通过 `/harness-backend-smoke` 完成
+</red-lines>
 
-### 防放水自检清单
+---
 
-提交报告前**逐条**自检:
+<self-check name="防放水自检清单">
+**提交报告前逐条自检——任意一条不过则重做**:
 
 1. **矛盾检查**:所有 PASS 但某项 < 9 → 重新审视评分
 2. **一致性检查**:分数 ≥ 8 但有 P0/P1 → 修正评分或问题级别
 3. **证据检查**:无证据的 PASS 改判 FAIL
 4. **措辞检查**:删除"总体不错""小问题不影响使用"
 5. **深度检查**:> 5 功能时报告应 > 100 行
+</self-check>
 
 ---
 
-## 通信协议
-
-通过 `harness-common.sh` 与 `harness-builder` 通信。每个阶段完成后使用 `complete_and_notify` 通知 Builder,然后**完全停止等待**——不要轮询。
+<communication-protocol>
+通过 `harness-common.sh` 与 `harness-builder` 通信。
 
 ```bash
 source .claude/common/scripts/harness-common.sh
 complete_and_notify "harness-builder" "消息内容" "产出文件路径(可选)"
 ```
 
-**重要**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行(每次 Bash 调用是独立 shell,函数不会跨调用保留)。
+**关键约束**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行。通知后**完全停止等待**——不要轮询。
 
-Builder pane 崩溃时回退到 `HARNESS_CLI` 指定的命令启动新进程。检测存活的正确方式:
+Builder pane 崩溃时回退到 `HARNESS_CLI` 指定的命令启动新进程:
 
 ```bash
 source .claude/common/scripts/harness-common.sh
@@ -54,14 +62,15 @@ if ! is_agent_alive "harness-builder"; then
   echo "harness-builder pane 已崩溃,需要恢复"
 fi
 ```
+</communication-protocol>
 
 ---
 
-## 工件产出契约
+## 工件契约
 
-### qa-feedback-round-{N}.md
-
-位置:`{OUTPUT_DIR}/qa-feedback-round-{N}.md`,每轮评审一份。
+<artifact path="{OUTPUT_DIR}/qa-feedback-round-{N}.md">
+**产出方**:QA(每轮评审一份)
+**消费方**:Builder(修复输入)、用户(查阅评审结论)
 
 ```markdown
 # QA 评审报告
@@ -122,30 +131,73 @@ fi
 **APPROVED** / **REJECTED**
 [如 REJECTED,列出最小必修集]
 ```
+</artifact>
+
+<artifact path="src/test/java/**/QA_*.java">
+**产出方**:QA(在 Builder 遗漏的场景上)
+**位置**:与被测类同包,Git 跟踪
+**命名**:`QA_<被测类名>_<场景>.java`(便于与 Builder 自测区分)
+
+聚焦场景:
+- 空值/极端值输入
+- 异常分支
+- 幂等性
+- 线程安全
+- call-chain 中的异步入口处理类(Listener / Scheduler 触发的处理逻辑)
+</artifact>
+
+<artifact path="{OUTPUT_DIR}/qa-evidence/*.log">
+**产出方**:QA(运行副产品)
+**用途**:报告中以路径引用,不直接展开 200+ 行内容
+
+典型文件:
+- `junit.log` - JUnit 测试输出
+- `curl-{endpoint}.log` - API 验证响应
+- `git-diff.log` - 基线对比
+</artifact>
+
+<artifact path=".harness/done">
+**产出方**:QA(流程收尾)
+**内容**:可空,作为完成信号给编排层
+</artifact>
 
 ---
 
-### QA_*.java(QA 补充测试)
+## 各能力 SOP
 
-位置:`src/test/java/`(与被测类同包),Git 跟踪。
+### SOP:Scope 审阅
 
-命名:`QA_<被测类名>_<场景>.java`(便于与 Builder 自测区分)。
+| 维度 | 内容 |
+|------|------|
+| **输入** | `plan.md`、`build-scope-v{N}.md` |
+| **输出** | 通过 send-keys 直接回复 Builder:`ALIGNED` 或 `NEEDS_ADJUSTMENT + 调整项` |
+| **触发** | 收到 Builder 的 build-scope 就绪通知 |
 
-聚焦场景:Builder 遗漏的边界、空值/极端值、异常分支、幂等性、线程安全、call-chain 中异步入口处理类。
+**步骤**:
 
-### 测试日志
+1. Read `plan.md` 与 `build-scope-v{N}.md`
+2. 逐功能比对:每条需求是否有对应实现规划?验证目标是否具体可测?
+3. plan.md 缺少验收标准时,补全 QA 期望的验证目标(不替 Builder 做技术决策)
+4. 通过 send-keys 消息直接回复 Builder
 
-位置:`{OUTPUT_DIR}/qa-evidence/*.log`,运行副产品。报告中以路径引用,不直接展开 200+ 行内容。
+**对齐循环上限**:2 轮。
 
-### .harness/done
+**检查清单**:
 
-位置:`.harness/done`,流程收尾时创建,内容可空,作为完成信号。
+- [ ] 每条功能在 build-scope 中都有对应规划?
+- [ ] 验证目标具体可测?
+- [ ] slug 与 call-chain 复用一致?
 
 ---
 
-## 三层测试详细 SOP
+### SOP:第一层 Builder 自测审计
 
-### 第一层:Builder 自测审计
+| 维度 | 内容 |
+|------|------|
+| **输入** | Builder 的 `src/test/java/**/*.java` |
+| **输出** | 测试结果记入 `qa-evidence/junit.log`,审计结论写入 qa-feedback 的"Java 测试汇总"节 |
+
+**步骤**:
 
 1. 跑 Builder 的 JUnit 测试,日志写入 `{OUTPUT_DIR}/qa-evidence/junit.log`
 2. **任何测试失败 = 对应功能直接 FAIL**
@@ -155,25 +207,36 @@ fi
 4. 标注 Builder 测试未覆盖的场景,作为第二层 QA 补充测试的输入
 5. **存量测试修复**:失败的自测类如果 git 提交人是当前用户(`git log --format='%ae' -1 -- file`),QA 自行修复并提交,提交信息格式:`fix(qa): 修复存量测试 类名`
 
-### 第二层:QA 补充测试
+---
 
-在 Builder 遗漏的场景上编写 `QA_*.java`。重点:
+### SOP:第二层 QA 补充测试
 
+| 维度 | 内容 |
+|------|------|
+| **输入** | 第一层标注的未覆盖场景、call-chain 中的异步入口 |
+| **输出** | `src/test/java/**/QA_*.java` |
+
+**重点场景**:
 - 空值/极端值输入
 - 异常分支
 - 幂等性
 - 线程安全
 - call-chain 中异步入口处理类
 
-### 第三层:冒烟脚本产出
+---
 
-按本手册"冒烟脚本编写规则"一节为每条 call-chain 产出 `smoke-{slug}.sh`。
+### SOP:第三层 冒烟脚本产出
 
-**只产出脚本,不试运行**。运行由用户通过 `/harness-backend-smoke` 完成。
+| 维度 | 内容 |
+|------|------|
+| **输入** | `.harness/call-chain/{slug}.md` |
+| **输出** | `.harness/smoke-tests/smoke-{slug}.sh`、首次产出时一并创建 `smoke-common.sh` 和 `README.md` |
+
+详见下方"冒烟脚本编写规则"章节。**只产出脚本,不试运行**。运行由用户通过 `/harness-backend-smoke` 完成。
 
 ---
 
-## 评分判定
+### SOP:评分判定
 
 | 标准 | 阈值 | 评分维度 |
 |------|------|---------|
@@ -299,9 +362,10 @@ wait_user_action \
 
 ---
 
-## 各阶段详细行动
+## 协作 SOP(各 phase)
 
-### Scope 审阅
+<phase name="Scope 审阅">
+**触发**:收到 Builder 的 build-scope-v{N}.md 就绪通知
 
 | 步骤 | 操作 |
 |------|------|
@@ -311,8 +375,10 @@ wait_user_action \
 | 4 | 通过 send-keys 消息直接回复 Builder:`ALIGNED` 或 `NEEDS_ADJUSTMENT + 具体调整项` |
 
 **对齐循环上限**:2 轮。
+</phase>
 
-### 测试评审
+<phase name="测试评审">
+**触发**:收到 Builder 构建完成通知
 
 | 步骤 | 操作 |
 |------|------|
@@ -322,8 +388,10 @@ wait_user_action \
 | 4 | 按评分标准打分,执行防放水自检 |
 | 5 | 产出 `qa-feedback-round-{N}.md` |
 | 6 | `complete_and_notify "harness-builder" "测试完成,APPROVED/REJECTED" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
+</phase>
 
-### 修复循环
+<phase name="修复循环">
+**触发**:Builder 修复完成通知
 
 | 步骤 | 操作 |
 |------|------|
@@ -332,8 +400,10 @@ wait_user_action \
 | 3 | 产出新一轮 `qa-feedback-round-{N+1}.md` |
 
 **终止条件**:APPROVED(达标)/ 已达 5 轮上限 / 连续 2 轮无改善。无论结果,通知 Builder 进入用户调整阶段。
+</phase>
 
-### 用户调整验证
+<phase name="用户调整验证">
+**触发**:收到 Builder 的"用户调整已完成"消息
 
 | 步骤 | 操作 |
 |------|------|
@@ -344,10 +414,13 @@ wait_user_action \
 | 5 | 确认未破坏已有功能(回归检查) |
 | 6a | 通过 → `send_to_agent "harness-builder" "用户调整验证通过"` |
 | 6b | 不通过 → `send_to_agent "harness-builder" "用户调整验证发现问题:[遗漏的需求序号及问题描述],请修复后回复我"` |
+</phase>
 
-### 流程收尾
+<phase name="流程收尾">
+**触发**:收到 Builder 的"结束迭代"消息
 
 | 步骤 | 操作 |
 |------|------|
 | 1 | 收到 Builder 的"结束迭代"消息 |
 | 2 | 创建 `.harness/done` 完成信号 |
+</phase>
