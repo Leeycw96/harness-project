@@ -116,54 +116,80 @@ bash .harness/smoke-tests/smoke-{slug}.sh
 
 ## 修复模式(可选)
 
-仅当本次冒烟出现至少一条被判定为「真 bug」的 FAIL(诊断表第四行)时触发。
-**前三类失败(脚本与 call-chain 不一致 / call-chain 过期 / 环境)绝不进入修复模式**——那是 qa 或用户的责任,builder 不该被拉起。
+仅当本次冒烟出现至少一条被判定为「真 bug」的 FAIL 时触发。
+**前三类失败(脚本与 call-chain 不一致 / call-chain 过期 / 环境)绝不进入修复模式**——那是 qa 或用户的责任,不该拉 builder。
+
+设计原则:**修问题、验证修复是 builder 和 qa 本职行为,smoke 只负责把任务扔给它们 + 等回信 + 重跑**。不为冒烟修复给 builder/qa 增加任何"流式修复模式 SOP"——它们的灵魂里"接任务→实现→通知 qa→验证"已经够用,差异通过启动消息说明即可。
 
 ### 询问用户
 
-读取「5.1 失败记录文件」(本次 smoke 已落盘),统计其中诊断分类为「真 bug」的小节数量:
+读取「5.1 失败记录文件」,统计其中诊断分类为「真 bug」的小节数量:
 
 - 0 条 → 不进入修复模式,直接结束
 - ≥ 1 条 → 使用 `AskUserQuestion`:
-  - 选项一:「进入修复模式,启动 harness-builder + harness-qa 协同修复」
+  - 选项一:「进入修复模式,启动 builder + qa 在线协同修复」
   - 选项二:「仅生成报告,我自己处理」(默认,维持现状)
 
-### 生成修复 plan
+### 启动 builder + qa
 
-**输入唯一来源**:本次「5.1 失败记录文件」中所有诊断分类为「真 bug」的小节。
-**严禁**从 skill 上下文复述失败现象——以失败记录文件为准,字段化转写。即使你"还记得"刚才发生了什么也不行,会话压缩之后这种记忆并不可靠。
+用户选择进入修复模式时:
 
-合并写入(无论几条真 bug,都只产出一份 plan):
+1. **初始化 tmux 编排环境**:
 
+   ```bash
+   source common/scripts/harness-init.sh
+   ```
+
+2. **约定本批次的 ack 文件路径**(完成信号,不复用 `.harness/done`——那是 harness-backend 的):
+
+   ```
+   .harness/smoke-tests/fix-ack-$(date +%Y%m%d-%H%M%S)
+   ```
+
+3. **用 `launch_agent` 拉起 builder 和 qa**,初始消息必须明确以下三点,避免 agent 惯性进入完整迭代流程:
+
+   - **任务文件**:本次「失败记录文件」的绝对路径,只处理诊断分类为「真 bug」的小节
+   - **跳过的阶段**:scope 对齐、`build-scope-v{N}` 产出、用户调整、`.harness/done` 写入——**全部跳过**;本批次按"修复阶段"语义直接处理
+   - **完成信号**:全部真 bug 修完且 qa 验证通过后,由 qa `touch` ack 文件(内容可空);**不要写 `.harness/done`**;ack 后保持 pane 在线等下一批
+
+   builder/qa 之间的协作仍按它们灵魂里的常规模式——builder 改完通知 qa,qa 验证通过 / 打回循环。smoke skill 不介入这条循环。
+
+### 等待 ack
+
+```bash
+wait_for_file "{ack 路径}" 14400
 ```
-.harness/plans/fix-from-smoke-$(date +%Y%m%d-%H%M%S).md
+
+超时 4 小时(冒烟修复一般小于完整迭代,4h 足够)。超时后向用户报告并提示去对应 pane 查看实时状态,**不自动 cleanup**。
+
+### 重跑该 slug(用户负责数据准备)
+
+ack 出现后**不要直接重跑**——前面已成功步骤的 DB 副作用(已下单订单、已写入记录)还在,会污染重跑结果。
+
+使用 `AskUserQuestion`:
+
+- 选项一:「已确认 DB 状态可重跑」→ 回到「3. 启动并运行脚本」重跑该 slug 的 smoke 脚本
+- 选项二:「需要先清数据,稍后回来」→ 暂停,等用户回来后再问
+- 选项三:「跳过该 slug,继续下一个」→ 标记 SKIP,继续后续 slug
+
+### 再次失败时复用 pane
+
+重跑后:
+
+- **通过** → 继续下一个 slug
+- **再次出现真 bug** → 不再 `launch_agent`,**复用现有 pane**:
+  1. 落盘新一份失败记录(回到「5.1」)
+  2. 约定新的 ack 路径
+  3. `send_to_agent "harness-builder" "新一批修复任务,失败记录:{新文件路径},完成后请 qa touch {新 ack 路径}"`
+  4. 回到「等待 ack」
+- **再次失败但落入前三类**(脚本不一致 / call-chain 过期 / 环境)→ 异常报告:修复后诊断分类发生了变化,可能是新引入问题或环境变化,提示用户人工排查,**不再继续修复循环**
+
+### Cleanup
+
+所有 slug 跑通(或用户主动退出修复模式)后:
+
+```bash
+cleanup_panes
 ```
 
-plan 总体结构:
-
-- **标题**:`修复任务:冒烟失败回流(共 N 条)`
-- **来源**:引用本次「失败记录文件」的路径,作为 plan 的事实凭证(builder 怀疑现象时可回查)
-- **概览**:列出涉及的所有 slug 名 + 各自失败的 step 名
-- **每个 failing slug 一节**(`## {slug}`),节内固定包含:
-  - **失败现象**:从失败记录文件原样转写
-  - **call-chain 摘录**:整段引用 `.harness/call-chain/{slug}.md`(此处需展开内容,plan 是 builder 的输入,要自包含)
-  - **失败步骤的脚本片段**:从 `smoke-{slug}.sh` 截取触发失败的 curl / 函数调用
-  - **已排除的诊断分支**:脚本与 call-chain 一致 ✓ / call-chain 已确认未过期 ✓ / 环境正常 ✓
-- **统一修复约束**(放在文末,所有 slug 共享):
-  - 不修改任何 call-chain(已确认未过期)
-  - 不修改 smoke 脚本(脚本与 call-chain 一致,改脚本是 qa 的事)
-  - 只修业务实现代码;修完由 harness-qa 在测试阶段重跑相关 slug 的冒烟脚本验证
-
-**只引用证据,不解释、不臆测原因**——原因分析是 builder 的职责。
-
-### 交接给 harness-backend
-
-**本 skill 不自行启动 builder / qa**,避免重复 harness-backend 的编排逻辑、产生分叉。
-
-向用户提示:
-
-> 修复 plan 已生成:`{path}`,涵盖本次冒烟的 N 条真 bug。
-> 请运行 `/harness-backend` 进入修复迭代,在「第一步:处理用户输入」中选择该文件作为 plan。
-> 修复完成后(`.harness/done` 出现),可重新运行 `/harness-backend-smoke` 验证。
-
-`harness-backend` 的「第一步:处理用户输入」第二种形态(指向文件路径)天然支持这个流程,无需改 backend skill。
+提示用户:「修复模式结束,builder/qa pane 已关闭。ack 文件保留在 `.harness/smoke-tests/` 下作为审计凭证。」
