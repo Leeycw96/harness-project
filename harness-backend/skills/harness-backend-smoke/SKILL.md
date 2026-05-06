@@ -137,7 +137,7 @@ bash .harness/smoke-tests/smoke-{slug}.sh
 1. **初始化 tmux 编排环境**:
 
    ```bash
-   source common/scripts/harness-init.sh
+   source .claude/common/scripts/harness-init.sh
    ```
 
 2. **约定本批次的 ack 文件路径**(完成信号,不复用 `.harness/done`——那是 harness-backend 的):
@@ -146,11 +146,24 @@ bash .harness/smoke-tests/smoke-{slug}.sh
    .harness/smoke-tests/fix-ack-$(date +%Y%m%d-%H%M%S)
    ```
 
-3. **用 `launch_agent` 拉起 builder 和 qa**,初始消息必须明确以下三点,避免 agent 惯性进入完整迭代流程:
+3. **启动两个 Agent 的 pane,然后写 config,再发初始 prompt**(三步必须按顺序):
+
+   ```bash
+   launch_agent_pane "harness-builder" "harness-builder"
+   launch_agent_pane "harness-qa"      "harness-qa"
+   write_config ""    # 修复模式没有迭代目录,output_dir 传空字符串
+   ```
+
+   随后向两个 agent 发 prompt——内容必须明确以下三点,避免 agent 惯性进入完整迭代流程:
 
    - **任务文件**:本次「失败记录文件」的绝对路径,只处理诊断分类为「真 bug」的小节
    - **跳过的阶段**:scope 对齐、`build-scope-v{N}` 产出、用户调整、`.harness/done` 写入——**全部跳过**;本批次按"修复阶段"语义直接处理
    - **完成信号**:全部真 bug 修完且 qa 验证通过后,由 qa `touch` ack 文件(内容可空);**不要写 `.harness/done`**;ack 后保持 pane 在线等下一批
+
+   ```bash
+   dispatch_initial_prompt "harness-builder" "你的配置文件在 ${PROJECT_DIR}/.harness/config.json,先读它。本次是冒烟回流的修复任务(不是完整迭代)——任务文件:{失败记录路径};跳过 scope 对齐 / build-scope / 用户调整 / .harness/done;qa 验完一批后写 {ack 路径},pane 保持在线等下一批。"
+   dispatch_initial_prompt "harness-qa"      "你的配置文件在 ${PROJECT_DIR}/.harness/config.json,先读它。本次是冒烟回流的修复验证(不是完整迭代)——任务文件:{失败记录路径};跳过 Scope 审阅 / 评分 / 用户调整 / .harness/done;builder 通知后做修复验证,全部真 bug 通过时由你 touch {ack 路径},pane 保持在线等下一批。"
+   ```
 
    builder/qa 之间的协作仍按它们灵魂里的常规模式——builder 改完通知 qa,qa 验证通过 / 打回循环。smoke skill 不介入这条循环。
 
