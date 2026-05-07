@@ -42,6 +42,8 @@ send_to_agent() {
   fi
 
   tmux send-keys -t "$pane" -l "$message"
+  # 等待对方 TUI 把字符消化进输入框,再回车提交;不 sleep 时 Enter 常被吃掉
+  sleep 0.3
   tmux send-keys -t "$pane" Enter
 }
 

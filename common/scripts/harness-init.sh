@@ -186,6 +186,8 @@ dispatch_initial_prompt() {
 
   # 通过 send-keys 发送初始 prompt（-l 逐字符发送，Enter 单独发送）
   tmux send-keys -t "$pane" -l "$(cat "$prompt_file")"
+  # 等待对方 TUI 把字符消化进输入框,再回车提交;不 sleep 时 Enter 常被吃掉
+  sleep 0.3
   tmux send-keys -t "$pane" Enter
 }
 
