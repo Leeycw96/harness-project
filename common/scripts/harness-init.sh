@@ -96,22 +96,37 @@ wait_for_file() {
 # 工具函数：在当前窗口创建新 Pane 启动 Agent（交互模式），不发送初始 prompt
 # 关键设计：
 #   -d: 不切换焦点，主 pane 保持 active
-#   -t: 精确指定 split 目标 pane
 #   -P -F: 捕获新 pane ID 用于后续 cleanup
+# 布局策略：
+#   - 第一个 agent: 在主会话 pane 右侧水平分割（占主会话区域 30% 宽度）
+#   - 后续 agent: 在前一个 agent pane 内垂直分割（各占 50% 高度）
+#   - 不调用 select-layout，避免动用户已有的其他 pane 布局
 # 启动后将 (agent, pane) 追加到 .pending-agents，供 write_config 拼装 config.json
 launch_agent_pane() {
   local name="$1" agent="$2"
+  local pending="$PROJECT_DIR/.harness/.pending-agents"
+  local existing=0
+  [ -f "$pending" ] && existing=$(wc -l < "$pending" | tr -d ' ')
+
+  local target_pane split_args
+  if [ "$existing" -eq 0 ]; then
+    target_pane="$HARNESS_MAIN_PANE"
+    split_args="-h -l 30%"
+  else
+    target_pane=$(sed -n "${existing}p" "$pending" | cut -f2)
+    split_args="-v -l 50%"
+  fi
+
   local cli_cmd="${HARNESS_CLI:-claude}"
   local new_pane
-  new_pane=$(tmux split-window -d -v -l 30% -t "$HARNESS_MAIN_PANE" -P -F '#{pane_id}' \
+  new_pane=$(tmux split-window -d $split_args -t "$target_pane" -P -F '#{pane_id}' \
     "export CLAUDE_CODE_NO_FLICKER=1 && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
 
   # 记录待写入 config 的 (agent, pane) 映射
-  printf '%s\t%s\n' "$agent" "$new_pane" >> "$PROJECT_DIR/.harness/.pending-agents"
+  printf '%s\t%s\n' "$agent" "$new_pane" >> "$pending"
 
   # 持久化 pane ID 用于 cleanup
   echo "$new_pane" >> "$HARNESS_PANES_FILE"
-  tmux select-layout -t "$HARNESS_MAIN_PANE" main-vertical
 
   # 等待 Agent 启动就绪
   sleep 5
