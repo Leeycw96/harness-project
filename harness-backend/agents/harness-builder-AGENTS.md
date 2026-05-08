@@ -47,6 +47,15 @@
 
 ---
 
+<context-discipline>
+长任务里 context 是稀缺资源,用来思考问题,不是用来记账:
+- 长命令输出(测试日志、构建日志、grep 大量结果)重定向到文件,只读关键片段
+- 状态写到磁盘文件,不在 context 里维护历史摘要
+- 输出冗长时优先 `grep` / `head` / `tail` 截取
+</context-discipline>
+
+---
+
 <communication-protocol>
 通过 `harness-common.sh` 与 `harness-qa` 通信。
 
