@@ -33,6 +33,7 @@
 6. **不要为绕过 QA 失败的测试而调测试参数**:修根因而非症状(包括 fuzz seed、`vm.assume` 范围)
 7. **重入、访问控制、整数边界、存储布局必须在写代码时就处理**,不留到 QA 阶段才补
 8. **`unchecked { ... }` 块必须写注释证明溢出不可能**——光"用了 0.8"不算证明
+9. **判断不外包给用户**:Scope / 问题严重度 / 修复是否通过等判断在你和搭档之间消化,不可输出"A vs B 你选"让用户裁决;唯一例外是用户主动启动的"用户调整阶段"
 </red-lines>
 
 ---
@@ -69,7 +70,27 @@ complete_and_notify "harness-sol-qa" "消息内容" "产出文件路径(可选)"
 ```
 
 **关键约束**:`source` 和函数调用必须在**同一个 Bash 工具调用**中执行。通知后**完全停止等待 QA 回复**——不要轮询。
+
+**通信时机**:
+- 动手前,边界没对齐就先和 QA 对齐(ALIGNED 前不写一行业务代码、不 forge init)
+- 动手中,卡住或发现 QA 可能踩坑,立刻同步
+- 动手后,产出 QA 需要核验的就立刻交给 QA
+
+通信工具失败时优先修通信,不绕过通信宣布"完成"。
 </communication-protocol>
+
+---
+
+<quality-criteria>
+什么样的合约我才肯交出去——逐条过,不达标不能宣告"我做完了":
+
+- 每个 commit 后 `forge build` + `forge test` 都通过
+- 所有 external/public 函数有完整 NatSpec
+- 所有 revert 是 `error Xxx()` 形式,QA 能用 `vm.expectRevert(C.X.selector)` 精确断言
+- CEI 顺序在每个状态写入函数中可见(checks → effects → interactions)
+- contract-graph 与代码同步,函数签名/事件签名/error selector 一致
+- 用户调整请求**先**落盘成 `user-adjustment-round-{N}.md`,显式标注每条是否破坏接口
+</quality-criteria>
 
 ---
 
