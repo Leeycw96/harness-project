@@ -15,7 +15,8 @@ user-invocable: true
 ## 输入
 
 - `.harness/call-chain/{slug}.md`:业务流程调用链文档(只读,用于诊断脚本与流程是否一致)
-- `.harness/smoke-tests/smoke-{slug}.sh`:待运行的冒烟脚本
+- `.harness/smoke-tests/{slug}/smoke.sh`:orchestrator,启停服务并按序遍历 step
+- `.harness/smoke-tests/{slug}/[0-9][0-9]-*.sh`:step 子脚本,序号即执行顺序
 - `.harness/smoke-tests/smoke-common.sh`:公共函数库
 
 ## 执行 SOP
@@ -28,12 +29,13 @@ user-invocable: true
 |--------|------------|
 | `.harness/call-chain/` 存在且非空 | 提示用户:「无可用 call-chain,请先让 harness-builder 在迭代中生成」,中止 |
 | `.harness/smoke-tests/smoke-common.sh` 存在 | 提示用户:「公共函数库缺失,请通知 harness-qa 补产」,中止 |
-| `.harness/smoke-tests/` 下有 `smoke-*.sh` | 提示用户:「未找到冒烟脚本,请通知 harness-qa 在第三层补产」,中止 |
+| `.harness/smoke-tests/` 下有至少一个 `{slug}/smoke.sh` | 提示用户:「未找到任何 slug 目录,请通知 harness-qa 在第三层补产」,中止 |
+| 选定 slug 目录下有 `[0-9][0-9]-*.sh` step | 缺 step 时提示「{slug} 仅有 orchestrator 无 step,请通知 qa 补产」,中止该 slug |
 | 服务监听端口空闲(由脚本启动应用) | 端口被占用时提示用户先停掉占用进程 |
 
 ### 2. 选择要运行的 call-chain
 
-使用 `AskUserQuestion` 让用户从 `.harness/smoke-tests/smoke-*.sh` 列出的 slug 中选择一条(可多选,顺序运行)。
+使用 `AskUserQuestion` 让用户从 `.harness/smoke-tests/*/smoke.sh` 列出的 slug 目录中选择一条(可多选,顺序运行)。
 
 若被选 slug 在 `.harness/call-chain/` 中无对应文件,提示「该 slug 没有 call-chain 描述,可能是孤儿脚本,请通知 qa 核对」,允许用户决定是否仍要运行。
 
@@ -41,26 +43,26 @@ user-invocable: true
 
 **目的**:在开跑前让用户清楚"这次冒烟一共多少步、哪些自动跑、哪些要我参与",避免开跑后才发现自己被抓壮丁、或 AI 默默循环执行多个脚本。
 
-对每个被选 slug 的 `smoke-{slug}.sh` 做静态扫描:
+对每个被选 slug 目录做静态扫描:
 
 | 计数项 | 扫描方式 | 含义 |
 |--------|----------|------|
-| 自动断言 | `grep -cE '^[[:space:]]*(log_pass\|log_fail)\b' smoke-{slug}.sh` | 脚本自动 `curl` 后断言响应的步骤 |
-| 人工交互 | `grep -cE '^[[:space:]]*wait_user_action\b' smoke-{slug}.sh` | 需要用户在终端输入 c/s/a 的暂停点(含人工触发 + DB 核验) |
-| 异步轮询 | `grep -cE '^[[:space:]]*wait_until\b' smoke-{slug}.sh` | 脚本内 HTTP 轮询点,自动等待但耗时较长 |
+| 步骤总数 | `ls .harness/smoke-tests/{slug}/[0-9][0-9]-*.sh \| wc -l` | step 子脚本数,即执行的业务步骤数 |
+| 人工交互 | `grep -cE '^[[:space:]]*wait_user_action\b' .harness/smoke-tests/{slug}/[0-9][0-9]-*.sh \| awk -F: '{s+=$2}END{print s}'` | 需要用户在终端输入 c/s/a 的暂停点(含人工触发 + DB 核验) |
+| 异步轮询 | `grep -cE '^[[:space:]]*wait_until\b' .harness/smoke-tests/{slug}/[0-9][0-9]-*.sh \| awk -F: '{s+=$2}END{print s}'` | step 内 HTTP 轮询点,自动等待但耗时较长 |
 
 把所有被选 slug 汇总成一张表呈给用户,**必须用 markdown 表格直出,不要塞进折叠块**:
 
 ```
 本次冒烟总览
-| slug          | 自动断言 | 人工交互 | 异步轮询 |
+| slug          | 步骤总数 | 人工交互 | 异步轮询 |
 |---------------|----------|----------|----------|
 | order-create  | 5        | 4        | 1        |
 | order-cancel  | 3        | 2        | 0        |
 合计:用户需在 6 个时刻参与
 ```
 
-> 计数仅按文本扫描,if/case 内的分支会被一并计入,实际可能少跑——预估值,不是契约值。如脚本里的关键字被花式包装(如别名)导致计数明显偏离,在表下加一行说明,不要伪造数字。
+> 计数按文本扫描,if/case 内的分支会被一并计入,实际可能少跑——预估值,不是契约值。如 step 内 `wait_user_action` 被花式包装(如循环、别名)导致计数明显偏离,在表下加一行说明,不要伪造数字。
 
 随后用 `AskUserQuestion` 让用户决定:
 - 「确认开跑」(默认)
@@ -70,10 +72,10 @@ user-invocable: true
 ### 4. 启动并运行脚本
 
 ```bash
-bash .harness/smoke-tests/smoke-{slug}.sh
+bash .harness/smoke-tests/{slug}/smoke.sh
 ```
 
-脚本内部已包含完整生命周期(启动服务 → 业务步骤 → 停止服务),本 skill 只是 fork-exec 它。
+orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DIR → 顺序遍历 `[0-9][0-9]-*.sh` step → 停止服务),本 skill 只是 fork-exec 它。step 之间通过 `{slug}/.run/state.env` 共享 token / orderNo 等状态。
 
 ### 5. 与用户的交互(运行时)
 
@@ -101,10 +103,10 @@ bash .harness/smoke-tests/smoke-{slug}.sh
 每个 slug 的脚本退出后,**立刻**向用户回播 mini-summary,**禁止**默默接续下一个 slug:
 
 ```
-[1/3] smoke-order-create.sh 完成
+[1/3] order-create/smoke.sh 完成
   PASS=4 / FAIL=1 / SKIP=0
   失败步骤:
-    - 创建订单后查询订单详情:期望 status=PENDING,实际 status=null
+    - 02-create-order:期望 status=PENDING,实际 status=null
   剩余待跑:order-cancel, order-pay
 ```
 
@@ -143,13 +145,14 @@ bash .harness/smoke-tests/smoke-{slug}.sh
 **结构**:
 
 - **顶部元信息**:运行时间、本次执行的 slug 列表、PASS / FAIL / SKIP 总数
-- **每条 FAIL 一节**(`## {slug} / {step-name}`),节内字段固定:
+- **每条 FAIL 一节**(`## {slug} / {step-file}`,step-file 取失败 step 的文件名如 `02-create-order.sh`),节内字段固定:
   - **失败时间**(脚本输出中的时间戳)
   - **诊断分类**(失败诊断表四行之一,必须准确填写——决定后续是否进入修复模式)
   - **失败现象**:从脚本 stdout **原样截取**的 FAIL 行
   - **关键日志片段**:FAIL 前后若干行原文
   - **call-chain**:`.harness/call-chain/{slug}.md`(只填路径,不复制内容)
-  - **smoke 脚本**:`.harness/smoke-tests/smoke-{slug}.sh`
+  - **失败 step**:`.harness/smoke-tests/{slug}/{step-file}`(具体到失败 step,不是 orchestrator)
+  - **state.env 快照**:`.harness/smoke-tests/{slug}/.run/state.env`(失败时上下文,builder 修复时可参照)
 
 只引用证据,不臆测原因。原因分析是 builder 的职责,不是 smoke 的。
 
@@ -161,7 +164,7 @@ bash .harness/smoke-tests/smoke-{slug}.sh
 
 | 现象 | 处理 |
 |------|------|
-| **脚本与 call-chain 不一致**(call-chain 改了脚本没跟) | 不自行修脚本。提示用户:「脚本 `smoke-{slug}.sh` 与 `.harness/call-chain/{slug}.md` 不一致,请通知 harness-qa 更新冒烟脚本后重跑」 |
+| **脚本与 call-chain 不一致**(call-chain 改了脚本没跟) | 不自行修脚本。提示用户:「`smoke-tests/{slug}/` 下的 step 与 `.harness/call-chain/{slug}.md` 不一致,请通知 harness-qa 更新冒烟脚本后重跑」 |
 | **两者一致但 call-chain 可能过期**(实现已变,call-chain 落后) | 提示用户人工核对,确认后通知 builder 更新 call-chain,再由 qa 更新冒烟脚本 |
 | **环境问题**(端口占用、依赖服务未启动、JDK 版本错) | 给出修复建议,标记为环境错误,允许用户修复后重试 |
 | **以上都排除后仍失败** | 判定 FAIL,记录失败原因 + 关键日志片段。报告完成后进入下文「修复模式」 |

@@ -249,7 +249,7 @@ fi
 | 维度 | 内容 |
 |------|------|
 | **输入** | `.harness/call-chain/{slug}.md` |
-| **输出** | `.harness/smoke-tests/smoke-{slug}.sh`、首次产出时一并创建 `smoke-common.sh` 和 `README.md` |
+| **输出** | `.harness/smoke-tests/{slug}/smoke.sh` + `.harness/smoke-tests/{slug}/[0-9][0-9]-*.sh` step 子脚本;首次产出时一并创建 `smoke-common.sh`、`README.md`,并把 `smoke-tests/*/.run/` 加入项目 `.gitignore` |
 
 详见下方"冒烟脚本编写规则"章节。**只产出脚本,不试运行**。运行由用户通过 `/harness-backend-smoke` 完成。
 
@@ -274,9 +274,11 @@ fi
 
 ### 定位
 
-把一条 call-chain 描述的业务流程脚本化为半自动冒烟测试:HTTP 步骤由脚本自动 `curl` 做接口断言,数据状态由用户在关键步骤后人工核验;非 HTTP 触发(Scheduler / MQ / RPC)由脚本暂停并引导用户手动触发。
+把一条 call-chain 描述的业务流程拆成多个独立可执行的 step 子脚本,由 orchestrator 串联运行:HTTP 步骤由 step 自动 `curl` 做接口断言,数据状态由用户在关键步骤后人工核验;非 HTTP 触发(Scheduler / MQ / RPC)由 step 暂停并引导用户手动触发。
 
 **全程真实链路,不写 Mock 代码、不新增任何 Java 测试类;脚本绝不持有 DB 凭据、不直接连库**。
+
+**编排与执行分离**:orchestrator (`smoke.sh`) 只做四件事——启动服务、初始化 RUN_DIR、按文件名顺序遍历同目录下的 `[0-9][0-9]-*.sh` 子脚本、关闭服务;业务 curl 全部下沉到 step 子脚本。每个 step 既能被 orchestrator 顺序调度,也能在状态准备就绪后由用户单独 `bash` 执行用于调试。
 
 ### 输入
 
@@ -284,100 +286,179 @@ fi
 
 ### 输出
 
-- `.harness/smoke-tests/smoke-{slug}.sh`:每个 call-chain 一个冒烟脚本,跨迭代持久
-- `.harness/smoke-tests/smoke-common.sh`:首次产出时一并创建公共函数库
-- `.harness/smoke-tests/README.md`:使用说明、外部依赖状态表、运行命令
+```
+.harness/smoke-tests/
+  smoke-common.sh           # 公共函数库,所有 orchestrator 与 step 都 source 它
+  _shared/                  # (按需创建) 跨 slug 复用的 step;首次产出时留空
+  README.md                 # 使用说明、外部依赖状态表、运行命令
+  failures/                 # 由 /harness-backend-smoke 写入,QA 不动
+  {slug}/
+    smoke.sh                # orchestrator
+    01-{verb}-{noun}.sh     # step 子脚本,序号即执行顺序
+    02-{verb}-{noun}.sh
+    ...
+    .run/                   # 运行时产物(state.env 等),git 忽略
+```
+
+首次产出时一并创建 `smoke-common.sh`、`README.md`,并把 `smoke-tests/*/.run/` 写入项目 `.gitignore`。
 
 ### 1. 一对一约定
 
-一个 call-chain 对应一个冒烟脚本,文件名使用 call-chain 文件的 slug:`.harness/call-chain/order-create.md` → `.harness/smoke-tests/smoke-order-create.sh`。
+一个 call-chain 对应一个 slug 目录,目录名与 call-chain 的 slug 完全一致:
 
-### 2. 自包含的完整生命周期
+`.harness/call-chain/order-create.md` → `.harness/smoke-tests/order-create/`
 
-每个脚本独立可运行,内部完成:
+### 2. 编排与执行分离
 
-```
-启动服务 → 等待就绪 → [登录]
-       → 业务步骤 → 接口断言 → 暂停人工核验数据
-       → [人工触发等待 → 暂停人工核验数据]
-       → 停止服务
-```
+**`smoke.sh`(orchestrator)** 只做编排——禁止在 orchestrator 里写业务 curl,业务逻辑必须放在 step 子脚本。
 
-服务的启动与停止由脚本负责,确保脚本结束后无遗留进程。
+**step 子脚本** 每个文件聚焦一个业务步骤:发请求、断言响应、保存关键字段(orderNo、token 等)到 state.env。**禁止**自行启动/关闭服务、禁止 source 其他 step。
 
-### 3. 公共函数库 smoke-common.sh
+step 文件名约定 `NN-{verb}-{noun}.sh`(`NN` 两位数字 0-padding),orchestrator 按 glob 顺序 `[0-9][0-9]-*.sh` 执行,序号即执行顺序。建议序号留空隙(01/05/10)便于后续插入。
 
-首次为项目编写冒烟脚本时一并创建。所有 `smoke-{slug}.sh` 都 source 该公共库。
+### 3. 状态共享:`.run/state.env`
+
+step 之间通过共享文件传递数据,文件位于 `{slug}/.run/state.env`,`KEY=VAL` 格式可被 shell `source`。
+
+| 函数 | 职责 |
+|------|------|
+| `init_run_dir` | orchestrator 启动时调用:创建 `.run/`、清空旧 state.env、写入元信息(运行时间、slug) |
+| `load_state` | step 启动时调用:`source` state.env,把此前 step 写入的 KEY 全部导出到当前 shell |
+| `state_set KEY VAL` | step 内调用:把字段写回 state.env(同名 KEY **覆盖**,不追加),供后续 step 与 orchestrator 复用 |
+
+**单步重跑契约**:state.env 在 orchestrator 跑完一遍后保留,不在退出时清空。用户调试某 step 时只要服务还在跑、state.env 还在,可直接 `bash {slug}/03-xxx.sh` 单独执行——前置 step 写入的状态从 state.env 读回,无需重走前面的步骤。`.run/` 不进 git。
+
+### 4. 公共函数库 smoke-common.sh
+
+所有 orchestrator 与 step 都 source 它(相对路径 `../smoke-common.sh`)。
 
 | 函数 | 用途 |
 |------|------|
 | `start_service()` | 启动应用,后台运行并记录 PID |
 | `wait_for_service()` | 轮询端口/健康检查,超时失败 |
 | `stop_service()` | 优雅关闭(kill PID) |
-| `login()` | 调用登录接口,导出 TOKEN 变量 |
+| `init_run_dir <SLUG_DIR>` | 初始化 `.run/`,清空 state.env,写入运行元信息 |
+| `load_state()` | 从 `.run/state.env` 读回环境变量 |
+| `state_set KEY VAL` | 把字段写入 `.run/state.env`(同名覆盖) |
+| `step_run <STEP_FILE> <i> <N>` | orchestrator 调用 step 时打印 `[i/N] {step-name}` 边界,捕获 step 退出码,失败时按依赖关系决定后续 step 是否 SKIP |
+| `login()` | 调用登录接口,`state_set TOKEN` 持久化 |
 | `assert_status()` | 检查 HTTP 状态码 |
 | `assert_json_field()` | 检查 JSON 响应字段 |
 | `wait_until()` | HTTP 条件轮询(响应 / 健康检查),超时失败。**不连 DB** |
 | `wait_user_action()` | 人工触发步骤:打印指令并阻塞 read,接受 c/s/a;非交互环境(`HARNESS_NONINTERACTIVE=1`)自动 SKIP |
 | `skip_if_unavailable()` | 检查外部依赖,不可用时输出 SKIP(不判 FAIL) |
-| `log_pass()` / `log_fail()` / `log_skip()` | 结果记录 |
+| `log_pass()` / `log_fail()` / `log_skip()` | 结果记录,**必须**带"期望 / 实际"两行 |
 
-### 4. 验证维度
+### 5. 验证维度
 
-每个步骤至少做两层验证:
+每个 step 至少做两层验证:
 
 - **接口断言**(脚本自动):HTTP 状态码 + 响应字段(成功标识、关键返回值)
-- **数据状态人工核验**(脚本暂停 → 用户判断):脚本通过 `wait_user_action` 给出明确核验提示(影响的表、定位字段、期望值,以及一条用户可直接复用的 `select` 语句),由用户自行查 DB 后输入 `c/s/a` 继续
+- **数据状态人工核验**(脚本暂停 → 用户判断):step 通过 `wait_user_action` 给出明确核验提示(影响的表、定位字段、期望值,以及一条用户可直接复用的 `select` 语句),由用户自行查 DB 后输入 `c/s/a` 继续
 
-脚本不连接 DB,不持有任何 DB 凭据/连接串。**仅断言 HTTP 200 不算冒烟测试。** 步骤返回值(orderNo、userId、token 等)必须捕获,作为下一步接口的入参,以及作为人工核验提示文案中的定位字段展示给用户。
+step 不连接 DB,不持有任何 DB 凭据/连接串。**仅断言 HTTP 200 不算冒烟测试。** 关键返回字段(orderNo、userId、token 等)必须 `state_set` 持久化,作为下一 step 的入参,以及作为人工核验提示文案中的定位字段展示给用户。
 
-### 5. 异步与人工触发
+### 6. 异步与人工触发
 
 按可达性分两条路径:
 
-- **自动可达**(异步副作用可通过 HTTP 轮询观测):脚本内置 `wait_until` 类 HTTP 轮询,设置最大等待时间;超时则按断言失败处理
-- **自动不可达**(由 Scheduler / MQ 消费者 / RPC Provider 触发,sh 无法直接发起):走"人工触发步骤"
+- **自动可达**(异步副作用可通过 HTTP 轮询观测):step 内置 `wait_until` 类 HTTP 轮询,设置最大等待时间;超时则按断言失败处理
+- **自动不可达**(由 Scheduler / MQ 消费者 / RPC Provider 触发,sh 无法直接发起):该 step 整体走"人工触发步骤"
 
-### 6. 人工触发步骤
+### 7. 人工触发步骤
 
-每个人工步骤由三段组成:
+每个人工触发 step 由三段组成,统一写在该 step 文件内:
 
 1. **指令**:明确告诉用户要触发什么、怎么触发——给出 Scheduler 名 / MQ topic / RPC 方法,以及可执行的触发方式提示(管理后台路径、命令示例,从 call-chain 中尽量摘取;无法摘取时留 TODO)
-2. **等待**:通过公共函数 `wait_user_action <prompt> <hint>` 阻塞,接受三种用户输入——`c` 继续 / `s` 跳过该步及其依赖项(整条标记 SKIP)/ `a` 中止脚本
-3. **后置数据人工核验**:脚本继续暂停一次,给出明确的 DB 核验提示(表、定位字段、期望值、可直接复用的 `select`),用户自行查库后输入 `c` 表示已确认副作用
+2. **等待**:`wait_user_action <prompt> <hint>` 阻塞,接受三种用户输入——`c` 继续 / `s` 跳过该步及其依赖项(整条标记 SKIP)/ `a` 中止脚本
+3. **后置数据人工核验**:再次 `wait_user_action` 暂停,给出明确的 DB 核验提示(表、定位字段、期望值、可直接复用的 `select`),用户自行查库后输入 `c` 表示已确认副作用
 
 非交互环境下(`HARNESS_NONINTERACTIVE=1`),`wait_user_action` 自动 SKIP 该步骤并记录原因,后续依赖项一并 SKIP。
 
-### 7. 依赖处理
+### 8. 依赖处理
 
 - **基础设施暂时不可用**(MQ broker、SMTP 等):用 `skip_if_unavailable` 包裹,输出 SKIP 而非 FAIL,保留完整逻辑以便依赖就绪后启用
-- **业务流程由非 HTTP 机制触发**:走"人工触发步骤",不写 Mock Controller / 测试触发端点
+- **业务流程由非 HTTP 机制触发**:整 step 走"人工触发步骤",不写 Mock Controller / 测试触发端点
 
-### 8. 脚本编写模式
+### 9. 脚本模板
 
-- **简单接口**(如登录):启动 → curl → 接口断言 → 暂停人工核验数据 → 关闭
-- **业务流程**(如创建订单):启动 → 登录 → 请求 → 接口断言 → 暂停人工核验数据 → [异步轮询 / 人工触发 → 暂停人工核验数据] → 关闭
-- **跨功能链路**:在一个脚本中串联多步骤,每步遵循"验证维度"两层;步骤间通过捕获接口返回值串联
-
-### 人工触发步骤片段
+#### orchestrator(`{slug}/smoke.sh`)
 
 ```bash
+#!/bin/bash
+set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SLUG="$(basename "$SCRIPT_DIR")"
+source "$SCRIPT_DIR/../smoke-common.sh"
+
+init_run_dir "$SCRIPT_DIR"
+trap 'stop_service' EXIT
+
+start_service
+wait_for_service
+
+steps=( "$SCRIPT_DIR"/[0-9][0-9]-*.sh )
+total=${#steps[@]}
+i=0
+for step in "${steps[@]}"; do
+  i=$((i+1))
+  step_run "$step" "$i" "$total"
+done
+```
+
+#### step(简单接口,`{slug}/02-create-order.sh`)
+
+```bash
+#!/bin/bash
+set -e
+source "$(dirname "$0")/../smoke-common.sh"
+load_state    # 读回前置 step 写入的 TOKEN 等
+
+RESP=$(curl -s -X POST "$BASE_URL/order" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"productId":"P001","qty":1}')
+
+ORDER_NO=$(echo "$RESP" | jq -r '.data.orderNo')
+STATUS=$(echo "$RESP" | jq -r '.data.status')
+
+log_pass "创建订单" \
+  "期望 status=PENDING、orderNo 非空" \
+  "实际 status=${STATUS}、orderNo=${ORDER_NO}"
+
+state_set ORDER_NO "$ORDER_NO"
+
+wait_user_action \
+  "请确认 orders 表 order_no=${ORDER_NO} 已落库且 status=PENDING" \
+  "select status from orders where order_no='${ORDER_NO}'"
+```
+
+#### step(人工触发,`{slug}/03-trigger-timeout-scheduler.sh`)
+
+```bash
+#!/bin/bash
+set -e
+source "$(dirname "$0")/../smoke-common.sh"
+load_state
+
 wait_user_action \
   "请触发 OrderTimeoutScheduler 任务(订单超时关单)" \
   "管理后台 → 任务调度 → OrderTimeoutScheduler → 立即执行"
-# 用户输入 c 后到达此处;下方再次暂停由用户自行查 DB 核验副作用
+
 wait_user_action \
   "请确认 orders 表中 order_no=${ORDER_NO} 的 status 已变为 CLOSED" \
-  "在你的 DB 客户端执行: select status from orders where order_no='${ORDER_NO}'"
+  "select status from orders where order_no='${ORDER_NO}'"
 ```
 
-### README.md(`.harness/smoke-tests/README.md`)
+### 10. README.md(`.harness/smoke-tests/README.md`)
 
 必须包含:
 - 概述和前置条件(JDK 版本、数据库、端口、CLI 工具)
-- 文件清单表(脚本 | 测试功能 | 涉及接口 | 是否含人工触发 | 外部依赖)
-- 外部依赖状态表(服务 | 影响脚本 | 被 skip 步骤 | 负责人 | 预计就绪时间)
-- 运行方式和维护说明
+- slug 清单表(slug 目录 | 测试功能 | 涉及接口 | step 数 | 是否含人工触发 | 外部依赖)
+- 外部依赖状态表(服务 | 影响 slug | 被 skip 步骤 | 负责人 | 预计就绪时间)
+- 运行方式:
+  - 全流程:`bash smoke-tests/{slug}/smoke.sh`
+  - 单步重跑(需服务在跑、state.env 有前置数据):`bash smoke-tests/{slug}/NN-xxx.sh`
+- 维护说明
 
 ---
 
