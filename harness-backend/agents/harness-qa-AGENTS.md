@@ -79,7 +79,7 @@ fi
 
 - 每条 PASS 都附带证据(JUnit 输出 / curl 命令 + 响应 / 文件路径)
 - P0 问题写明:重现步骤 / 预期 / 实际 / 根因 / 修复方向
-- 冒烟脚本覆盖每条 call-chain,异步链路用 `wait_user_action` 引导用户人工核验
+- 冒烟脚本覆盖每个对外入口的主路径 + 关键异常分支(入口层无单测,这里漏 = 回归保护为零),异步链路用 `wait_user_action` 引导用户人工核验
 - 自检清单(矛盾/一致性/证据/措辞/深度)逐条对过,不只是走过场
 </quality-criteria>
 
@@ -216,15 +216,26 @@ fi
 | **输入** | Builder 的 `src/test/java/**/*.java` |
 | **输出** | 测试结果记入 `qa-evidence/junit.log`,审计结论写入 qa-feedback 的"Java 测试汇总"节 |
 
-**步骤**:
+#### 审计边界(强制)
+
+builder 的 TDD 边界**只**是业务域 Service 对外 public 方法。审计只针对这部分:
+
+- **必查覆盖**:每个业务域 Service 的对外 public 方法是否有契约测试(input/output / 副作用断言)
+- **不要求**:Controller / RPC Provider / MQ Listener / Scheduler 入口层无单测属于**正常**,不算缺失。这些入口的行为契约由第三层冒烟脚本端到端覆盖,不在本层审计范围
+- **不要求**:DTO 转换、Mapper、Converter、配置类、工具类无单测属于**正常**
+
+但要顺手核查一条 builder 红线:**入口层(Controller / Listener / Scheduler / RPC Provider)是否包含业务逻辑**。grep 一遍这四类入口的实现,发现 if/for/计算/状态判断超出"参数校验 + 调用 Service + 包装响应"的范围 → 直接 FAIL,提示 builder 下沉到 Service 后再补对应契约测试。
+
+#### 步骤
 
 1. 跑 Builder 的 JUnit 测试,日志写入 `{OUTPUT_DIR}/qa-evidence/junit.log`
 2. **任何测试失败 = 对应功能直接 FAIL**
-3. 审计测试真实性:
+3. 审计契约测试真实性:
    - 空测试、只打 log、`assertTrue(true)` 等同于没有测试
-   - 是否覆盖 call-chain 的入口方法和验证点
-4. 标注 Builder 测试未覆盖的场景,作为第二层 QA 补充测试的输入
-5. **存量测试修复**:失败的自测类如果 git 提交人是当前用户(`git log --format='%ae' -1 -- file`),QA 自行修复并提交,提交信息格式:`fix(qa): 修复存量测试 类名`
+   - 是否覆盖每个业务域 Service 的对外 public 方法及其关键分支
+4. **入口层逻辑下沉核查**:grep Controller / Listener / Scheduler / RPC Provider 类,发现业务逻辑 → FAIL
+5. 标注 Builder 测试未覆盖的 Service public 方法或场景,作为第二层 QA 补充测试的输入
+6. **存量测试修复**:失败的自测类如果 git 提交人是当前用户(`git log --format='%ae' -1 -- file`),QA 自行修复并提交,提交信息格式:`fix(qa): 修复存量测试 类名`
 
 ---
 
@@ -232,15 +243,16 @@ fi
 
 | 维度 | 内容 |
 |------|------|
-| **输入** | 第一层标注的未覆盖场景、call-chain 中的异步入口 |
-| **输出** | `src/test/java/**/QA_*.java` |
+| **输入** | 第一层标注的未覆盖 Service public 方法、关键边界场景 |
+| **输出** | `src/test/java/**/QA_*.java`,**只针对业务域 Service 的对外 public 方法**——和 builder TDD 边界一致 |
 
-**重点场景**:
+**重点场景**(都是 Service 层的契约边界):
 - 空值/极端值输入
-- 异常分支
+- 异常分支(业务规则触发的异常)
 - 幂等性
-- 线程安全
-- call-chain 中异步入口处理类
+- 线程安全 / 并发
+
+**不写单测的对象**:Controller / Listener / Scheduler / RPC Provider 入口层的边界场景由第三层冒烟脚本覆盖——QA 在第三层为这些入口的异常分支补 step,而不是在本层写入口层单测。
 
 ---
 
@@ -279,6 +291,16 @@ fi
 **全程真实链路,不写 Mock 代码、不新增任何 Java 测试类;脚本绝不持有 DB 凭据、不直接连库**。
 
 **编排与执行分离**:orchestrator (`smoke.sh`) 只做四件事——启动服务、初始化 RUN_DIR、按文件名顺序遍历同目录下的 `[0-9][0-9]-*.sh` 子脚本、关闭服务;业务 curl 全部下沉到 step 子脚本。每个 step 既能被 orchestrator 顺序调度,也能在状态准备就绪后由用户单独 `bash` 执行用于调试。
+
+### 覆盖度契约(强制)
+
+builder 不为入口层(Controller / RPC Provider / MQ Listener / Scheduler)写单测,因此**冒烟脚本是入口层行为契约的唯一回归保护**。这条不能放水:
+
+- **每个 Controller 端点**:必须有对应 step 覆盖**主路径**(成功 case),并且至少覆盖**一条关键异常分支**——典型的鉴权失败(401/403)、参数校验失败(400)、业务规则失败(如余额不足、状态不允许)。无明显异常分支的纯查询接口可只覆盖主路径,但需在 README 注明
+- **每个 MQ Listener / Scheduler / RPC Provider 入口**:必须有对应 step 通过 `wait_user_action` 引导用户人工触发,并在触发后做 DB 副作用核验
+- **覆盖度盘点**:第三层产出后,QA 在 README 里维护一张"入口 → 覆盖 step"映射表,缺项必须显式标注 TODO 与原因(例如"等管理后台触发界面就绪")
+
+**不是"step 越多越好"**,而是"每个对外入口都至少有一个 step 抓主路径 + 一条异常分支"。漏掉的入口 = 这块业务的回归保护为零。
 
 ### 输入
 

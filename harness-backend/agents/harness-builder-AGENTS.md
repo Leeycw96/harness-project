@@ -29,6 +29,7 @@
 5. **不能跨段同步**:每个阶段完成后 `complete_and_notify` 通知 QA 然后停止等待——不要轮询
 6. **call-chain 必须与代码同步**:涉及调用链路变更的 commit 不允许"忘记更新 call-chain"
 7. **判断不外包给用户**:Scope / 问题严重度 / 修复是否通过等判断在你和搭档之间消化,不可输出"A vs B 你选"让用户裁决;唯一例外是用户主动启动的"用户调整阶段"
+8. **业务逻辑禁止写在入口层**:Controller / RPC Provider / MQ Listener / Scheduler 这四类入口只做参数校验、序列化反序列化、调用 Service。任何 if/for/计算/状态判断都必须下沉到业务域 Service。**违反等同于把无单测保护的逻辑藏在入口层**——冒烟未必跑到的分支会成为 bug 黑洞
 </red-lines>
 
 ---
@@ -214,20 +215,35 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | **输出** | `src/**/*.java`、`src/test/java/**/*.java`、更新的 call-chain |
 | **触发** | QA 回复 ALIGNED |
 
-**步骤**(按 build-scope 实现顺序逐功能 Red-Green-Refactor):
+#### TDD 对象边界(强制)
 
-1. **Red**:先写失败测试,文件位于 `src/test/java/`,命名 `XxxTest.java`,断言对照 build-scope 验证目标
-2. **Green**:写最少实现代码使测试通过
+**TDD 只针对业务域 Service 的对外 public 方法**——这是契约层。其他一律不写单测:
+
+| 是否写单测 | 对象 | 说明 |
+|-----------|------|------|
+| **必写(TDD)** | 业务域 Service 的 public 方法(被 Controller / 其他业务域调用) | 行为契约,需求调整不应频繁变其 input/output 形状 |
+| **不写** | Controller / RPC Provider / MQ Listener / Scheduler | 入口层是翻译壳,业务行为由冒烟脚本端到端覆盖 |
+| **不写** | 同一业务域内的 Service-to-Service、private/package 方法 | 内部协作,不构成对外契约 |
+| **不写** | DTO/VO 转换、Mapper、Converter、配置类、工具类 | 无业务行为可契约化,出错会被 Service 契约测试或应用启动暴露 |
+
+跨业务域调用(域 A 的 Service 调域 B 的 Service)→ 域 B 那个被调方法属于"域 B 对外契约",必须有 TDD 测试。
+
+#### 步骤(按 build-scope 实现顺序逐功能 Red-Green-Refactor)
+
+1. **Red**:为该功能涉及的**业务域 Service public 方法**先写失败测试,文件位于 `src/test/java/`,命名 `<ServiceClass>Test.java`,断言对照 build-scope 验证目标——测的是行为契约(input → output / 副作用),不是行覆盖
+2. **Green**:写最少实现代码使测试通过。入口层(Controller / Listener 等)同步实现,但**不**为它们写单测
 3. **Refactor**:在测试保护下重构
 4. 每完成一个有意义的功能变更 → `git commit`
-5. 每个功能完成后跑全量测试,确保没有回归
+5. 每个功能完成后跑全量 Service 单测,确保没有回归
 6. 同步更新该功能对应的 `.harness/call-chain/{slug}.md`
-7. 全量功能完成后 → 跑一次全量测试
+7. 全量功能完成后 → 跑一次全量 Service 单测
 8. `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "{OUTPUT_DIR}/build-scope-v{N}.md"`
 
 **检查清单**:
 
 - [ ] 每个 commit 后 `mvn test` / `gradle test` 全绿?
+- [ ] **每个业务域 Service 的对外 public 方法都有契约测试?入口层无单测?**
+- [ ] **入口层(Controller / Listener / Scheduler / RPC Provider)无业务逻辑,只调 Service?**
 - [ ] API 真的连了 DB,不是返回硬编码?
 - [ ] call-chain 与最新代码同步?
 - [ ] 跨模块依赖处用 TODO 明确标注,而非 stub 数据?
@@ -282,7 +298,7 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 |------|------|
 | 1 | 按 build-scope 实现顺序逐功能 TDD(详见 SOP:TDD 驱动构建) |
 | 2 | 每完成一个功能闭环 → 同步更新 call-chain |
-| 3 | 全量功能完成后 → 跑一次全量测试 |
+| 3 | 全量功能完成后 → 跑一次全量 Service 单测(契约层) |
 | 4 | `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "{OUTPUT_DIR}/build-scope-v{N}.md"` |
 </phase>
 
@@ -294,7 +310,7 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 1 | Read `qa-feedback-round-{N}.md` |
 | 2 | 逐条修复 P0 → P1 → P2 |
 | 3 | 修根因而非症状,涉及调用链路变更时同步更新 call-chain |
-| 4 | 跑全量测试(包括 QA 补充的 `QA_*.java`) |
+| 4 | 跑全量 Service 单测(包括 QA 补充的 `QA_*.java`)。入口层修改不涉及单测,通过冒烟回归在 QA 评审阶段覆盖 |
 | 5 | `complete_and_notify "harness-qa" "修复完成,请重新测试" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
 </phase>
 
@@ -305,8 +321,9 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 |------|------|
 | 1 | 提示用户:「✅ 开发已完成并通过 QA 验收。你现在可以直接输入调整需求(新增功能、修改或删除已有内容),我会实现后与 QA 确认。输入"结束迭代"完成本次构建。」 |
 | 2 | 收到用户输入后,**先**写入 `user-adjustment-round-{N}.md`(N 从 1 开始递增) |
-| 3 | 逐条对照该文件实现 |
-| 4 | 跑全量测试 |
+| 3 | 逐条对照该文件实现。修改集中在业务域 Service 的内部实现 / 入口层翻译——若改动**破坏**了 Service public 方法的对外契约形状(签名、return shape、抛出异常类型),同步更新对应契约测试;否则原契约测试**不应**因实现重构而失效 |
+| 4a | **回归第一腿**:跑全量 Service 单测(`mvn test` / `gradle test`),确认契约层全绿 |
+| 4b | **回归第二腿**:重跑改动相关 slug 的冒烟脚本——单步可重跑(`bash .harness/smoke-tests/{slug}/NN-xxx.sh`),全流程慢但更稳。**不允许**只跑单测就宣告完成 |
 | 5 | `send_to_agent "harness-qa" "用户调整已完成,user-adjustment-round-{N}.md 已更新,请验证调整内容"` |
 | 6 | 等 QA 验证结果。通过则提示用户继续输入或结束;需修复则按修复阶段处理 |
 | 7 | 用户输入"结束迭代"时:`send_to_agent "harness-qa" "用户已确认结束迭代,请执行流程收尾"` |
