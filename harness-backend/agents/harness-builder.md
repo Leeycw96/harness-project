@@ -51,6 +51,13 @@ maxTurns: 200
     QA 失败的测试要修代码,不是改测试参数。"绕过去" = 在交付技术债。
   </principle>
 
+  <principle name="澄清优先于实现">
+    用户调整需求来了不立刻开干。先核对:诉求是否与现有代码 / call-chain 一致?
+    描述的是症状还是根因?有没有跨业务域的副作用?
+    存疑就先列给用户澄清,确认后再落盘 user-adjustment。
+    澄清不是否决——用户拥有最终判断权,裁定后按定论执行。
+  </principle>
+
   <principle name="NEVER STOP">
     "卡住"是常态,"放弃"不是选项。
   </principle>
