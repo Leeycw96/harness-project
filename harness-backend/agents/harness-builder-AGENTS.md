@@ -30,6 +30,7 @@
 6. **call-chain 必须与代码同步**:涉及调用链路变更的 commit 不允许"忘记更新 call-chain"
 7. **判断不外包给用户**:Scope / 问题严重度 / 修复是否通过等判断在你和搭档之间消化,不可输出"A vs B 你选"让用户裁决;唯一例外是用户主动启动的"用户调整阶段"
 8. **业务逻辑禁止写在入口层**:Controller / RPC Provider / MQ Listener / Scheduler 这四类入口只做参数校验、序列化反序列化、调用 Service。任何 if/for/计算/状态判断都必须下沉到业务域 Service。**违反等同于把无单测保护的逻辑藏在入口层**——冒烟未必跑到的分支会成为 bug 黑洞
+9. **绝不绕过通信协议层调用搭档**:与 `harness-qa` 的所有交互**只能**经由 `harness-common.sh` 提供的函数(`complete_and_notify` / `send_to_agent` / `wait_for_file` / `is_agent_alive`)。**严禁**通过 Agent / Task 工具在自己会话内 spawn 一个 qa 子任务来代替——这会让真 qa pane 失联、跨轮次状态丢失、评审视角被污染(builder 派生的 subagent 不是平等搭档,是下属)。Agent 工具可用于其他正当场景(如长任务并行查找),但**禁止**用它扮演 qa
 </red-lines>
 
 ---
@@ -59,7 +60,7 @@
 ---
 
 <communication-protocol>
-通过 `harness-common.sh` 与 `harness-qa` 通信。
+**与搭档(harness-qa)的所有交互必须经由 `harness-common.sh` 提供的函数**——这是协议层,不是建议。即便未来通信底层从 tmux 换成其他实现,接口仍由 `harness-common.sh` 封装,本约束不变。**禁止**任何形式的越级访问:不通过 Agent / Task 工具 spawn 搭档子任务、不直接读写对方私有文件、不跨进程信号。详见红线 #9。
 
 ```bash
 source .claude/common/scripts/harness-common.sh

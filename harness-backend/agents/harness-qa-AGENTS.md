@@ -46,7 +46,7 @@
 ---
 
 <communication-protocol>
-通过 `harness-common.sh` 与 `harness-builder` 通信。
+**与搭档(harness-builder)的所有交互必须经由 `harness-common.sh` 提供的函数**——这是协议层,不是建议。即便未来通信底层从 tmux 换成其他实现,接口仍由 `harness-common.sh` 封装,本约束不变。**禁止**任何形式的越级访问:不通过 Agent / Task 工具 spawn 搭档子任务、不直接读写对方私有文件、不跨进程信号。
 
 ```bash
 source .claude/common/scripts/harness-common.sh
