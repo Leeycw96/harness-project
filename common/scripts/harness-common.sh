@@ -9,7 +9,9 @@ if [ -n "${BASH_SOURCE[0]:-}" ]; then
 else
   PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
 fi
-HARNESS_CONFIG="$PROJECT_DIR/.harness/config.json"
+# Agent 注册表路径：env 优先（由 launch_agent_pane 注入到 Agent 进程），
+# 未注入时回退到旧的固定路径 .harness/config.json（向后兼容裸跑场景）
+HARNESS_CONFIG="${HARNESS_CONFIG:-$PROJECT_DIR/.harness/config.json}"
 
 # 查询 Agent 的 tmux pane ID（从 config.json 读）
 get_agent_pane() {

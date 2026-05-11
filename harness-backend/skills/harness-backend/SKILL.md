@@ -102,25 +102,25 @@ source .claude/common/scripts/harness-init.sh
 ### 第二步：启动两个 Agent 的 pane（不发送 prompt）
 
 ```bash
-launch_agent_pane "harness-builder" "harness-builder"
-launch_agent_pane "harness-qa" "harness-qa"
+launch_agent_pane "harness-builder" "harness-builder" "$HARNESS_OUTPUT_DIR/config.json"
+launch_agent_pane "harness-qa"      "harness-qa"      "$HARNESS_OUTPUT_DIR/config.json"
 ```
 
-这一步只创建 tmux pane 并启动 CLI，不向 Agent 发送任何任务消息。
+第三个参数是本次 run 的 config.json 绝对路径，会通过 `HARNESS_CONFIG` 环境变量注入到 Agent 进程，Stop hook 子进程继承。这一步只创建 tmux pane 并启动 CLI，不向 Agent 发送任何任务消息。
 
 ### 第三步：写入 config.json
 
-把产出目录、两个 Agent 的 pane id 与互为搭档的关系写到 `.harness/config.json`：
+把产出目录、plan.md 路径、两个 Agent 的 pane id 与互为搭档的关系写到 `${HARNESS_OUTPUT_DIR}/config.json`（按迭代分支 / run 维度存放，自带历史快照）：
 
 ```bash
-write_config "$HARNESS_OUTPUT_DIR"
+write_config "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/plan.md"
 ```
 
 ### 第四步：向两个 Agent 发送初始 prompt
 
 ```bash
-dispatch_initial_prompt "harness-builder" "你的配置文件在 ${PROJECT_DIR}/.harness/config.json，先读它。plan.md 已就绪，请按你的常规启动流程开始范围对齐。"
-dispatch_initial_prompt "harness-qa" "你的配置文件在 ${PROJECT_DIR}/.harness/config.json，先读它。请按你的常规启动流程，等待搭档通知后开始 Scope Review。"
+dispatch_initial_prompt "harness-builder" "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 run 的 config.json 路径并 Read 它；plan.md 路径见 config.json 的 plan_path 字段（已就绪）。然后按你的常规启动流程开始范围对齐。"
+dispatch_initial_prompt "harness-qa"      "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 run 的 config.json 路径并 Read 它；plan.md 路径见 config.json 的 plan_path 字段。然后按你的常规启动流程，等待搭档通知后开始 Scope Review。"
 ```
 
 向用户提示：「harness-builder 和 harness-qa 已全部启动，它们将自主协调工作。你可以在各个 Pane 中观察实时进展。」

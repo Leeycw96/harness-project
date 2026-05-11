@@ -3,7 +3,10 @@
 本文件是 `harness-sol-builder.md` 的配套操作手册。`harness-sol-builder.md` 描述「我是谁」,本文件描述「我怎么做」——每个能力的标准 SOP、协作各阶段的触发/动作/等待、工件字段契约、检查清单、禁忌。
 
 > 工件读写约定:
-> - 一次性工件(plan / build-scope / qa-feedback / user-adjustment / qa-evidence)写在**产出目录** `{OUTPUT_DIR}`(格式 `.harness/iterations/{branch}/run-{N}/`),启动时从消息中提取
+> - **启动时必做**:在 Bash 工具里跑 `echo $HARNESS_CONFIG` 拿到本次 run 的 config.json 绝对路径(env 由编排器注入),然后 Read 它。后续所有路径都从 config 字段拼出来,**不要凭记忆猜路径**
+> - `config.json.output_dir` = `{OUTPUT_DIR}`,本文档中所有 `{OUTPUT_DIR}/xxx` 都用它替换
+> - `config.json.plan_path` = plan.md 完整路径,**不要写成裸 `plan.md`**
+> - 一次性工件(plan / build-scope / qa-feedback / user-adjustment / qa-evidence)都在 `{OUTPUT_DIR}` 下(格式 `.harness/iterations/{branch}/run-{N}/`)
 > - 跨迭代持久工件(`.harness/contract-graph/`、`script/`、`test/`、`src/`)位于项目根目录或 Foundry 标准目录
 >
 > 工具链假设:**Foundry**(forge / cast / anvil / chisel)。Hardhat 仅在项目 CLAUDE.md 显式声明时启用,等价命令自行映射。
@@ -13,7 +16,8 @@
 <pre-flight>
 **每次行动前必跑的预检——不跑就不要动手**:
 
-1. **Read 阶段输入文件**:对齐读 `plan.md` + `CLAUDE.md`;构建读 `build-scope-v{N}.md`;修复读 `qa-feedback-round-{N}.md`;用户调整读 `user-adjustment-round-{N}.md`
+0. **首轮启动 / 任何"找 plan.md"动作之前**:`echo $HARNESS_CONFIG` 拿到 config.json 路径 → Read 它 → 记下 `output_dir` 与 `plan_path`,后续所有路径都用这两个值拼
+1. **Read 阶段输入文件**:对齐读 `${plan_path}` + `CLAUDE.md`;构建读 `${output_dir}/build-scope-v{N}.md`;修复读 `${output_dir}/qa-feedback-round-{N}.md`;用户调整读 `${output_dir}/user-adjustment-round-{N}.md`
 2. **扫描 contract-graph 已有 slug**:`ls .harness/contract-graph/`,复用而非新建
 3. **跑 git status / git log -3**:确认基线,避免覆盖未提交工作
 4. **检查上一阶段是否真的完成**:进入构建阶段前必须见过 ALIGNED;进入用户调整前必须见过 APPROVED
@@ -235,13 +239,13 @@ complete_and_notify "harness-sol-qa" "消息内容" "产出文件路径(可选)"
 
 | 维度 | 内容 |
 |------|------|
-| **输入** | `plan.md`、`CLAUDE.md`、`.harness/contract-graph/` 已有 slug |
+| **输入** | `${plan_path}`、`CLAUDE.md`、`.harness/contract-graph/` 已有 slug(plan_path 来自 config.json) |
 | **输出** | `{OUTPUT_DIR}/build-scope-v{N}.md` |
 | **触发** | 收到编排层启动消息 / 收到 QA 的 NEEDS_ADJUSTMENT |
 
 **步骤**:
 
-1. Read `plan.md` 与项目根 `CLAUDE.md`
+1. Read `${plan_path}` 与项目根 `CLAUDE.md`(plan_path 来自 config.json)
 2. `ls .harness/contract-graph/` 列出已有 slug,复用而非新建
 3. 按 build-scope 章节模板逐节产出
 4. **安全关注点矩阵必须填**——任何一项空着 → QA 必拒
@@ -361,7 +365,7 @@ complete_and_notify "harness-sol-qa" "消息内容" "产出文件路径(可选)"
 
 | 步骤 | 操作 |
 |------|------|
-| 1 | Read `plan.md` 和项目根 `CLAUDE.md` |
+| 1 | Read `${plan_path}` 和项目根 `CLAUDE.md`(plan_path 来自 config.json) |
 | 2 | 扫描 `.harness/contract-graph/` 已有 slug |
 | 3 | 产出 `build-scope-v1.md`(含合约清单、接口契约、验证目标、安全关注点矩阵、gas 预算) |
 | 4 | `complete_and_notify "harness-sol-qa" "build-scope-v{N}.md 已就绪,请审阅"` |

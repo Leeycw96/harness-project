@@ -22,7 +22,8 @@ if [ -z "$AGENT_NAME" ]; then
   exit 0
 fi
 
-CONFIG="$PROJECT_DIR/.harness/config.json"
+# env 优先（由 launch_agent_pane 注入），未注入时回退到旧的固定路径
+CONFIG="${HARNESS_CONFIG:-$PROJECT_DIR/.harness/config.json}"
 STATE_DIR="$PROJECT_DIR/.harness/.hook-state"
 STALL_FILE="$STATE_DIR/${AGENT_NAME}-stall-count"
 mkdir -p "$STATE_DIR"

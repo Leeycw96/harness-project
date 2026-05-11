@@ -3,7 +3,10 @@
 本文件是 `harness-sol-qa.md` 的配套操作手册。`harness-sol-qa.md` 描述「我是谁」,本文件描述「我怎么做」——每个能力的标准 SOP、协作各阶段的触发/动作/等待、工件字段契约、Smoke 脚本编写规则、检查清单、禁忌。
 
 > 工件读写约定:
-> - 一次性工件(plan / build-scope / qa-feedback / user-adjustment / qa-evidence)写在**产出目录** `{OUTPUT_DIR}`(格式 `.harness/iterations/{branch}/run-{N}/`)
+> - **启动时必做**:在 Bash 工具里跑 `echo $HARNESS_CONFIG` 拿到本次 run 的 config.json 绝对路径(env 由编排器注入),然后 Read 它。后续所有路径都从 config 字段拼出来,**不要凭记忆猜路径**
+> - `config.json.output_dir` = `{OUTPUT_DIR}`,本文档中所有 `{OUTPUT_DIR}/xxx` 都用它替换
+> - `config.json.plan_path` = plan.md 完整路径,**不要写成裸 `plan.md`**
+> - 一次性工件(plan / build-scope / qa-feedback / user-adjustment / qa-evidence)都在 `{OUTPUT_DIR}` 下(格式 `.harness/iterations/{branch}/run-{N}/`)
 > - 跨迭代持久工件(`.harness/contract-graph/`、`script/smoke/`、`test/`)位于项目根目录或 Foundry 标准目录
 >
 > 工具链假设:**Foundry**(forge / cast / anvil / chisel)+ slither。
@@ -13,7 +16,8 @@
 <pre-flight>
 **每次行动前必跑的预检——不跑就不要动手**:
 
-1. **Read 阶段输入文件**:Scope 审阅读 `plan.md` + `build-scope-v{N}.md`;测试评审读 `build-scope-v{N}.md` + 合约源码 + contract-graph;用户调整验证读 `user-adjustment-round-{N}.md` + git diff
+0. **首轮启动 / 任何"找 plan.md"动作之前**:`echo $HARNESS_CONFIG` 拿到 config.json 路径 → Read 它 → 记下 `output_dir` 与 `plan_path`,后续所有路径都用这两个值拼
+1. **Read 阶段输入文件**:Scope 审阅读 `${plan_path}` + `${output_dir}/build-scope-v{N}.md`;测试评审读 `${output_dir}/build-scope-v{N}.md` + 合约源码 + contract-graph;用户调整验证读 `${output_dir}/user-adjustment-round-{N}.md` + git diff
 2. **跑 git diff**:了解基线变化——Builder 声称实现了 N 个合约但代码无实质变化 → 直接 FAIL,不需要再测
 3. **检查 contract-graph 完整性**:每个 build-scope 中的合约 slug 是否都有对应 `.harness/contract-graph/{slug}.md`
 4. **检查 selector 漂移**:`forge inspect <Contract> methods` 与上轮对比,未声明的差异 → FAIL
@@ -234,15 +238,15 @@ fi
 
 | 维度 | 内容 |
 |------|------|
-| **输入** | `plan.md`、`build-scope-v{N}.md` |
+| **输入** | `${plan_path}`、`${output_dir}/build-scope-v{N}.md`(plan_path / output_dir 都来自 config.json) |
 | **输出** | 通过 send-keys 直接回复 Builder:`ALIGNED` 或 `NEEDS_ADJUSTMENT + 调整项` |
 | **触发** | 收到 Builder 的 build-scope 就绪通知 |
 
 **步骤**:
 
-1. Read `plan.md` 与 `build-scope-v{N}.md`
+1. Read `${plan_path}` 与 `${output_dir}/build-scope-v{N}.md`(都来自 config.json,不要凭记忆写裸文件名)
 2. 逐合约比对:合约清单 / 接口契约 / 验证目标 / 安全关注点矩阵 / Gas 预算 是否齐全且具体可测
-3. plan.md 缺少验收标准时,补全 QA 期望的验证目标——重点关注:revert 路径、事件字段断言、gas 上界、访问控制矩阵、fuzz/invariant 性质
+3. plan 文件缺少验收标准时,补全 QA 期望的验证目标——重点关注:revert 路径、事件字段断言、gas 上界、访问控制矩阵、fuzz/invariant 性质
 4. 不替 Builder 做技术决策(不规定具体写法),但必须卡住"漏验证目标"的情况
 5. 通过 send-keys 消息直接回复 Builder
 
@@ -483,9 +487,9 @@ assertEq(oracle.latestPrice(), expectedPrice, "oracle price not updated");
 
 | 步骤 | 操作 |
 |------|------|
-| 1 | Read `plan.md` 与 `build-scope-v{N}.md` |
+| 1 | Read `${plan_path}` 与 `${output_dir}/build-scope-v{N}.md`(都来自 config.json) |
 | 2 | 逐合约比对:合约清单 / 接口契约 / 验证目标 / 安全关注点矩阵 / Gas 预算 是否齐全且具体可测 |
-| 3 | plan.md 缺少验收标准时,补全 QA 期望的验证目标——重点关注:revert 路径、事件字段断言、gas 上界、访问控制矩阵、fuzz/invariant 性质 |
+| 3 | plan 文件缺少验收标准时,补全 QA 期望的验证目标——重点关注:revert 路径、事件字段断言、gas 上界、访问控制矩阵、fuzz/invariant 性质 |
 | 4 | 不替 Builder 做技术决策(不规定具体写法),但必须卡住"漏验证目标"的情况 |
 | 5 | 通过 send-keys 消息直接回复 Builder:`ALIGNED` 或 `NEEDS_ADJUSTMENT + 具体调整项` |
 

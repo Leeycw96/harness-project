@@ -34,8 +34,11 @@ fi
 # Pane ID 持久化文件（解决跨 shell 调用状态丢失问题）
 HARNESS_PANES_FILE="$PROJECT_DIR/.harness/agent-panes"
 
-# Agent 注册表：AgentName=PaneID，供 Agent 之间通过 send-keys 直接通信
-HARNESS_CONFIG="$PROJECT_DIR/.harness/config.json"
+# Agent 注册表路径：env 优先（由 launch_agent_pane 注入到 Agent 进程），
+# 未注入时回退到旧的固定路径 .harness/config.json（向后兼容裸跑场景）
+# 新方案下 write_config 会把真实 config.json 写到 ${output_dir}/config.json，
+# Agent / Stop hook 通过继承的 HARNESS_CONFIG env 找到自己那次 run 的 config
+HARNESS_CONFIG="${HARNESS_CONFIG:-$PROJECT_DIR/.harness/config.json}"
 
 # 主 pane ID 持久化文件
 HARNESS_MAIN_PANE_FILE="$PROJECT_DIR/.harness/main-pane"
@@ -45,7 +48,7 @@ HARNESS_MAIN_PANE_FILE="$PROJECT_DIR/.harness/main-pane"
 HARNESS_INIT_MARKER="$PROJECT_DIR/.harness/.initialized"
 if [ ! -f "$HARNESS_INIT_MARKER" ]; then
   # 首次运行，正常初始化
-  rm -f "$HARNESS_CONFIG" "$HARNESS_PANES_FILE" "$HARNESS_MAIN_PANE_FILE"
+  rm -f "$HARNESS_PANES_FILE" "$HARNESS_MAIN_PANE_FILE"
   rm -f "$PROJECT_DIR/.harness/.pending-agents"
   rm -f "$PROJECT_DIR/.harness/done"
   rm -rf "$PROJECT_DIR/.harness/signals"
@@ -102,8 +105,15 @@ wait_for_file() {
 #   - 后续 agent: 在前一个 agent pane 内垂直分割（各占 50% 高度）
 #   - 不调用 select-layout，避免动用户已有的其他 pane 布局
 # 启动后将 (agent, pane) 追加到 .pending-agents，供 write_config 拼装 config.json
+# 用法：launch_agent_pane <name> <agent> <config_path>
+#   config_path：本次 run 的 config.json 绝对路径（如 .harness/iterations/{branch}/run-{N}/config.json）
+#   通过 env 注入到 Agent 进程，子进程（Stop hook）继承
 launch_agent_pane() {
-  local name="$1" agent="$2"
+  local name="$1" agent="$2" config_path="${3:-}"
+  if [ -z "$config_path" ]; then
+    echo "错误：launch_agent_pane 缺少第 3 个参数 config_path" >&2
+    return 1
+  fi
   local pending="$PROJECT_DIR/.harness/.pending-agents"
   local existing=0
   [ -f "$pending" ] && existing=$(wc -l < "$pending" | tr -d ' ')
@@ -121,8 +131,9 @@ launch_agent_pane() {
   local new_pane
   # HARNESS_AGENT_NAME 是 Stop hook 识别"自己是谁"的依据——子进程继承,
   # hook 脚本据此从 config.json 查 partner 并跨 pane 发通知
+  # HARNESS_CONFIG 是本次 run 的 config.json 绝对路径，Agent 进程与 hook 共用
   new_pane=$(tmux split-window -d $split_args -t "$target_pane" -P -F '#{pane_id}' \
-    "export CLAUDE_CODE_NO_FLICKER=1 HARNESS_AGENT_NAME='$agent' HARNESS_PROJECT_DIR='$PROJECT_DIR' && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
+    "export CLAUDE_CODE_NO_FLICKER=1 HARNESS_AGENT_NAME='$agent' HARNESS_PROJECT_DIR='$PROJECT_DIR' HARNESS_CONFIG='$config_path' && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
 
   # 记录待写入 config 的 (agent, pane) 映射
   printf '%s\t%s\n' "$agent" "$new_pane" >> "$pending"
@@ -136,9 +147,16 @@ launch_agent_pane() {
 
 # 工具函数：基于 .pending-agents 生成 config.json
 # 当前假设恰好 2 个 agent，互为搭档；以后扩展再改
-# 用法：write_config <output_dir>，output_dir 可传空字符串
+# 用法：write_config <output_dir> <plan_path>
+#   output_dir：本次 run 的产出目录，config.json 会写到 ${output_dir}/config.json
+#   plan_path：plan.md 的完整路径，可传空字符串（如 smoke 模式无 plan）
 write_config() {
   local output_dir="$1"
+  local plan_path="${2:-}"
+  if [ -z "$output_dir" ]; then
+    echo "错误：write_config 需要非空 output_dir（新方案下 config.json 写在该目录下）" >&2
+    return 1
+  fi
   local pending="$PROJECT_DIR/.harness/.pending-agents"
   if [ ! -f "$pending" ]; then
     echo "错误：没有待写入 config 的 agent，请先调用 launch_agent_pane" >&2
@@ -158,16 +176,23 @@ write_config() {
   agent_b=$(sed -n '2p' "$pending" | cut -f1)
   pane_b=$(sed -n '2p' "$pending" | cut -f2)
 
-  cat > "$HARNESS_CONFIG" <<EOF
+  mkdir -p "$output_dir"
+  local config_file="$output_dir/config.json"
+  cat > "$config_file" <<EOF
 {
   "project_dir": "$PROJECT_DIR",
   "output_dir": "$output_dir",
+  "plan_path": "$plan_path",
   "agents": {
     "$agent_a": { "pane": "$pane_a", "partner": "$agent_b" },
     "$agent_b": { "pane": "$pane_b", "partner": "$agent_a" }
   }
 }
 EOF
+
+  # 让本 shell 后续 dispatch_initial_prompt 能找到新写的 config
+  HARNESS_CONFIG="$config_file"
+  export HARNESS_CONFIG
 
   rm -f "$pending"
 }
@@ -211,7 +236,7 @@ cleanup_panes() {
     done < "$HARNESS_PANES_FILE"
     rm -f "$HARNESS_PANES_FILE"
   fi
-  rm -f "$HARNESS_CONFIG"
+  # 不删 $HARNESS_CONFIG：新方案下它在 ${output_dir}/config.json，保留作为本次 run 的历史快照
   rm -f "$PROJECT_DIR/.harness/.pending-agents"
   rm -f "$PROJECT_DIR/.harness/main-pane"
   rm -f "$PROJECT_DIR/.harness/.initialized"
@@ -236,8 +261,8 @@ cleanup_stale_session() {
       done < "$HARNESS_PANES_FILE"
     fi
   fi
-  # 清理所有运行时文件
-  rm -f "$HARNESS_CONFIG" "$HARNESS_PANES_FILE" "$HARNESS_MAIN_PANE_FILE" "$HARNESS_INIT_MARKER"
+  # 清理所有运行时文件（不删 $HARNESS_CONFIG：新方案下它在 ${output_dir}/config.json，保留作为历史快照）
+  rm -f "$HARNESS_PANES_FILE" "$HARNESS_MAIN_PANE_FILE" "$HARNESS_INIT_MARKER"
   rm -f "$PROJECT_DIR/.harness/.pending-agents"
   rm -rf "$PROJECT_DIR/.harness/signals"
   rm -f "$PROJECT_DIR/.harness/done"

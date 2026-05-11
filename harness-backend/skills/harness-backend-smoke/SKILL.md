@@ -201,12 +201,19 @@ orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DI
    .harness/smoke-tests/fix-ack-$(date +%Y%m%d-%H%M%S)
    ```
 
-3. **启动两个 Agent 的 pane,然后写 config,再发初始 prompt**(三步必须按顺序):
+3. **建立 smoke run 目录**(config.json 必须落在某个 run 目录下,与 harness-backend 规则一致):
 
    ```bash
-   launch_agent_pane "harness-builder" "harness-builder"
-   launch_agent_pane "harness-qa"      "harness-qa"
-   write_config ""    # 修复模式没有迭代目录,output_dir 传空字符串
+   SMOKE_RUN_DIR=".harness/smoke-runs/$(date +%Y%m%d-%H%M%S)"
+   mkdir -p "$SMOKE_RUN_DIR"
+   ```
+
+4. **启动两个 Agent 的 pane,然后写 config,再发初始 prompt**(三步必须按顺序):
+
+   ```bash
+   launch_agent_pane "harness-builder" "harness-builder" "$SMOKE_RUN_DIR/config.json"
+   launch_agent_pane "harness-qa"      "harness-qa"      "$SMOKE_RUN_DIR/config.json"
+   write_config "$SMOKE_RUN_DIR" ""    # smoke 模式无 plan.md,plan_path 传空字符串
    ```
 
    随后向两个 agent 发 prompt——内容必须明确以下三点,避免 agent 惯性进入完整迭代流程:
@@ -216,8 +223,8 @@ orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DI
    - **完成信号**:全部真 bug 修完且 qa 验证通过后,由 qa `touch` ack 文件(内容可空);**不要写 `.harness/done`**;ack 后保持 pane 在线等下一批
 
    ```bash
-   dispatch_initial_prompt "harness-builder" "你的配置文件在 ${PROJECT_DIR}/.harness/config.json,先读它。本次是冒烟回流的修复任务(不是完整迭代)——任务文件:{失败记录路径};跳过 scope 对齐 / build-scope / 用户调整 / .harness/done;qa 验完一批后写 {ack 路径},pane 保持在线等下一批。"
-   dispatch_initial_prompt "harness-qa"      "你的配置文件在 ${PROJECT_DIR}/.harness/config.json,先读它。本次是冒烟回流的修复验证(不是完整迭代)——任务文件:{失败记录路径};跳过 Scope 审阅 / 评分 / 用户调整 / .harness/done;builder 通知后做修复验证,全部真 bug 通过时由你 touch {ack 路径},pane 保持在线等下一批。"
+   dispatch_initial_prompt "harness-builder" "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 smoke run 的 config.json 路径并 Read 它(plan_path 为空,本轮没有 plan.md)。本次是冒烟回流的修复任务(不是完整迭代)——任务文件:{失败记录路径};跳过 scope 对齐 / build-scope / 用户调整 / .harness/done;qa 验完一批后写 {ack 路径},pane 保持在线等下一批。"
+   dispatch_initial_prompt "harness-qa"      "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 smoke run 的 config.json 路径并 Read 它(plan_path 为空,本轮没有 plan.md)。本次是冒烟回流的修复验证(不是完整迭代)——任务文件:{失败记录路径};跳过 Scope 审阅 / 评分 / 用户调整 / .harness/done;builder 通知后做修复验证,全部真 bug 通过时由你 touch {ack 路径},pane 保持在线等下一批。"
    ```
 
    builder/qa 之间的协作仍按它们灵魂里的常规模式——builder 改完通知 qa,qa 验证通过 / 打回循环。smoke skill 不介入这条循环。
