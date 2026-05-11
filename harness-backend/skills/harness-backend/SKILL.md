@@ -106,7 +106,7 @@ launch_agent_pane "harness-builder" "harness-builder" "$HARNESS_OUTPUT_DIR/confi
 launch_agent_pane "harness-qa"      "harness-qa"      "$HARNESS_OUTPUT_DIR/config.json"
 ```
 
-第三个参数是本次 run 的 config.json 绝对路径，会通过 `HARNESS_CONFIG` 环境变量注入到 Agent 进程，Stop hook 子进程继承。这一步只创建 tmux pane 并启动 CLI，不向 Agent 发送任何任务消息。
+第三个参数是本次 run 的 config.json 绝对路径，会通过 `HARNESS_CONFIG` 环境变量注入到 Agent 进程。这一步只创建 tmux pane 并启动 CLI，不向 Agent 发送任何任务消息。
 
 ### 第三步：写入 config.json
 

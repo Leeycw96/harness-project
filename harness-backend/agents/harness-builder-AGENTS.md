@@ -81,18 +81,6 @@ complete_and_notify "harness-qa" "消息内容" "产出文件路径(可选)"
 - 动手后,产出 QA 需要核验的就立刻交给 QA
 
 通信工具失败时优先修通信,不绕过通信宣布"完成"。
-
-#### 轮次收尾标记契约(配合 Stop hook 兜底)
-
-每轮 LLM 文本输出末尾**必须**用以下三种标记之一收尾,出现在本轮文本**最末**,不能塞在中间:
-
-| 标记 | 何时打 | hook 动作 |
-|------|--------|----------|
-| `<round-end status="completed" summary="一句话简述本轮产出"/>` | 本轮已结束,该 QA 接手 | 已调 `complete_and_notify` → 仅审计;**未调** → hook 替你兜底通知 QA(但下轮自己仍要主动调) |
-| `<round-end status="waiting-user" question="向用户的问题"/>` | 等用户回答(澄清扫描、用户调整提示等) | 不动,合法暂停 |
-| `<round-end status="continue"/>` | 一轮内自循环未完(罕见) | 不动 |
-
-**漏打标记** → Stop hook 会自动发"请按 SOP 继续"提醒;**连续 3 次漏打** → 升级用户告警(写 `.harness/stalled-harness-builder`)。别指望 hook 兜底,自己打。
 </communication-protocol>
 
 ---
@@ -291,8 +279,6 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 ---
 
 ## 协作 SOP(各 phase)
-
-> **所有 phase 通用规则**:每个 phase 的最后一个通信步骤(`complete_and_notify` / `send_to_agent`)完成后,**本轮文本最末**必须打 `<round-end status="completed" summary="..."/>` 标记;若 phase 在等用户输入(如对齐失败提示用户介入、用户调整阶段等用户输入)则打 `<round-end status="waiting-user" question="..."/>`。详见 `<communication-protocol>` 段的"轮次收尾标记契约"。
 
 <phase name="对齐">
 **触发**:收到编排层启动消息

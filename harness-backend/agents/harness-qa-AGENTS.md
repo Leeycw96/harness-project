@@ -74,18 +74,6 @@ fi
 - 评审后,通过 / 打回 / 待补证据,立刻交给 Builder
 
 通信工具失败时优先修通信,不绕过通信宣布"完成"。
-
-#### 轮次收尾标记契约(配合 Stop hook 兜底)
-
-每轮 LLM 文本输出末尾**必须**用以下三种标记之一收尾,出现在本轮文本**最末**,不能塞在中间:
-
-| 标记 | 何时打 | hook 动作 |
-|------|--------|----------|
-| `<round-end status="completed" summary="一句话简述本轮产出"/>` | 本轮已结束,该 Builder 接手 | 已调 `complete_and_notify` → 仅审计;**未调** → hook 替你兜底通知 Builder(但下轮自己仍要主动调) |
-| `<round-end status="waiting-user" question="向用户的问题"/>` | 等用户回答 | 不动,合法暂停 |
-| `<round-end status="continue"/>` | 一轮内自循环未完(罕见) | 不动 |
-
-**漏打标记** → Stop hook 会自动发"请按 SOP 继续"提醒;**连续 3 次漏打** → 升级用户告警(写 `.harness/stalled-harness-qa`)。别指望 hook 兜底,自己打。
 </communication-protocol>
 
 ---
@@ -501,8 +489,6 @@ wait_user_action \
 ---
 
 ## 协作 SOP(各 phase)
-
-> **所有 phase 通用规则**:每个 phase 的最后一个通信步骤(`complete_and_notify` / `send_to_agent`)完成后,**本轮文本最末**必须打 `<round-end status="completed" summary="..."/>` 标记;若 phase 在等用户输入则打 `<round-end status="waiting-user" question="..."/>`。详见 `<communication-protocol>` 段的"轮次收尾标记契约"。
 
 <phase name="Scope 审阅">
 **触发**:收到 Builder 的 build-scope-v{N}.md 就绪通知

@@ -37,7 +37,7 @@ HARNESS_PANES_FILE="$PROJECT_DIR/.harness/agent-panes"
 # Agent 注册表路径：env 优先（由 launch_agent_pane 注入到 Agent 进程），
 # 未注入时回退到旧的固定路径 .harness/config.json（向后兼容裸跑场景）
 # 新方案下 write_config 会把真实 config.json 写到 ${output_dir}/config.json，
-# Agent / Stop hook 通过继承的 HARNESS_CONFIG env 找到自己那次 run 的 config
+# Agent 通过继承的 HARNESS_CONFIG env 找到自己那次 run 的 config
 HARNESS_CONFIG="${HARNESS_CONFIG:-$PROJECT_DIR/.harness/config.json}"
 
 # 主 pane ID 持久化文件
@@ -107,7 +107,7 @@ wait_for_file() {
 # 启动后将 (agent, pane) 追加到 .pending-agents，供 write_config 拼装 config.json
 # 用法：launch_agent_pane <name> <agent> <config_path>
 #   config_path：本次 run 的 config.json 绝对路径（如 .harness/iterations/{branch}/run-{N}/config.json）
-#   通过 env 注入到 Agent 进程，子进程（Stop hook）继承
+#   通过 env 注入到 Agent 进程
 launch_agent_pane() {
   local name="$1" agent="$2" config_path="${3:-}"
   if [ -z "$config_path" ]; then
@@ -129,11 +129,9 @@ launch_agent_pane() {
 
   local cli_cmd="${HARNESS_CLI:-claude}"
   local new_pane
-  # HARNESS_AGENT_NAME 是 Stop hook 识别"自己是谁"的依据——子进程继承,
-  # hook 脚本据此从 config.json 查 partner 并跨 pane 发通知
-  # HARNESS_CONFIG 是本次 run 的 config.json 绝对路径，Agent 进程与 hook 共用
+  # HARNESS_CONFIG 是本次 run 的 config.json 绝对路径，Agent 进程通过该 env 找到 config
   new_pane=$(tmux split-window -d $split_args -t "$target_pane" -P -F '#{pane_id}' \
-    "export CLAUDE_CODE_NO_FLICKER=1 HARNESS_AGENT_NAME='$agent' HARNESS_PROJECT_DIR='$PROJECT_DIR' HARNESS_CONFIG='$config_path' && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
+    "export CLAUDE_CODE_NO_FLICKER=1 HARNESS_CONFIG='$config_path' && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
 
   # 记录待写入 config 的 (agent, pane) 映射
   printf '%s\t%s\n' "$agent" "$new_pane" >> "$pending"
