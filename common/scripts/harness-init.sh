@@ -270,28 +270,31 @@ cleanup_stale_session() {
   touch "$HARNESS_INIT_MARKER"
 }
 
-# 工具函数：获取最新的 run 编号（不递增），无计数器文件时返回 0
+# 工具函数：获取最新的 run 编号（不递增），目录为空时返回 0
+# 真相来源是 ${branch_dir}/run-N 子目录本身——避免外部计数器与实际目录不同步的 bug
+# （例如计数器文件丢失 / 跨机器同步缺漏 / 历史 run-N 目录是手工拷贝来的）
+# 用 find 而不是 glob：跨 shell（bash/zsh）行为一致，不依赖 nullglob 选项
 get_latest_run_number() {
   local branch_dir="$1"
-  local counter_file="${branch_dir}/.run-counter"
-  if [ -f "$counter_file" ]; then
-    cat "$counter_file"
-  else
-    echo "0"
-  fi
+  [ -d "$branch_dir" ] || { echo "0"; return; }
+  local max=0
+  local d n
+  while IFS= read -r d; do
+    [ -z "$d" ] && continue
+    n="${d##*/run-}"
+    # 只接受纯数字目录名，run-abc / run-x 之类的非法目录忽略
+    [[ "$n" =~ ^[0-9]+$ ]] || continue
+    (( n > max )) && max=$n
+  done < <(find "$branch_dir" -mindepth 1 -maxdepth 1 -type d -name 'run-*' 2>/dev/null)
+  echo "$max"
 }
 
-# 工具函数：获取下一个 run 编号（递增并写回）
+# 工具函数：获取下一个 run 编号（latest + 1，不写回计数器文件——目录本身就是真相）
 get_next_run_number() {
   local branch_dir="$1"
-  local counter_file="${branch_dir}/.run-counter"
-  local current=0
-  if [ -f "$counter_file" ]; then
-    current=$(cat "$counter_file")
-  fi
-  local next=$((current + 1))
-  echo "$next" > "$counter_file"
-  echo "$next"
+  local latest
+  latest=$(get_latest_run_number "$branch_dir")
+  echo $((latest + 1))
 }
 
 # 自动加载 agent 间通信函数（send_to_agent / complete_and_notify 等）
