@@ -10,6 +10,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HARNESS_PROJECT_DIR/common/scripts/stop-marker-guard.sh\""
+          }
+        ]
+      }
     ]
   }
 }

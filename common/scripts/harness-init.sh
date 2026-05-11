@@ -119,8 +119,10 @@ launch_agent_pane() {
 
   local cli_cmd="${HARNESS_CLI:-claude}"
   local new_pane
+  # HARNESS_AGENT_NAME 是 Stop hook 识别"自己是谁"的依据——子进程继承,
+  # hook 脚本据此从 config.json 查 partner 并跨 pane 发通知
   new_pane=$(tmux split-window -d $split_args -t "$target_pane" -P -F '#{pane_id}' \
-    "export CLAUDE_CODE_NO_FLICKER=1 && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
+    "export CLAUDE_CODE_NO_FLICKER=1 HARNESS_AGENT_NAME='$agent' HARNESS_PROJECT_DIR='$PROJECT_DIR' && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
 
   # 记录待写入 config 的 (agent, pane) 映射
   printf '%s\t%s\n' "$agent" "$new_pane" >> "$pending"
