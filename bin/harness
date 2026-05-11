@@ -83,35 +83,6 @@ fi
 # 3) 用户指定的 mode 模块
 deploy_module "$mode_dir" "harness-$mode"
 
-# 4) 合并 settings fragment(Stop hook 等基础设施钩子)
-fragment="$HARNESS_ROOT/common/settings-fragment.json"
-target_settings="$target/.claude/settings.json"
-if [ -f "$fragment" ]; then
-  # 探测 fragment 里的脚本标识符(就当指纹用),用于幂等检查
-  hook_tag="stop-marker-guard.sh"
-  if [ ! -f "$target_settings" ]; then
-    # 目标没 settings.json → 直接拷 fragment
-    cp "$fragment" "$target_settings"
-    echo "[settings] 创建 .claude/settings.json(含 harness Stop hook)"
-  elif grep -F -q "$hook_tag" "$target_settings"; then
-    # 目标 settings.json 已经含 hook → 幂等跳过(重复部署不重复追加)
-    echo "[settings] Stop hook 已配置,跳过"
-  else
-    # 目标已有 settings.json 但无 hook → jq merge:把 fragment 的 hooks.Stop 数组追加到现有 hooks.Stop
-    tmp=$(mktemp)
-    if jq --slurpfile frag "$fragment" '
-        .hooks //= {} |
-        .hooks.Stop = ((.hooks.Stop // []) + ($frag[0].hooks.Stop // []))
-      ' "$target_settings" > "$tmp"; then
-      mv "$tmp" "$target_settings"
-      echo "[settings] Stop hook 追加到 .claude/settings.json(保留你原有配置)"
-    else
-      rm -f "$tmp"
-      echo "警告: jq 合并 settings.json 失败,Stop hook 未配置。请手动把 $fragment 的内容合并到 $target_settings" >&2
-    fi
-  fi
-fi
-
 echo ""
 echo "完成。在目标项目的 Claude Code 中可使用:"
 echo "  /harness-plan       生成 plan 文件"
