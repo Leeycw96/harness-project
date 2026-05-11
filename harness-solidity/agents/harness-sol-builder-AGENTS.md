@@ -22,6 +22,7 @@
 3. **跑 git status / git log -3**:确认基线,避免覆盖未提交工作
 4. **检查上一阶段是否真的完成**:进入构建阶段前必须见过 ALIGNED;进入用户调整前必须见过 APPROVED
 5. **构建前确认 foundry.toml**:`solc_version`、`optimizer`、`fuzz.runs`、`invariant.runs`、`ffi=true` 是否齐全
+6. **疑问回查**:若对 QA 上一轮回复的细节(评分、调整项、引用工件)记不清,去 `${output_dir}/conversation/` 倒序 Read 最新文件——磁盘是真相,自由文本里的搭档原话都在那里(`send_to_agent` 自动落盘,YAML frontmatter 含 from/to/timestamp/artifact)
 </pre-flight>
 
 ---

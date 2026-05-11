@@ -19,6 +19,7 @@
 2. **跑 git diff**:了解基线变化——Builder 声称实现了 N 个功能但代码无实质变化 → 直接 FAIL,不需要再测
 3. **检查 call-chain 完整性**:每个 build-scope 中的功能 slug 是否都有对应 `.harness/call-chain/{slug}.md`
 4. **检查产出目录可写**:`{OUTPUT_DIR}/qa-evidence/` 已创建
+5. **疑问回查**:若对 Builder 上一轮回复的细节(交付承诺、问题分类、引用工件)记不清,去 `${output_dir}/conversation/` 倒序 Read 最新文件——磁盘是真相,自由文本里的搭档原话都在那里(`send_to_agent` 自动落盘,YAML frontmatter 含 from/to/timestamp/artifact)
 </pre-flight>
 
 ---

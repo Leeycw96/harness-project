@@ -22,6 +22,7 @@
 3. **检查 contract-graph 完整性**:每个 build-scope 中的合约 slug 是否都有对应 `.harness/contract-graph/{slug}.md`
 4. **检查 selector 漂移**:`forge inspect <Contract> methods` 与上轮对比,未声明的差异 → FAIL
 5. **检查产出目录可写**:`{OUTPUT_DIR}/qa-evidence/` 已创建
+6. **疑问回查**:若对 Builder 上一轮回复的细节(交付承诺、问题分类、引用工件)记不清,去 `${output_dir}/conversation/` 倒序 Read 最新文件——磁盘是真相,自由文本里的搭档原话都在那里(`send_to_agent` 自动落盘,YAML frontmatter 含 from/to/timestamp/artifact)
 </pre-flight>
 
 ---

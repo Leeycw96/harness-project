@@ -129,9 +129,10 @@ launch_agent_pane() {
 
   local cli_cmd="${HARNESS_CLI:-claude}"
   local new_pane
-  # HARNESS_CONFIG 是本次 run 的 config.json 绝对路径，Agent 进程通过该 env 找到 config
+  # HARNESS_CONFIG: 本次 run 的 config.json 绝对路径，Agent 进程通过该 env 找到 config
+  # HARNESS_AGENT_NAME: 当前 Agent 自己的名字,send_to_agent 落盘消息时用作 frontmatter.from
   new_pane=$(tmux split-window -d $split_args -t "$target_pane" -P -F '#{pane_id}' \
-    "export CLAUDE_CODE_NO_FLICKER=1 HARNESS_CONFIG='$config_path' && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
+    "export CLAUDE_CODE_NO_FLICKER=1 HARNESS_CONFIG='$config_path' HARNESS_AGENT_NAME='$agent' && cd $PROJECT_DIR && ${cli_cmd} --agent '$agent' --permission-mode bypassPermissions")
 
   # 记录待写入 config 的 (agent, pane) 映射
   printf '%s\t%s\n' "$agent" "$new_pane" >> "$pending"
@@ -175,6 +176,8 @@ write_config() {
   pane_b=$(sed -n '2p' "$pending" | cut -f2)
 
   mkdir -p "$output_dir"
+  # 预建 conversation 目录:send_to_agent 落盘消息时写在这里
+  mkdir -p "$output_dir/conversation"
   local config_file="$output_dir/config.json"
   cat > "$config_file" <<EOF
 {

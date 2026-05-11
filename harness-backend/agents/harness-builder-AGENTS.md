@@ -19,6 +19,7 @@
 2. **扫描 call-chain 已有 slug**:`ls .harness/call-chain/`,复用而非新建
 3. **跑 git status / git log -3**:确认基线,避免覆盖未提交工作
 4. **检查上一个阶段是否真的完成**:进入构建阶段前必须见过 ALIGNED;进入用户调整前必须见过 APPROVED
+5. **疑问回查**:若对 QA 上一轮回复的细节(评分、调整项、引用工件)记不清,去 `${output_dir}/conversation/` 倒序 Read 最新文件——磁盘是真相,自由文本里的搭档原话都在那里(`send_to_agent` 自动落盘,YAML frontmatter 含 from/to/timestamp/artifact)
 </pre-flight>
 
 ---
