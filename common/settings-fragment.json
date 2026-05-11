@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HARNESS_PROJECT_DIR/.claude/common/scripts/stop-marker-guard.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
