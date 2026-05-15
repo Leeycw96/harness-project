@@ -64,24 +64,128 @@ user-invocable: true
 
 > 计数按文本扫描,if/case 内的分支会被一并计入,实际可能少跑——预估值,不是契约值。如 step 内 `wait_user_action` 被花式包装(如循环、别名)导致计数明显偏离,在表下加一行说明,不要伪造数字。
 
-随后用 `AskUserQuestion` 让用户决定:
-- 「确认开跑」(默认)
-- 「重新选择 slug」(回到第 2 步)
-- 「中止」
+#### 3.1 渲染 prepare.md 并确认就绪
 
-### 4. 启动并运行脚本
+每个被选 slug 必有 `00-prepare.md`(由 harness-qa 在第三层产出)。**不存在则提示「该 slug 缺 prepare.md,请通知 qa 补产」并中止**——不再走"允许用户绕过"的旁门,因为缺 prepare.md 意味着 actor / 数据 / 触发方式没人对齐过,跑下去多半中途出事。
 
-```bash
-bash .harness/smoke-tests/{slug}/smoke.sh
+读取 `00-prepare.md` 并把四张表逐段渲染给用户:
+
+```
+[order-create] 冒烟前准备清单(来自 00-prepare.md)
+
+## Actor 表(谁调谁)
+  01-login.sh        → 普通用户(账号 user_smoke_001,凭据见 vault)
+  02-create-order.sh → 普通用户(复用 01 token)
+  03-approve.sh      → 管理员(账号 admin_smoke_001,凭据见 vault)
+
+## 预置数据
+  - product 表:sku=SKU001 status=ON_SHELF stock>=10
+  - user    表:username=user_smoke_001 status=ACTIVE
+
+## 外部依赖
+  - Redis(localhost:6379)需可达
+  - 短信网关 mock(8090 端口)
+
+## 非 HTTP 触发点
+  - OrderCancelScheduler  → 临时入口 POST /_smoke/trigger/order-cancel
+  - order.paid (MQ topic) → 后台手动 rabbitmqadmin publish ...
+
+## 临时入口文件清单(冒烟后将由 skill 引导清理)
+  - src/main/java/com/example/smoke/SmokeTriggerController.java(新增)
 ```
 
-orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DIR → 顺序遍历 `[0-9][0-9]-*.sh` step → 停止服务),本 skill 只是 fork-exec 它。step 之间通过 `{slug}/.run/state.env` 共享 token / orderNo 等状态。
+随后用 `AskUserQuestion` 让用户决定:
+- 「全部就绪,开跑」(默认)
+- 「未就绪 / 需调整,先暂停」(中止本次,用户准备完后再来)
+- 「prepare.md 已过期,请通知 qa 更新」(中止,提示用户回流到 qa)
+- 「重新选择 slug」(回到第 2 步)
+
+> 多 slug 顺序运行时,第 3.1 步对每个 slug 都做一次,不要批量合并——每条流程的准备项独立,合并展示用户容易遗漏。
+
+#### 3.2 加载复利经验 `lessons.xml`(条件触发)
+
+每个 slug 可能有一份经验文件 `.harness/smoke-tests/{slug}/lessons.xml`,记录历次冒烟沉淀的"触发要点 / 数据准备 / 已知坑"等参考性提示。**首次冒烟时该文件不存在,正常**——直接跳过本步。
+
+文件存在时,解析并把所有 `<category>` 渲染给用户:
+
+```
+[order-create] 累积复利经验(共 3 条,来自 lessons.xml)
+  [触发要点]
+    - auth-token: 创建订单需先调 /auth/login,token 30min 过期
+  [数据准备]
+    - product-stock: product_stock 需预置 sku=SKU001 库存 ≥ 10,否则 step 03 必失败
+  [已知坑]
+    - mq-delay: order.paid MQ 消费 5s 延迟,wait_until 至少 10s
+```
+
+随后 `AskUserQuestion`:
+- 「全部仍适用」(默认)
+- 「部分已过期,我手动改 lessons.xml 后重启」(中止当前流程,等用户改完再来)
+- 「全部跳过,本次不参考」(不删除文件,只是本次不应用)
+
+**lessons.xml schema**:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<lessons slug="order-create" updated="2026-05-15" version="3">
+  <category name="trigger-essentials" label="触发要点">
+    <item id="auth-token">创建订单需先调 /auth/login,token 30min 过期</item>
+  </category>
+  <category name="data-prep" label="数据准备">
+    <item id="product-stock">product_stock 需预置 sku=SKU001 库存 ≥ 10</item>
+  </category>
+  <category name="known-pitfalls" label="已知坑">
+    <item id="mq-delay">order.paid MQ 消费 5s 延迟,wait_until 至少 10s</item>
+  </category>
+</lessons>
+```
+
+约定:`<lessons>` 必须有 `slug`/`updated`/`version` 属性;`<category>` 的 `name` 是 slug-friendly 标识符(用于去重),`label` 是中文展示名;`<item>` 必须有 `id`(slug-friendly,用于"更新而不是新增")。推荐(非强制)category:`trigger-essentials` / `data-prep` / `known-pitfalls` / `account-matrix` / `perf-baseline`。
+
+### 4. 引导用户在自己终端启动脚本
+
+**本 skill 不再 fork-exec smoke.sh**——交还启停权给用户,方便随时 Ctrl+C、加 `bash -x`、改 env 重跑。
+
+打印命令并阻塞等待用户回报:
+
+```
+请在你自己的终端执行(支持 Ctrl+C / bash -x / 改 env):
+
+  cd <repo-root>
+  bash .harness/smoke-tests/{slug}/smoke.sh
+
+跑完后回到本会话告诉我「跑完了」(或贴一句话也行),我从 .run/result.json 读结构化结果。
+```
+
+orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DIR → result_init → 顺序遍历 `[0-9][0-9]-*.sh` step → result_finalize → 停止服务),并把结果落盘到 `.harness/smoke-tests/{slug}/.run/result.json`。step 之间通过 `{slug}/.run/state.env` 共享 token / orderNo 等状态。
+
+用户回报后,**只读 result.json**,不读 stdout——结构化输入比截取 stdout 稳。读不到 result.json 时(orchestrator 异常退出 / 用户中途 Ctrl+C 没等到 finalize)提示用户:
+
+> 没找到 `.run/result.json`,可能 orchestrator 中途退出了。请贴最后 20 行 stdout 给我,我尽量诊断。
 
 ### 5. 与用户的交互(运行时)
 
-脚本执行过程中遇到 `wait_user_action`,会打印两类提示并阻塞等待用户输入 `c`/`s`/`a`:
+脚本运行时有两类阻塞点:**step 内部的 `wait_user_action`**(脚本作者写死的业务核验)+ **step 外部的 `step_checkpoint`**(每个 step 跑完后的统一暂停)。本 skill 不在循环里——脚本是用户在自己终端跑——但需要让用户理解两类暂停的语义,因为发生在他们自己的终端里。
 
-#### 人工触发步骤(三段式)
+#### 5.1 step 外部:`step_checkpoint`(每个 step 跑完都暂停)
+
+由 `step_run` 自动在每个 step 执行后触发,**默认行为,无需脚本作者写**。打印结果摘要 + state.env 关键字段(token / orderNo 等),阻塞等待用户输入:
+
+| 输入 | 行为 |
+|------|------|
+| `c`  | 继续下一 step(默认) |
+| `s`  | 跳过下一 step(标记 SKIP,继续后续) |
+| `r`  | 重跑当前 step(状态保留) |
+| `d`  | 调试模式:打印 `state.env` 路径 + 在另一个终端的重跑命令(`bash {slug}/{step-file}`),阻塞等用户调试完输入 `c` |
+| `a`  | 中止整个冒烟 |
+
+> 设计动因:用户每次 step 后都要去 DB 客户端查表核验,根本不存在"连续跑"的合理场景,所以默认就是逐 step 暂停,不再提供"连续 vs 单步"模式开关。
+
+#### 5.2 step 内部:`wait_user_action`(脚本作者写死的业务核验)
+
+step 内部出现 `wait_user_action` 时,有两类形态:
+
+##### 5.2.1 人工触发步骤(三段式)
 
 1. **指令**:脚本明确告诉用户要触发什么——给出 Scheduler 名 / MQ topic / RPC 方法,以及可执行的触发方式提示(管理后台路径、命令示例)
 2. **等待**:用户在终端输入
@@ -90,11 +194,13 @@ orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DI
    - `a` → 中止脚本
 3. **后置数据人工核验**:用户输入 `c` 后,脚本继续暂停一次,给出明确的 DB 核验提示(表、定位字段、期望值、可直接复用的 `select`)。用户在自己的 DB 客户端查库后输入 `c` 表示已确认副作用
 
-#### 简单数据核验
+##### 5.2.2 简单数据核验
 
 业务步骤完成后,脚本可能直接给出一段 DB 核验提示并阻塞,等待用户查库后输入 `c` 继续。
 
-> 非交互环境(`HARNESS_NONINTERACTIVE=1`)下,`wait_user_action` 自动 SKIP 当前步骤并记录原因,后续依赖项一并 SKIP。
+> 非交互环境(`HARNESS_NONINTERACTIVE=1`)下,`wait_user_action` 自动 SKIP 当前步骤并记录原因,后续依赖项一并 SKIP;`step_checkpoint` 默认按 `c` 处理(直接 return)。
+
+> 5.1 和 5.2 的关系:某些 step 既有 `wait_user_action`(业务核验)又被 `step_checkpoint` 包裹(技术性确认),用户体验上是"step 内核验一次 → step 结束再确认一次"。这是合理的——前者由脚本作者写死必须发生,后者是 step 之间统一的"是否进入下一个"。
 
 ### 6. 单 slug 完成后的 checkpoint(多 slug 顺序运行时必做)
 
@@ -122,7 +228,7 @@ orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DI
 
 脚本结束后,**先落盘再报告**,顺序不能颠倒:
 
-1. 收集 `log_pass` / `log_fail` / `log_skip` 输出
+1. 读 `.harness/smoke-tests/{slug}/.run/result.json` 拿结构化结果(PASS/FAIL/SKIP 计数 + 失败 step 列表 + 每条 FAIL 的 reason)。**不要从 stdout 截取**——result.json 是单一事实源
 2. **立刻**写入失败记录文件(下文 7.1 规定),不允许跳过
 3. 向用户报告:本次冒烟覆盖的步骤数、PASS / FAIL / SKIP 数、每条 FAIL 的具体原因
 4. 多 slug 顺序运行时,逐个汇总,最后给出总览
@@ -148,15 +254,61 @@ orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DI
 - **每条 FAIL 一节**(`## {slug} / {step-file}`,step-file 取失败 step 的文件名如 `02-create-order.sh`),节内字段固定:
   - **失败时间**(脚本输出中的时间戳)
   - **诊断分类**(失败诊断表四行之一,必须准确填写——决定后续是否进入修复模式)
-  - **失败现象**:从脚本 stdout **原样截取**的 FAIL 行
-  - **关键日志片段**:FAIL 前后若干行原文
+  - **失败现象**:从 `.harness/smoke-tests/{slug}/.run/run.log` **原样截取**的 FAIL 行
+  - **关键日志片段**:`.run/run.log` 中 FAIL 前后各 20 行原文
   - **call-chain**:`.harness/call-chain/{slug}.md`(只填路径,不复制内容)
   - **失败 step**:`.harness/smoke-tests/{slug}/{step-file}`(具体到失败 step,不是 orchestrator)
   - **state.env 快照**:`.harness/smoke-tests/{slug}/.run/state.env`(失败时上下文,builder 修复时可参照)
+  - **run.log 快照**:`.harness/smoke-tests/{slug}/.run/run.log`(完整 stdout 落盘,用户中断会话或下次启动后仍可独立查阅)
 
 只引用证据,不臆测原因。原因分析是 builder 的职责,不是 smoke 的。
 
 **唯一性约定**:此后所有读取(是否有真 bug、生成修复 plan)**只从这份文件读**,严禁从 skill 上下文复述。
+
+### 7.2 临时入口清理(条件触发)
+
+**触发条件**:本次冒烟覆盖的任一 slug,其 `00-prepare.md` 含"临时入口文件清单"小节(非空)。
+
+把所有 slug 的临时入口文件路径聚合成一份清单(去重),用 `AskUserQuestion` 让用户三选一:
+
+> 本次冒烟使用了 N 个临时入口(列出文件路径),如何处理?
+>
+> - **撤销改动(默认)**:对每个文件:
+>   - 已被 git tracked → `git checkout HEAD -- {file}` 还原
+>   - 新增的未 tracked 文件 → **不自动 `rm`**,而是列出来提示用户手动删除(避免误删用户其他工作)
+> - **暂不处理**:文件保留在工作区,由用户自行决定后续(stash / 留到下次冒烟 / 手动整理)
+> - **直接提交**:`git add {files} && git commit`(commit message 由用户提供或采用默认 `chore: smoke trigger endpoints for {slug}`)。**默认不 push**——push 是显著动作,需要用户在另一条 `AskUserQuestion` 里再次确认目标 branch
+
+执行完毕后,把清理结果(还原了哪些 / 保留了哪些 / 提交到了哪个 commit)简短回播给用户,作为本次冒烟的尾声。
+
+> 不靠 CI、不靠纪律——临时入口的去留由用户在每次冒烟结束时显式拍板,不留隐患。
+
+### 7.3 复利经验提议(每次冒烟都做)
+
+**触发条件**:每次冒烟结束都做(无论 PASS / FAIL),不依赖修复模式是否触发。
+
+skill 基于本次冒烟现场,**主动提议** 0-3 条候选经验。提议来源:
+
+- 用户在 `wait_user_action` 时输入的**自由文本提示**(口头注意事项、临时补充的步骤说明)
+- prepare.md 之外用户**临时补的资源**(如"我额外起了一个 mock 服务"——说明 prepare.md 不全)
+- 修复模式触发的**真 bug 类型**(说明该流程对某类问题敏感)
+- step_checkpoint 中用户**多次重跑同一 step**(说明该 step 易踩)
+
+每条候选必须给出三要素:`category`(下推荐 5 类之一或新建)、候选 `id`(slug-friendly)、`item` 正文。用 `AskUserQuestion`:
+
+- 「采纳并写入 lessons.xml」
+- 「修改后采纳」(进入二次输入,采纳用户改写后的版本)
+- 「拒绝」(不写)
+
+**采纳后的合并逻辑**:
+
+- 若 lessons.xml 已存在同 `id` 的 item → 再问一次「**覆盖既有内容** / **追加为新 id**(如 `auth-token-2`) / **拒绝**」
+- 写入后更新根节点 `<lessons updated="今日" version="N+1">`
+- 文件不存在则先创建,带完整 XML 声明和根节点
+
+**禁止 skill 静默写入**——任何写入必须经用户 `AskUserQuestion` 明确同意。**禁止 skill 自行决定 category/id**——必须先呈现给用户审阅。
+
+> 没有候选可提议时(本次冒烟平淡如水)直接说「本次没有发现值得沉淀的经验,跳过」,不要硬凑。
 
 ## 失败诊断
 
@@ -170,7 +322,7 @@ orchestrator 内部已包含完整生命周期(启动服务 → 初始化 RUN_DI
   1. 失败 step 脚本本体(`.harness/smoke-tests/{slug}/{step-file}`)
   2. 对应 call-chain(`.harness/call-chain/{slug}.md`)
   3. `state.env` 快照(`.harness/smoke-tests/{slug}/.run/state.env`)
-  4. 脚本 stdout 中 FAIL 行前后各 20 行
+  4. `run.log`(`.harness/smoke-tests/{slug}/.run/run.log`)中 FAIL 行前后各 20 行
 - **一轮即决**:读完上述 4 份后必须给出分类结论。**禁止**为"再看一眼"重复 Read/Grep 同一文件、扩大范围读其他 step、回头查 builder/qa 历史。如果发现自己想第二次打开同一份证据,这就是要走"逃生口"的信号
 - **判不出来的逃生口**:若一轮读完仍不能稳妥归到下表四类中任意一类,**立即** `AskUserQuestion` 把四个分类做成选项让用户拍板,**禁止继续自行分析**。把已读到的关键证据(2-3 句话)随问题一起给用户,便于用户决策
 

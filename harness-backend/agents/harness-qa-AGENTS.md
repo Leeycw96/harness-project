@@ -320,14 +320,90 @@ builder 不为入口层(Controller / RPC Provider / MQ Listener / Scheduler)写�
   README.md                 # 使用说明、外部依赖状态表、运行命令
   failures/                 # 由 /harness-backend-smoke 写入,QA 不动
   {slug}/
+    00-prepare.md           # 用例视角准备清单(actor / 数据 / 外部依赖 / 非HTTP触发点)
     smoke.sh                # orchestrator
     01-{verb}-{noun}.sh     # step 子脚本,序号即执行顺序
     02-{verb}-{noun}.sh
     ...
-    .run/                   # 运行时产物(state.env 等),git 忽略
+    .run/                   # 运行时产物(state.env / result.json / run.log),git 忽略
 ```
 
 首次产出时一并创建 `smoke-common.sh`、`README.md`,并把 `smoke-tests/*/.run/` 写入项目 `.gitignore`。
+
+### 0. 用例视角准备清单(`00-prepare.md`)
+
+**写脚本之前先写它**——把"这条流程冒烟前用户要准备什么"显式列出,避免脚本写完才发现需要的数据/账号/触发方式没人准备。
+
+#### 必填四张表
+
+```markdown
+---
+slug: order-create
+generated: 2026-05-15
+generator: harness-qa
+---
+
+## Actor 表(谁调谁)
+
+| step 文件          | 调用接口                    | 角色      | 凭据获取                                |
+|--------------------|----------------------------|-----------|----------------------------------------|
+| 01-login.sh        | POST /auth/login           | 普通用户  | 用例账号 user_smoke_001 / pwd 见 vault |
+| 02-create-order.sh | POST /orders               | 普通用户  | 复用 01 的 token                       |
+| 03-approve.sh      | POST /admin/orders/approve | 管理员    | 用例账号 admin_smoke_001 / pwd 见 vault|
+
+## 预置数据
+
+| 库表            | 关键字段                 | 期望状态                   |
+|-----------------|-------------------------|---------------------------|
+| product         | sku=SKU001              | status=ON_SHELF, stock>=10|
+| user            | username=user_smoke_001 | status=ACTIVE             |
+
+## 外部依赖
+
+- Redis(localhost:6379)需可达
+- 短信网关 mock 服务需在 8090 端口启动
+
+## 非 HTTP 触发点
+
+| 触发点              | 类型      | 触发方式                            | 是否临时入口 |
+|--------------------|-----------|------------------------------------|--------------|
+| OrderCancelScheduler | 定时任务  | curl POST /_smoke/trigger/order-cancel | 是,冒烟后清理 |
+| order.paid          | MQ topic  | 后台手动 rabbitmqadmin publish ... | 否            |
+```
+
+> 字段说明:**Actor 表**强制每个 step 标注调用角色,凭据获取方式必须可执行(账号位置 / 获取脚本)。**预置数据**只列冒烟前必须人工准备的库内状态,脚本运行中产生的数据不列。**非 HTTP 触发点**列出每个 Scheduler/MQ/RPC 入口及其在本次冒烟中的触发方式。
+
+#### 临时 HTTP 入口决策(强制询问)
+
+写脚本前,如果"非 HTTP 触发点"非空,**必须** `AskUserQuestion`:
+
+> 该流程有 N 个非 HTTP 触发点(列出名称),要不要让 builder 临时加 `/_smoke/trigger/{name}` 内部 HTTP 入口?
+> - **加**:体验从"去后台戳"变成"curl 直接触发";冒烟结束时由 `/harness-backend-smoke` 引导用户清理(撤销/暂存/提交三选一)
+> - **不加**:保留 `wait_user_action` 引导用户后台触发
+
+**用户选"加"** → **不**拉 tmux builder pane(那是重型协作),用 Agent 工具(`Task` / `Agent`)唤起一个 general-purpose subagent,任务边界写死:
+
+```
+在 {src 路径} 下添加一个 @RestController 内部接口 POST /_smoke/trigger/{name},
+直接调用 {Scheduler/Listener handler 全限定名}.{方法名}()。
+
+要求:
+- 路径必须以 /_smoke/ 开头
+- 类/方法上加注释 // smoke-only,冒烟后清理
+- 不写测试,不改其他文件,不动配置
+- 完成后输出新增/修改的文件路径列表(完整绝对路径)
+```
+
+subagent 完成后返回路径列表,qa 把这些路径写进 `00-prepare.md` 的"非 HTTP 触发点"表的对应行(列名 `是否临时入口`),以及单独一段 "临时入口文件清单":
+
+```markdown
+## 临时入口文件清单(冒烟后由 /harness-backend-smoke 引导清理)
+
+- src/main/java/com/example/smoke/SmokeTriggerController.java(新增)
+- src/main/java/com/example/order/OrderCancelScheduler.java(改:加 public 方法)
+```
+
+**用户选"不加"** → 在 prepare.md 的"非 HTTP 触发点"表里把"触发方式"写得足够具体(命令示例 / 后台路径 / 操作步骤),不留 TODO。
 
 ### 1. 一对一约定
 
@@ -367,7 +443,8 @@ step 之间通过共享文件传递数据,文件位于 `{slug}/.run/state.env`,`
 | `init_run_dir <SLUG_DIR>` | 初始化 `.run/`,清空 state.env,写入运行元信息 |
 | `load_state()` | 从 `.run/state.env` 读回环境变量 |
 | `state_set KEY VAL` | 把字段写入 `.run/state.env`(同名覆盖) |
-| `step_run <STEP_FILE> <i> <N>` | orchestrator 调用 step 时打印 `[i/N] {step-name}` 边界,捕获 step 退出码,失败时按依赖关系决定后续 step 是否 SKIP |
+| `step_run <STEP_FILE> <i> <N>` | orchestrator 调用 step 时打印 `[i/N] {step-name}` 边界,捕获 step 退出码,失败时按依赖关系决定后续 step 是否 SKIP;**内部根据 step 退出码自动调用 `result_record_pass/fail/skip`,并在 step 执行后调用 `step_checkpoint` 让用户决定继续/调试/重跑/跳过/中止** |
+| `step_checkpoint <STEP_FILE> <RESULT>` | 每个 step 跑完(无论 PASS/FAIL/SKIP)由 `step_run` 自动调用:打印结果摘要 + state.env 关键字段,阻塞等待用户输入 `c`(继续)/`s`(跳过下一个)/`r`(重跑当前)/`d`(调试模式,打印重跑命令并阻塞等用户调试完输入 c)/`a`(中止)。非交互环境(`HARNESS_NONINTERACTIVE=1`)下直接 return,默认按 `c` 处理 |
 | `login()` | 调用登录接口,`state_set TOKEN` 持久化 |
 | `assert_status()` | 检查 HTTP 状态码 |
 | `assert_json_field()` | 检查 JSON 响应字段 |
@@ -375,6 +452,11 @@ step 之间通过共享文件传递数据,文件位于 `{slug}/.run/state.env`,`
 | `wait_user_action()` | 人工触发步骤:打印指令并阻塞 read,接受 c/s/a;非交互环境(`HARNESS_NONINTERACTIVE=1`)自动 SKIP |
 | `skip_if_unavailable()` | 检查外部依赖,不可用时输出 SKIP(不判 FAIL) |
 | `log_pass()` / `log_fail()` / `log_skip()` | 结果记录,**必须**带"期望 / 实际"两行 |
+| `result_init` | orchestrator 启动时调用:在 `.run/result.json` 写入空 schema(`{slug, started_at, exit_code:null, summary:{pass:0,fail:0,skip:0}, steps:[]}`) |
+| `result_record_pass <STEP_FILE>` | 把一条 PASS 记录追加到 `.run/result.json` 的 `steps[]`,并 `summary.pass++`。由 `step_run` 自动调用,不需要 step 自己调 |
+| `result_record_fail <STEP_FILE> <REASON>` | 同上,记录 FAIL,`summary.fail++` |
+| `result_record_skip <STEP_FILE> <REASON>` | 同上,记录 SKIP,`summary.skip++` |
+| `result_finalize <EXIT_CODE>` | orchestrator 退出前调用(放在 trap 里):写入 `ended_at`、`exit_code`,确保 `result.json` 是合法 JSON。即使中途 trap 退出也要写出快照(部分结果) |
 
 ### 5. 验证维度
 
@@ -419,7 +501,13 @@ SLUG="$(basename "$SCRIPT_DIR")"
 source "$SCRIPT_DIR/../smoke-common.sh"
 
 init_run_dir "$SCRIPT_DIR"
-trap 'stop_service' EXIT
+
+# 把全部 stdout/stderr 同时输出到终端和 .run/run.log
+# 用户在自己终端跑时仍能实时看到输出,skill 后续从 run.log 截取 FAIL 上下文
+exec > >(tee "$SCRIPT_DIR/.run/run.log") 2>&1
+
+result_init
+trap 'rc=$?; result_finalize "$rc"; stop_service' EXIT
 
 start_service
 wait_for_service
@@ -432,6 +520,10 @@ for step in "${steps[@]}"; do
   step_run "$step" "$i" "$total"
 done
 ```
+
+> **启停约定**:`/harness-backend-smoke` 不再 fork-exec orchestrator,而是引导用户在自己终端 `bash smoke.sh`。用户回报后 skill 只读 `.run/result.json`(结构化结果)+ `.run/run.log`(失败诊断时按需截取),不读 stdout。这两份产物由 orchestrator 在 trap 里强制落盘,即使中途 Ctrl+C 也有部分快照。
+>
+> **逐 step 暂停**:`step_run` 内部会在每个 step 执行**之后**自动调用 `step_checkpoint`,用户决定 c(继续)/ s(跳过下一)/ r(重跑当前)/ d(调试)/ a(中止)。orchestrator 模板里的 for 循环**不需要**显式调 `step_checkpoint`——封装在 `step_run` 里。这是默认行为,不再提供"连续 vs 单步"模式开关——基于真实使用反馈:用户每次 step 后都要查表核验,根本不存在连续跑的合理场景。
 
 #### step(简单接口,`{slug}/02-create-order.sh`)
 
