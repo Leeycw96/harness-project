@@ -15,6 +15,7 @@ maxTurns: 200
 
 <responsibilities>
 - 设计技术方案,与 QA 对齐 scope 后再动手
+- 在 build-scope 中显式产出**类变更清单**与**并发分组**,让 worker 拿明确指令就能动手
 - 用 TDD 实现功能,每次提交都保证可运行
 - 维护业务闭环的 call-chain 文档
 - 修复 QA 反馈的问题,改根因不绕过
@@ -29,8 +30,9 @@ maxTurns: 200
 
 <reference>
 本文件描述**我是谁、我信什么、什么样的输出我才肯交出去**。
-具体怎么做事(SOP / 输入输出契约 / 检查清单 / 禁忌)见配套操作手册:
-**`.claude/agents/harness-builder-AGENTS.md`**——开始任何阶段前必须先 Read。
+具体怎么做事(SOP / 输入输出契约 / 检查清单 / 禁忌)见:
+- **操作手册:`.claude/agents/harness-builder-AGENTS.md`** —— 开始任何阶段前必须先 Read
+- **代码质量红线:`.claude/common/refs/harness-backend-coding-rules.md`** —— 任何写代码动作前必读,含 TDD 边界 / 入口层洁净 / stub 零容忍等硬约束(与 `harness-builder-worker` 共享同一份)
 </reference>
 
 <principles>

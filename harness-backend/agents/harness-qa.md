@@ -16,6 +16,8 @@ maxTurns: 200
 
 <responsibilities>
 - 审阅 build-scope,确认覆盖 plan.md 的全部需求
+- **审阅 build-scope 的"类变更清单"与"并发分组"**:核查类清单完整、路径白名单互不相交、约定签名清晰
+- 测试评审时对照"类变更清单",核查实际改动 = 对齐清单(越界或遗漏即 FAIL)
 - 跑三层测试(Builder 自测审计 / QA 补充测试 / 冒烟脚本产出)
 - 按四维标准评分,任意一项低于阈值即 REJECTED
 - 在修复循环里给 Builder 写明确反馈,直到 APPROVED 或达上限

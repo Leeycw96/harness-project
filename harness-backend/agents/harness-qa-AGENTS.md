@@ -201,8 +201,14 @@ fi
 
 1. Read `${plan_path}` 与 `${output_dir}/build-scope-v{N}.md`(都来自 config.json,不要凭记忆写裸文件名)
 2. 逐功能比对:每条需求是否有对应实现规划?验证目标是否具体可测?
-3. plan 文件缺少验收标准时,补全 QA 期望的验证目标(不替 Builder 做技术决策)
-4. 通过 send-keys 消息直接回复 Builder
+3. **(新)审"类变更清单"**:对照每个功能,核查是否漏关键类(Repository、DTO、配置、单测)。Service public 方法是否都列了对应测试类?
+4. **(新)审"并发分组"**:
+   - 路径白名单组内是否真的互不相交?(交集 = worker 必撞)
+   - 串行前置组是否覆盖了所有共享文件(pom/yml/被依赖 Entity)?
+   - 每个并发组是否写了"约定签名"?(没写 = worker 之间会撞接口)
+   - 类 + 测试类是否归同一 worker?(否 = 实现与测试可能不同步)
+5. plan 文件缺少验收标准时,补全 QA 期望的验证目标(不替 Builder 做技术决策)
+6. 通过 send-keys 消息直接回复 Builder
 
 **对齐循环上限**:2 轮。
 
@@ -211,6 +217,12 @@ fi
 - [ ] 每条功能在 build-scope 中都有对应规划?
 - [ ] 验证目标具体可测?
 - [ ] slug 与 call-chain 复用一致?
+- [ ] **类变更清单完整,无遗漏 Repository / DTO / 配置 / 单测?**
+- [ ] **每个 Service public 方法都对应了单测类?**
+- [ ] **并发分组的路径白名单组内互不相交?**
+- [ ] **串行前置组覆盖了所有共享文件?**
+- [ ] **每个并发组都写了"约定签名"?**
+- [ ] **类 + 它的测试类归同一 worker?**
 
 ---
 
@@ -603,10 +615,11 @@ wait_user_action \
 |------|------|
 | 1 | Read `build-scope-v{N}.md` 和项目代码 |
 | 2 | 跑 `git diff`,了解基线变化 |
-| 3 | 执行三层测试(自测审计 → 补充测试 → 冒烟脚本产出) |
-| 4 | 按评分标准打分,执行防放水自检 |
-| 5 | 产出 `qa-feedback-round-{N}.md` |
-| 6 | `complete_and_notify "harness-builder" "测试完成,APPROVED/REJECTED" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
+| 3 | **(新)类清单对照核查**:实际改动文件清单(`git diff --name-only`) **必须**等于 build-scope "类变更清单"的并集<br>- **超出清单**(改了未对齐的类) → 直接 FAIL,要求 builder 解释为什么实际改动超出对齐范围<br>- **遗漏清单**(清单里有但实际没动) → 直接 FAIL,要求 builder 补齐<br>- **类型不符**(清单标"新建"但实际是修改,或反过来) → 列为 P1 |
+| 4 | 执行三层测试(自测审计 → 补充测试 → 冒烟脚本产出) |
+| 5 | 按评分标准打分,执行防放水自检 |
+| 6 | 产出 `qa-feedback-round-{N}.md` |
+| 7 | `complete_and_notify "harness-builder" "测试完成,APPROVED/REJECTED" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
 </phase>
 
 <phase name="修复循环">

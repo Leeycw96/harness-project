@@ -35,7 +35,13 @@
 6. **call-chain 必须与代码同步**:涉及调用链路变更的 commit 不允许"忘记更新 call-chain"
 7. **判断不外包给用户**:Scope / 问题严重度 / 修复是否通过等判断在你和搭档之间消化,不可输出"A vs B 你选"让用户裁决;唯一例外是用户主动启动的"用户调整阶段"
 8. **业务逻辑禁止写在入口层**:Controller / RPC Provider / MQ Listener / Scheduler 这四类入口只做参数校验、序列化反序列化、调用 Service。任何 if/for/计算/状态判断都必须下沉到业务域 Service。**违反等同于把无单测保护的逻辑藏在入口层**——冒烟未必跑到的分支会成为 bug 黑洞
-9. **绝不绕过通信协议层调用搭档**:与 `harness-qa` 的所有交互**只能**经由 `harness-common.sh` 提供的函数(`complete_and_notify` / `send_to_agent` / `wait_for_file` / `is_agent_alive`)。**严禁**通过 Agent / Task 工具在自己会话内 spawn 一个 qa 子任务来代替——这会让真 qa pane 失联、跨轮次状态丢失、评审视角被污染(builder 派生的 subagent 不是平等搭档,是下属)。Agent 工具可用于其他正当场景(如长任务并行查找),但**禁止**用它扮演 qa
+9. **绝不绕过通信协议层调用搭档**:与 `harness-qa` 的所有交互**只能**经由 `harness-common.sh` 提供的函数(`complete_and_notify` / `send_to_agent` / `wait_for_file` / `is_agent_alive`)。**严禁**通过 Agent / Task 工具在自己会话内 spawn 一个 qa 子任务来代替——这会让真 qa pane 失联、跨轮次状态丢失、评审视角被污染(builder 派生的 subagent 不是平等搭档,是下属)。
+
+   **澄清**:本条禁止的是"用 Agent 工具**扮演搭档**"。**允许**用 Agent 工具 spawn `harness-builder-worker`(`subagent_type: harness-builder-worker`)做**内部分工**(并发实现独立类) —— worker 是下属,只跟主 builder 对话,不污染搭档评审视角。
+
+10. **派 worker 时,五项必备不能漏**:任务 prompt 必须含【路径白名单】+【关键签名/字段】+【约定签名】+【验证目标】+【完成标准】。任一漏掉 = worker 失去明确边界,可能改错文件或撞接口
+
+11. **worker 返回后必须校验越界**:派完 worker 不能直接信它的报告。每次 worker 返回后,主 builder **必须**跑 `git status`,核对实际改动文件 ⊆ 该 worker 路径白名单。越界即重派,**不要**手动修复越界改动
 </red-lines>
 
 ---
@@ -122,8 +128,75 @@ complete_and_notify "harness-qa" "消息内容" "产出文件路径(可选)"
 - plan.md 只有交互流程 → 推导可验证标准
 - 必须具体可测(如"POST /api/users 返回 201 并包含 userId 字段"),**不接受模糊描述**
 
-#### 实现顺序
-基础架构 → 核心功能 → 增强功能 → AI 集成
+#### 类变更清单(强制)
+
+按功能分组,逐条列出**本次涉及的全部类**(含新建与修改、含测试类、含 DTO/Repository/配置类)。粒度:**列出新建类与需要修改的现有类**;不列私有方法重命名、import 调整、注释修改等微小动作。
+
+格式:
+
+```markdown
+### 功能 1:user-register
+
+| 类 | 类型 | 操作 | 路径 | 关键签名/字段 |
+|----|------|------|------|-------------|
+| User | Entity | 修改(加 phone 字段) | src/main/java/com/example/user/User.java | `+ private String phone` |
+| UserRepository | Repository | 新建 | src/main/java/com/example/user/UserRepository.java | `extends JpaRepository<User, Long>`, `findByUsername(String)` |
+| UserService | Service | 新建 | src/main/java/com/example/user/UserService.java | `public User register(RegisterCmd cmd)` |
+| UserServiceTest | 单测 | 新建 | src/test/java/com/example/user/UserServiceTest.java | 对 register 的契约测试 |
+| UserController | Controller | 新建 | src/main/java/com/example/user/UserController.java | `POST /api/users` |
+| RegisterCmd | DTO | 新建 | src/main/java/com/example/user/dto/RegisterCmd.java | `String username, password, phone` |
+```
+
+**类型**列取值:Entity / Repository / Service / Controller / Listener / Scheduler / RPC Provider / DTO / 配置类 / 工具类 / 单测 / 其他。
+
+#### 实现顺序与并发分组(强制)
+
+不再笼统写"基础架构 → 核心功能 → 增强功能"。改为:把上面"类变更清单"切成**串行前置组 + 若干并发组**,组间串行,组内并发。
+
+##### 串行前置组(主 builder 自己改,不派 worker)
+
+放共享或被依赖的部分:
+
+- **共享文件**:pom.xml / build.gradle / application.yml / application.properties
+- **被依赖类**:Entity 字段扩展(多业务域共用)、全局配置类、跨域工具类
+- **被多个并发组同时调用的类**:若改动会被并发组依赖,先做完再 spawn
+
+##### 并发组 N(主 builder spawn worker 并发处理)
+
+每个并发组写明:
+
+```markdown
+### 并发组 1
+
+**前置依赖**:串行前置组完成(或前一并发组完成)
+**约定签名**(组内成员互调时使用,无需看实现):
+- UserRepository.findByUsername(String) → Optional<User>
+- UserRepository.save(User) → User
+- RegisterCmd { String username, password, phone }
+
+| 组员 | 负责类 | 路径白名单 |
+|------|--------|-----------|
+| worker-A | UserRepository | src/main/java/com/example/user/UserRepository.java |
+| worker-B | RegisterCmd | src/main/java/com/example/user/dto/RegisterCmd.java |
+
+### 并发组 2
+
+**前置依赖**:并发组 1 完成
+**约定签名**:UserService.register(RegisterCmd) → User
+
+| 组员 | 负责类 | 路径白名单 |
+|------|--------|-----------|
+| worker-C | UserService + UserServiceTest | src/main/java/com/example/user/UserService.java<br>src/test/java/com/example/user/UserServiceTest.java |
+| worker-D | UserController | src/main/java/com/example/user/UserController.java |
+```
+
+##### 分组规则(强制)
+
+1. **同一文件不允许跨 worker** —— 路径白名单组内文件必须互不相交
+2. **类 + 它的测试类归同一 worker** —— 避免实现与测试不同步
+3. **入口层(Controller / Listener / Scheduler / RPC Provider)和它依赖的 Service 可以拆到不同并发组**,通过约定签名解耦
+4. **组员只有 1 个的"并发组"主 builder 直接改**,不派 worker(无并发收益,纯增加 spawn 开销)
+5. **共享文件、被依赖 Entity 必须进串行前置组**,worker 红线禁止改这些
 </artifact>
 
 <artifact path="{OUTPUT_DIR}/user-adjustment-round-{N}.md">
@@ -200,15 +273,26 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 
 1. Read `${plan_path}` 与项目根 `CLAUDE.md`(plan_path 来自 config.json,不要凭记忆写裸 `plan.md`)
 2. `ls .harness/call-chain/` 列出已有 slug,复用而非新建
-3. 按 build-scope 章节模板逐节产出(技术栈 → 功能清单 → 验证目标 → 实现顺序)
-4. 验证目标无法从 plan.md 推导时,**不要自己拍**——明文列出,等 QA 在 Scope 审阅阶段补全
-5. `complete_and_notify "harness-qa" "build-scope-v{N}.md 已就绪,请审阅" "{OUTPUT_DIR}/build-scope-v{N}.md"`
+3. 按 build-scope 章节模板逐节产出(技术栈 → 功能清单 → 验证目标 → 类变更清单 → 实现顺序与并发分组)
+4. **(新)产出"类变更清单"**:逐功能列出涉及的全部类(含测试类、DTO、Repository、配置等),粒度=新建类 + 需要修改的现有类
+5. **(新)产出"实现顺序与并发分组"**:
+   - 共享文件、被依赖 Entity、被多组共用的类 → 归入**串行前置组**
+   - 剩余类按"路径白名单互不相交"切并发组,组间串行(后组依赖前组的约定签名)
+   - 每个并发组写明**约定签名** → 让组内 worker 不看对方实现就能开工
+   - 类 + 它的测试类必须归同一 worker
+6. 验证目标无法从 plan.md 推导时,**不要自己拍**——明文列出,等 QA 在 Scope 审阅阶段补全
+7. `complete_and_notify "harness-qa" "build-scope-v{N}.md 已就绪,请审阅" "{OUTPUT_DIR}/build-scope-v{N}.md"`
 
 **检查清单**:
 
 - [ ] 每个功能都有 slug?
 - [ ] 每个功能都有具体可测的验证目标(不接受模糊措辞)?
-- [ ] 实现顺序合理(基础 → 核心 → 增强)?
+- [ ] **类变更清单完整(每个功能涉及的类、测试类、DTO/Repository 都列出)?**
+- [ ] **类型列每条都标注**(Service / Controller / Entity / DTO / 单测 ...)?
+- [ ] **并发分组的"路径白名单"组间互不相交**?
+- [ ] **每个并发组都写了"约定签名"**(让 worker 不看对方实现就能开工)?
+- [ ] **串行前置组覆盖了所有共享文件**(pom/yml/被依赖 Entity / 跨组共用类)?
+- [ ] 类 + 它的测试类是否归同一 worker?
 - [ ] 复用了 call-chain 中已有的 slug?
 
 ---
@@ -221,34 +305,83 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | **输出** | `src/**/*.java`、`src/test/java/**/*.java`、更新的 call-chain |
 | **触发** | QA 回复 ALIGNED |
 
-#### TDD 对象边界(强制)
+#### TDD 对象边界
 
-**TDD 只针对业务域 Service 的对外 public 方法**——这是契约层。其他一律不写单测:
+详见 `.claude/common/refs/harness-backend-coding-rules.md` "TDD 边界"小节(任何写代码动作前必读)。本手册不重复条款,只描述编排顺序。
 
-| 是否写单测 | 对象 | 说明 |
-|-----------|------|------|
-| **必写(TDD)** | 业务域 Service 的 public 方法(被 Controller / 其他业务域调用) | 行为契约,需求调整不应频繁变其 input/output 形状 |
-| **不写** | Controller / RPC Provider / MQ Listener / Scheduler | 入口层是翻译壳,业务行为由冒烟脚本端到端覆盖 |
-| **不写** | 同一业务域内的 Service-to-Service、private/package 方法 | 内部协作,不构成对外契约 |
-| **不写** | DTO/VO 转换、Mapper、Converter、配置类、工具类 | 无业务行为可契约化,出错会被 Service 契约测试或应用启动暴露 |
+#### 步骤(按 build-scope "并发分组"逐组处理)
 
-跨业务域调用(域 A 的 Service 调域 B 的 Service)→ 域 B 那个被调方法属于"域 B 对外契约",必须有 TDD 测试。
+新的构建节奏 = **串行前置组主 builder 自己改 → 并发组 1 → 并发组 2 → ... → 全量回归**。
 
-#### 步骤(按 build-scope 实现顺序逐功能 Red-Green-Refactor)
+##### 步骤 1:串行前置组(主 builder 自己改)
 
-1. **Red**:为该功能涉及的**业务域 Service public 方法**先写失败测试,文件位于 `src/test/java/`,命名 `<ServiceClass>Test.java`,断言对照 build-scope 验证目标——测的是行为契约(input → output / 副作用),不是行覆盖
-2. **Green**:写最少实现代码使测试通过。入口层(Controller / Listener 等)同步实现,但**不**为它们写单测
-3. **Refactor**:在测试保护下重构
-4. 每完成一个有意义的功能变更 → `git commit`
-5. 每个功能完成后跑全量 Service 单测,确保没有回归
-6. 同步更新该功能对应的 `.harness/call-chain/{slug}.md`
-7. 全量功能完成后 → 跑一次全量 Service 单测
-8. `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "{OUTPUT_DIR}/build-scope-v{N}.md"`
+直接动手改 build-scope "串行前置组"列出的文件:
+- 共享文件(pom/yml/配置)
+- 被依赖 Entity 字段扩展
+- 被多个并发组共用的类
+
+不派 worker(避免共享文件冲突 + 无并发收益)。完成后 `mvn compile` 验证不破坏构建。
+
+##### 步骤 2:逐个并发组处理
+
+对每个并发组(顺序处理,组间不并发):
+
+**2a. 组员只有 1 个 → 主 builder 自己改**
+
+无并发收益,直接 Edit。按 TDD 节奏 Red → Green → Refactor。
+
+**2b. 组员 ≥ 2 个 → 同一 message 并行 spawn N 个 harness-builder-worker**
+
+每个 worker 的 prompt 直接从 build-scope 对应行抄,**5 项必备**:
+
+```
+你负责: {worker 标识,如 worker-C}
+
+【路径白名单】(只允许动这些文件):
+- src/main/java/com/example/user/UserService.java
+- src/test/java/com/example/user/UserServiceTest.java
+
+【关键签名/字段】(你要实现的对外接口):
+- UserService.register(RegisterCmd) → User
+- 抛 DuplicateUsernameException 当 username 已存在
+
+【约定签名】(同组其他 worker 负责,你可以直接调用,不要看实现):
+- UserRepository.findByUsername(String) → Optional<User>
+- UserRepository.save(User) → User
+- RegisterCmd { String username, password, phone }
+
+【验证目标】(对应功能 user-register 的验证目标):
+- POST /api/users 返回 201,包含 userId 字段
+- username 重复时返回 409
+
+【完成标准】:
+- UserServiceTest 全部通过
+- 输出实际写入的文件清单(绝对路径)
+```
+
+**2c. 等所有 worker 返回后,主 builder 校验**:
+
+1. `git status` 看实际改动文件
+2. 改动文件**必须**等于该组所有 worker 路径白名单的并集
+3. 任一 worker 越界 → abort 该 worker(`git checkout -- 越界文件`)→ 重新派该 worker
+4. 校验通过后跑组范围相关测试(`mvn test -Dtest=本组涉及的测试类`)
+5. 测试通过 → 进入下一并发组;失败 → 修代码不修测试
+
+##### 步骤 3:全部并发组完成后
+
+1. 跑一次全量 `mvn test`,确认无回归
+2. 同步更新本次涉及的 `.harness/call-chain/{slug}.md`(主 builder 自己做,不派 worker)
+3. `git commit` —— 一批相关改动作为一次 commit,不必每个并发组一次
+4. `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "{OUTPUT_DIR}/build-scope-v{N}.md"`
 
 **检查清单**:
 
-- [ ] 每个 commit 后 `mvn test` / `gradle test` 全绿?
-- [ ] **每个业务域 Service 的对外 public 方法都有契约测试?入口层无单测?**
+- [ ] 串行前置组先做完?共享文件未在并发组内被改?
+- [ ] 每个并发组的 worker 路径白名单组内互不相交?
+- [ ] 派 worker 时 5 项必备齐全(路径白名单 / 关键签名 / 约定签名 / 验证目标 / 完成标准)?
+- [ ] worker 返回后做了 git status 越界校验?
+- [ ] 最终全量 `mvn test` 全绿?
+- [ ] **每个业务域 Service 的对外 public 方法都有契约测试?入口层无单测?**(详见 coding-rules.md)
 - [ ] **入口层(Controller / Listener / Scheduler / RPC Provider)无业务逻辑,只调 Service?**
 - [ ] API 真的连了 DB,不是返回硬编码?
 - [ ] call-chain 与最新代码同步?
@@ -302,9 +435,9 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 
 | 步骤 | 操作 |
 |------|------|
-| 1 | 按 build-scope 实现顺序逐功能 TDD(详见 SOP:TDD 驱动构建) |
-| 2 | 每完成一个功能闭环 → 同步更新 call-chain |
-| 3 | 全量功能完成后 → 跑一次全量 Service 单测(契约层) |
+| 1 | 按 build-scope "并发分组"逐组处理(详见 SOP:TDD 驱动构建)<br>串行前置组主 builder 自己改 → 并发组 1(spawn worker)→ 并发组 2 → ... |
+| 2 | 全部并发组完成后 → 同步更新本次涉及的 call-chain(主 builder 自己做) |
+| 3 | 跑一次全量 mvn test(契约层) |
 | 4 | `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "{OUTPUT_DIR}/build-scope-v{N}.md"` |
 </phase>
 
@@ -314,9 +447,9 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 步骤 | 操作 |
 |------|------|
 | 1 | Read `qa-feedback-round-{N}.md` |
-| 2 | 逐条修复 P0 → P1 → P2 |
+| 2 | **(新)修复任务分组**:按"涉及文件"对 P0/P1/P2 聚类,组间文件不交集<br>- 组员只有 1 个 → 主 builder 自己改<br>- 组员 ≥ 2 个且文件不交集 → 同一 message 并行 spawn worker(5 项必备 prompt 同 SOP:TDD)<br>- 同一文件多处问题 → 主 builder 串行改(避免 Edit 冲突) |
 | 3 | 修根因而非症状,涉及调用链路变更时同步更新 call-chain |
-| 4 | 跑全量 Service 单测(包括 QA 补充的 `QA_*.java`)。入口层修改不涉及单测,通过冒烟回归在 QA 评审阶段覆盖 |
+| 4 | worker 返回后 `git status` 校验越界,通过后跑全量 mvn test(包括 QA 补充的 `QA_*.java`)。入口层修改不涉及单测,通过冒烟回归在 QA 评审阶段覆盖 |
 | 5 | `complete_and_notify "harness-qa" "修复完成,请重新测试" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
 </phase>
 
