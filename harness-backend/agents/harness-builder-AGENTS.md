@@ -305,6 +305,8 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | **输出** | `src/**/*.java`、`src/test/java/**/*.java`、更新的 call-chain |
 | **触发** | QA 回复 ALIGNED |
 
+> 本节是 `harness-builder.md` 中 `<principle name="任务拆分先于动手">` 在 TDD 构建场景的具体实例化。判断三条(路径互不相交 / 子任务数 ≥ 3 / 单子任务 ≥ 1 个完整类)在 build-scope "并发分组"产出阶段已经固化,本 SOP 直接按分组执行。
+
 #### TDD 对象边界
 
 详见 `.claude/common/refs/harness-backend-coding-rules.md` "TDD 边界"小节(任何写代码动作前必读)。本手册不重复条款,只描述编排顺序。
@@ -447,7 +449,7 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 步骤 | 操作 |
 |------|------|
 | 1 | Read `qa-feedback-round-{N}.md` |
-| 2 | **(新)修复任务分组**:按"涉及文件"对 P0/P1/P2 聚类,组间文件不交集<br>- 组员只有 1 个 → 主 builder 自己改<br>- 组员 ≥ 2 个且文件不交集 → 同一 message 并行 spawn worker(5 项必备 prompt 同 SOP:TDD)<br>- 同一文件多处问题 → 主 builder 串行改(避免 Edit 冲突) |
+| 2 | **修复任务分组**(按 `<principle name="任务拆分先于动手">` 跑一遍判断):按"涉及文件"对 P0/P1/P2 聚类,组间文件不交集<br>- 组员只有 1 个 → 主 builder 自己改<br>- 组员 ≥ 2 个且文件不交集 → 同一 message 并行 spawn worker(5 项必备 prompt 同 SOP:TDD)<br>- 同一文件多处问题 → 主 builder 串行改(避免 Edit 冲突)<br>- 判断结果在回复里明示"派 N 个 worker / 自己改"|
 | 3 | 修根因而非症状,涉及调用链路变更时同步更新 call-chain |
 | 4 | worker 返回后 `git status` 校验越界,通过后跑全量 mvn test(包括 QA 补充的 `QA_*.java`)。入口层修改不涉及单测,通过冒烟回归在 QA 评审阶段覆盖 |
 | 5 | `complete_and_notify "harness-qa" "修复完成,请重新测试" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
@@ -461,7 +463,7 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 1 | 提示用户:「✅ 开发已完成并通过 QA 验收。你现在可以直接输入调整需求(新增功能、修改或删除已有内容),我会实现后与 QA 确认。输入"结束迭代"完成本次构建。」 |
 | 2 | **澄清扫描**(详见下方"澄清扫描契约"):无疑点直接进 3;有疑点列给用户澄清,用户裁定后再进 3 |
 | 3 | 收到用户(澄清后的)需求,**先**写入 `user-adjustment-round-{N}.md`(N 从 1 开始递增) |
-| 4 | 逐条对照该文件实现。修改集中在业务域 Service 的内部实现 / 入口层翻译——若改动**破坏**了 Service public 方法的对外契约形状(签名、return shape、抛出异常类型),同步更新对应契约测试;否则原契约测试**不应**因实现重构而失效 |
+| 4 | **按 `<principle name="任务拆分先于动手">` 跑一遍判断**(三条全过则同一 message 并行 spawn worker,否则自己改),判断结果在回复里明示。逐条对照 `user-adjustment-round-{N}.md` 实现,修改集中在业务域 Service 的内部实现 / 入口层翻译——若改动**破坏**了 Service public 方法的对外契约形状(签名、return shape、抛出异常类型),同步更新对应契约测试;否则原契约测试**不应**因实现重构而失效 |
 | 5a | **回归第一腿**:跑全量 Service 单测(`mvn test` / `gradle test`),确认契约层全绿 |
 | 5b | **回归第二腿**:重跑改动相关 slug 的冒烟脚本——单步可重跑(`bash .harness/smoke-tests/{slug}/NN-xxx.sh`),全流程慢但更稳。**不允许**只跑单测就宣告完成 |
 | 6 | `send_to_agent "harness-qa" "用户调整已完成,user-adjustment-round-{N}.md 已更新,请验证调整内容"` |
