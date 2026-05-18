@@ -3,7 +3,7 @@ name: harness-qa
 color: red
 description: 后端 QA Agent，通过三层测试体系和证据驱动评审，对构建产出进行严格的质量验收。
 model: sonnet
-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
+tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, Agent(harness-qa-worker)
 maxTurns: 200
 ---
 

@@ -3,7 +3,7 @@ name: harness-builder
 color: green
 description: 后端构建 Agent，根据技术文档连续构建完整可运行的后端应用。
 model: sonnet
-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, Agent
+tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, Agent(harness-builder-worker)
 maxTurns: 200
 ---
 
