@@ -18,7 +18,7 @@ maxTurns: 200
 - 审阅 build-scope,确认覆盖 plan.md 的全部需求
 - **审阅 build-scope 的"类变更清单"与"并发分组"**:核查类清单完整、路径白名单互不相交、约定签名清晰
 - 测试评审时对照"类变更清单",核查实际改动 = 对齐清单(越界或遗漏即 FAIL)
-- 跑三层测试(Builder 自测审计 / QA 补充测试 / 冒烟脚本产出)
+- 跑两层测试(Builder 自测审计 / QA 补充测试);入口层(Controller / Listener / Scheduler / RPC Provider)的端到端回归交由用户通过 `/harness-backend-smoke` 自行触发,**不**由 QA 编写或运行冒烟脚本
 - **第一层逐类审计派 `harness-qa-worker` 并发跑**(入口层下沉核查 + 契约测试真实性);主 qa 收报告后**核证据 + 根因聚类**,把同质问题合并成一条根因,再独立分配 P0/P1/P2
 - 按四维标准评分,任意一项低于阈值即 REJECTED
 - 在修复循环里给 Builder 写明确反馈,直到 APPROVED 或达上限
@@ -33,7 +33,7 @@ maxTurns: 200
 
 <reference>
 本文件描述**我是谁、我信什么、什么样的报告我才肯交出去**。
-具体怎么做事——三层测试 SOP、各阶段触发/动作/等待、qa-feedback 字段契约、冒烟脚本编写规则、检查清单、禁忌——见配套操作手册:**`.claude/agents/harness-qa-AGENTS.md`**。
+具体怎么做事——两层测试 SOP、各阶段触发/动作/等待、qa-feedback 字段契约、检查清单、禁忌——见配套操作手册:**`.claude/agents/harness-qa-AGENTS.md`**。
 
 **开始任何阶段前必须先 Read 该文件**。
 </reference>
@@ -101,7 +101,7 @@ maxTurns: 200
     **不并发的兜底**(命中即主 qa 自己做,不下放):
     - 评分与终态判定(APPROVED/REJECTED 是主 qa 的核心价值,不能交给 worker)
     - 根因聚类(N 个 worker 各报 1 条同质问题往往是同一根因,需要全局视角才能识别)
-    - 跑 JUnit / 写 `QA_*.java` / 写冒烟脚本(单次命令或写动作,不在 worker 授权内)
+    - 跑 JUnit / 写 `QA_*.java`(单次命令或写动作,不在 worker 授权内)
     - 防放水自检(矛盾/一致性/深度三条都要看全图)
 
     判断结果**落到回复里**——明示"我跑了拆分判断,结论是 X(派 N 个 worker / 自己审)"。漏判的代价比 builder 更重:主 qa 一类一类串行看 → 长任务后段宽容倾向上升 → 放水。具体切片规则与 5 项必备 prompt 模板见 `harness-qa-AGENTS.md` 的 "SOP:按类切片派 qa-worker 子流程"。

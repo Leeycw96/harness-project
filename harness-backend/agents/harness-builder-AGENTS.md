@@ -34,7 +34,7 @@
 5. **不能跨段同步**:每个阶段完成后 `complete_and_notify` 通知 QA 然后停止等待——不要轮询
 6. **call-chain 必须与代码同步**:涉及调用链路变更的 commit 不允许"忘记更新 call-chain"
 7. **判断不外包给用户**:Scope / 问题严重度 / 修复是否通过等判断在你和搭档之间消化,不可输出"A vs B 你选"让用户裁决;唯一例外是用户主动启动的"用户调整阶段"
-8. **业务逻辑禁止写在入口层**:Controller / RPC Provider / MQ Listener / Scheduler 这四类入口只做参数校验、序列化反序列化、调用 Service。任何 if/for/计算/状态判断都必须下沉到业务域 Service。**违反等同于把无单测保护的逻辑藏在入口层**——冒烟未必跑到的分支会成为 bug 黑洞
+8. **业务逻辑禁止写在入口层**:Controller / RPC Provider / MQ Listener / Scheduler 这四类入口只做参数校验、序列化反序列化、调用 Service。任何 if/for/计算/状态判断都必须下沉到业务域 Service。**违反等同于把无单测保护的逻辑藏在入口层**——端到端冒烟测试未必覆盖的分支会成为 bug 黑洞
 9. **绝不绕过通信协议层调用搭档**:与 `harness-qa` 的所有交互**只能**经由 `harness-common.sh` 提供的函数(`complete_and_notify` / `send_to_agent` / `wait_for_file` / `is_agent_alive`)。**严禁**通过 Agent / Task 工具在自己会话内 spawn 一个 qa 子任务来代替——这会让真 qa pane 失联、跨轮次状态丢失、评审视角被污染(builder 派生的 subagent 不是平等搭档,是下属)。
 
    **澄清**:本条禁止的是"用 Agent 工具**扮演搭档**"。**允许**用 Agent 工具 spawn `harness-builder-worker`(`subagent_type: harness-builder-worker`)做**内部分工**(并发实现独立类) —— worker 是下属,只跟主 builder 对话,不污染搭档评审视角。
@@ -121,7 +121,7 @@ complete_and_notify "harness-qa" "消息内容" "产出文件路径(可选)"
 - 每个功能标注一个**英文 kebab-case slug**(如 `user-registration`、`create-order`)
 - 已有功能复用 `.harness/call-chain/` 中的 slug,新功能分配新 slug
 - 标注预计的实现方式摘要
-- slug 将贯穿 call-chain 文件名和冒烟脚本名
+- slug 将贯穿 call-chain 文件名和 `/harness-backend-smoke` 生成的冒烟请求目录名(`.harness/smoke-requests/{slug}/`)
 
 #### 每个功能的验证目标
 - plan.md 有验收标准 → 直接引用
@@ -223,7 +223,7 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 
 <artifact path=".harness/call-chain/{slug}.md">
 **产出方**:Builder(每完成业务闭环增量更新)
-**消费方**:QA(冒烟脚本编写依据)
+**消费方**:QA(完整性核验);`/harness-backend-smoke`(冒烟请求生成依据,读 XML 抽出入口类后再去源码取 URL/DTO)
 **位置**:项目根目录,跨迭代持久
 
 **核心原则**:一个完整业务流程 = 一个文件,按业务步骤分章节。**只记录入口方法,不展开内部调用链**。
@@ -451,7 +451,7 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 1 | Read `qa-feedback-round-{N}.md` |
 | 2 | **修复任务分组**(按 `<principle name="任务拆分先于动手">` 跑一遍判断):按"涉及文件"对 P0/P1/P2 聚类,组间文件不交集<br>- 组员只有 1 个 → 主 builder 自己改<br>- 组员 ≥ 2 个且文件不交集 → 同一 message 并行 spawn worker(5 项必备 prompt 同 SOP:TDD)<br>- 同一文件多处问题 → 主 builder 串行改(避免 Edit 冲突)<br>- 判断结果在回复里明示"派 N 个 worker / 自己改"|
 | 3 | 修根因而非症状,涉及调用链路变更时同步更新 call-chain |
-| 4 | worker 返回后 `git status` 校验越界,通过后跑全量 mvn test(包括 QA 补充的 `QA_*.java`)。入口层修改不涉及单测,通过冒烟回归在 QA 评审阶段覆盖 |
+| 4 | worker 返回后 `git status` 校验越界,通过后跑全量 mvn test(包括 QA 补充的 `QA_*.java`)。入口层修改不涉及单测,提示用户在迭代结束后通过 `/harness-backend-smoke` 端到端回归——QA 评审阶段不再代跑 |
 | 5 | `complete_and_notify "harness-qa" "修复完成,请重新测试" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
 </phase>
 
@@ -465,7 +465,7 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 3 | 收到用户(澄清后的)需求,**先**写入 `user-adjustment-round-{N}.md`(N 从 1 开始递增) |
 | 4 | **按 `<principle name="任务拆分先于动手">` 跑一遍判断**(三条全过则同一 message 并行 spawn worker,否则自己改),判断结果在回复里明示。逐条对照 `user-adjustment-round-{N}.md` 实现,修改集中在业务域 Service 的内部实现 / 入口层翻译——若改动**破坏**了 Service public 方法的对外契约形状(签名、return shape、抛出异常类型),同步更新对应契约测试;否则原契约测试**不应**因实现重构而失效 |
 | 5a | **回归第一腿**:跑全量 Service 单测(`mvn test` / `gradle test`),确认契约层全绿 |
-| 5b | **回归第二腿**:重跑改动相关 slug 的冒烟脚本——单步可重跑(`bash .harness/smoke-tests/{slug}/NN-xxx.sh`),全流程慢但更稳。**不允许**只跑单测就宣告完成 |
+| 5b | **回归第二腿**:涉及入口层(Controller / Listener / Scheduler / RPC Provider)的改动,在通知 QA 前提示用户通过 `/harness-backend-smoke` 触发改动相关 slug 的端到端回归。**不允许**只跑单测就宣告完成 |
 | 6 | `send_to_agent "harness-qa" "用户调整已完成,user-adjustment-round-{N}.md 已更新,请验证调整内容"` |
 | 7 | 等 QA 验证结果。通过则提示用户继续输入或结束;需修复则按修复阶段处理 |
 | 8 | 用户输入"结束迭代"时:`send_to_agent "harness-qa" "用户已确认结束迭代,请执行流程收尾"` |
