@@ -19,6 +19,18 @@ copy_examples() {
   fi
 }
 
+# 工具函数：把相对路径转为绝对路径（基准 PROJECT_DIR）；已绝对则原样返回
+# 目的：launch_agent_pane / write_config 内部统一把传入路径转绝对，
+# 这样 config.json 里的 output_dir / plan_path、注入到子进程的 HARNESS_CONFIG
+# 都是无歧义的绝对路径——Agent 切 cwd 也能正确解析，不会错读旧 run 的 plan.md
+_abs_path() {
+  local p="$1"
+  case "$p" in
+    /*) printf '%s\n' "$p" ;;
+    *)  printf '%s/%s\n' "$PROJECT_DIR" "$p" ;;
+  esac
+}
+
 # 检测 tmux
 if ! command -v tmux &>/dev/null; then
   echo "错误：tmux 未安装，请先执行 brew install tmux"
@@ -114,6 +126,9 @@ launch_agent_pane() {
     echo "错误：launch_agent_pane 缺少第 3 个参数 config_path" >&2
     return 1
   fi
+  # 注入到子进程 env 的 HARNESS_CONFIG 必须是绝对路径
+  # Agent 在自己的会话里随时可能切 cwd,相对路径会失效
+  config_path=$(_abs_path "$config_path")
   local pending="$PROJECT_DIR/.harness/.pending-agents"
   local existing=0
   [ -f "$pending" ] && existing=$(wc -l < "$pending" | tr -d ' ')
@@ -156,6 +171,10 @@ write_config() {
     echo "错误：write_config 需要非空 output_dir（新方案下 config.json 写在该目录下）" >&2
     return 1
   fi
+  # 写到 config.json 的 output_dir / plan_path 必须是绝对路径,
+  # Agent Read 它们时不依赖 cwd——避免读到错的 plan.md
+  output_dir=$(_abs_path "$output_dir")
+  [ -n "$plan_path" ] && plan_path=$(_abs_path "$plan_path")
   local pending="$PROJECT_DIR/.harness/.pending-agents"
   if [ ! -f "$pending" ]; then
     echo "错误：没有待写入 config 的 agent，请先调用 launch_agent_pane" >&2
