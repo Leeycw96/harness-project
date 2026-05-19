@@ -450,6 +450,7 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 2 | 全部并发组完成后 → 同步更新本次涉及的 call-chain(主 builder 自己做) |
 | 3 | 跑一次全量 mvn test(契约层) |
 | 4 | `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "{OUTPUT_DIR}/build-scope-v{N}.md"` |
+| 5 | **STOP 边界**:步骤 4 完成后,本 turn **立即停手**——不要在同一 turn 输出"开发已完成,可以输入调整需求"等任何用户面向文本。**通知 qa ≠ qa 验收通过**,下一动作是等 qa 真发回 APPROVED/REJECTED,由"用户调整 phase"或"修复 phase"的进入前门槛重新触发。**违反 = 等同于跳过测试评审 + 修复循环两个 phase**。 |
 </phase>
 
 <phase name="修复">
@@ -464,12 +465,15 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 | 3 | 修根因而非症状,涉及调用链路变更时同步更新 call-chain |
 | 4 | worker 返回后 `git status` 校验越界,通过后跑全量 mvn test(包括 QA 补充的 `QA_*.java`)。入口层修改不涉及单测,提示用户在迭代结束后通过 `/harness-backend-smoke` 端到端回归——QA 评审阶段不再代跑 |
 | 5 | `complete_and_notify "harness-qa" "修复完成,请重新测试" "{OUTPUT_DIR}/qa-feedback-round-{N}.md"` |
+| 6 | **STOP 边界**:步骤 5 完成后,本 turn **立即停手**——不要在同一 turn 输出"开发已完成,可以输入调整需求"等任何用户面向文本。修复完通知 qa ≠ qa 二次评审通过,下一动作是等 qa 真发回 APPROVED/REJECTED,由"用户调整 phase"或下一轮"修复 phase"的进入前门槛重新触发。**违反 = 等同于跳过 qa 重审**。 |
 </phase>
 
 <phase name="用户调整">
 **触发**:QA 回复 APPROVED
 
 **进入前门槛(红线 #12)**:提示用户前**必须**在 Bash 里跑 `verify_partner_reply harness-qa APPROVED` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息。
+
+> **关键认知**:**输出步骤 1 那条用户面向提示 = 已经进入本 phase**,不是构建/修复阶段顺手的"友好告知"。任何含"开发已完成"/"通过 QA 验收"/"可以输入调整需求"/"输入结束迭代"措辞的 assistant 文本都属于本 phase 的步骤 1,**必须**先过上方门槛。历史失败:builder 在 `complete_and_notify "harness-qa" "构建完成..."` 同一 turn 内顺手输出"开发已完成,可以输入调整需求",绕过测试评审 + 修复循环两个 phase——这条提示挑明就是堵它的。
 
 | 步骤 | 操作 |
 |------|------|
