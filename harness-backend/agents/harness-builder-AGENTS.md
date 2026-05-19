@@ -18,7 +18,12 @@
 1. **Read 阶段输入文件**:对齐读 `${plan_path}` + `CLAUDE.md`;构建读 `${output_dir}/build-scope-v{N}.md`;修复读 `${output_dir}/qa-feedback-round-{N}.md`;用户调整读 `${output_dir}/user-adjustment-round-{N}.md`
 2. **扫描 call-chain 已有 slug**:`ls .harness/call-chain/`,复用而非新建
 3. **跑 git status / git log -3**:确认基线,避免覆盖未提交工作
-4. **检查上一个阶段是否真的完成**:进入构建阶段前必须见过 ALIGNED;进入用户调整前必须见过 APPROVED
+4. **跨阶段必须用磁盘证据,不允许凭印象/脑补**:任何"上一阶段已完成、进入下一阶段"的判断都必须通过 Bash 调用 `verify_partner_reply harness-qa <关键字>`,函数返回 0(且打印 VERIFIED + 证据)才能动手:
+   - 进入**构建**阶段前:`verify_partner_reply harness-qa ALIGNED`
+   - 进入**修复**阶段前(收到 REJECTED 通知后):`verify_partner_reply harness-qa REJECTED`
+   - 进入**用户调整**阶段前:`verify_partner_reply harness-qa APPROVED`
+
+   函数从 `${output_dir}/conversation/` 取真实回复存档(`send_to_agent` 自动落盘),验证 frontmatter 来源 + 时间戳新于你最近一次发出 + 正文含关键字。**返回 1 = qa 还没真回复**,STOP 等待下一条消息触发,**不要**靠"我记得它说过 ALIGNED"推进——历史上 builder 在通知 qa 后自己脑补一句 "qa ALIGNED" 然后直接进构建是典型失败模式,这条门就是堵它的。
 5. **疑问回查**:若对 QA 上一轮回复的细节(评分、调整项、引用工件)记不清,去 `${output_dir}/conversation/` 倒序 Read 最新文件——磁盘是真相,自由文本里的搭档原话都在那里(`send_to_agent` 自动落盘,YAML frontmatter 含 from/to/timestamp/artifact)
 </pre-flight>
 
@@ -42,6 +47,8 @@
 10. **派 worker 时,五项必备不能漏**:任务 prompt 必须含【路径白名单】+【关键签名/字段】+【约定签名】+【验证目标】+【完成标准】。任一漏掉 = worker 失去明确边界,可能改错文件或撞接口
 
 11. **worker 返回后必须校验越界**:派完 worker 不能直接信它的报告。每次 worker 返回后,主 builder **必须**跑 `git status`,核对实际改动文件 ⊆ 该 worker 路径白名单。越界即重派,**不要**手动修复越界改动
+
+12. **跨阶段切换必须走磁盘真相,严禁脑补 QA 回复**:从对齐 → 构建、从测试评审 → 修复、从修复 → 用户调整,**每一次**阶段切换前都必须在 Bash 里跑 `verify_partner_reply harness-qa {ALIGNED|REJECTED|APPROVED}`,函数返回 0 才能动手。**未跑 / 跑了但返回 1 仍继续 / 用 assistant 文本"我看到 qa 说 ALIGNED 了"代替函数调用**——任一情况都视为本轮交付失败。这条堵的就是"通知 qa 后自己脑补一句 qa ALIGNED 然后开始构建"的失败模式:模型可以幻觉文本,但骗不过 grep conversation/ 的脚本。
 </red-lines>
 
 ---
@@ -435,6 +442,8 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 <phase name="构建">
 **触发**:QA 回复 ALIGNED
 
+**进入前门槛(红线 #12)**:动手前**必须**在 Bash 里跑 `verify_partner_reply harness-qa ALIGNED` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息,**禁止**靠记忆/脑补判断。
+
 | 步骤 | 操作 |
 |------|------|
 | 1 | 按 build-scope "并发分组"逐组处理(详见 SOP:TDD 驱动构建)<br>串行前置组主 builder 自己改 → 并发组 1(spawn worker)→ 并发组 2 → ... |
@@ -445,6 +454,8 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 
 <phase name="修复">
 **触发**:收到 QA 的 REJECTED + qa-feedback-round-{N}.md
+
+**进入前门槛(红线 #12)**:动手前**必须**在 Bash 里跑 `verify_partner_reply harness-qa REJECTED` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息。
 
 | 步骤 | 操作 |
 |------|------|
@@ -457,6 +468,8 @@ QA 验证时会逐条对照此文件与代码变更(git diff),确认没有遗漏
 
 <phase name="用户调整">
 **触发**:QA 回复 APPROVED
+
+**进入前门槛(红线 #12)**:提示用户前**必须**在 Bash 里跑 `verify_partner_reply harness-qa APPROVED` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息。
 
 | 步骤 | 操作 |
 |------|------|

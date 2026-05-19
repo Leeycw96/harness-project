@@ -98,3 +98,78 @@ complete_and_notify() {
   fi
   send_to_agent "$target" "$message" "$artifact"
 }
+
+# 验证 partner 真的发回了带某关键字的回复——堵"模型脑补搭档回复"的失败模式
+# 工作机制：从 conversation/ 找证据(send_to_agent 自动落盘),磁盘是真相
+#   1. 找自己最近一次发给 partner 的时间戳作为 since(没有则 since=0)
+#   2. 在 conversation/ 找 from=partner、to=自己、ts > since 的最新文件
+#   3. 检查文件正文(去掉 YAML frontmatter)含 keyword(大小写不敏感)
+#   4. 命中:stdout 打印 VERIFIED + 证据,返回 0;否则 stderr 打印 NO_VALID_REPLY,返回 1
+# 用法：verify_partner_reply <partner> <keyword>
+verify_partner_reply() {
+  local partner="$1" keyword="$2"
+  if [ -z "$partner" ] || [ -z "$keyword" ]; then
+    echo "用法：verify_partner_reply <partner> <keyword>" >&2
+    return 2
+  fi
+  local me="${HARNESS_AGENT_NAME:-unknown}"
+
+  local output_dir
+  output_dir=$(jq -r '.output_dir // empty' "$HARNESS_CONFIG" 2>/dev/null) || output_dir=""
+  if [ -z "$output_dir" ]; then
+    echo "NO_VALID_REPLY：HARNESS_CONFIG 中无 output_dir，无法定位 conversation 目录" >&2
+    return 1
+  fi
+  local conv_dir
+  if [[ "$output_dir" = /* ]]; then
+    conv_dir="$output_dir/conversation"
+  else
+    conv_dir="$PROJECT_DIR/$output_dir/conversation"
+  fi
+  if [ ! -d "$conv_dir" ]; then
+    echo "NO_VALID_REPLY：conversation 目录不存在（$conv_dir）——你可能还没真发过消息给 ${partner}" >&2
+    return 1
+  fi
+
+  # 1. 找自己最近一次发给 partner 的 ts（文件名格式 YYYYMMDDTHHMMSS-{me}-to-{partner}.md）
+  local since
+  since=$(ls -1 "$conv_dir" 2>/dev/null \
+            | grep -E "^[0-9T]+-${me}-to-${partner}\.md$" \
+            | sort | tail -n 1 \
+            | sed -E 's/^([0-9T]+)-.*/\1/')
+  : "${since:=0}"
+
+  # 2. 找 partner → 自己 且 ts > since 的最新文件（ls + sort 按文件名字典序 = 时间序）
+  local reply_file="" f ts
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    ts="${f%%-*}"
+    [[ "$ts" > "$since" ]] && reply_file="$f"
+  done < <(ls -1 "$conv_dir" 2>/dev/null \
+              | grep -E "^[0-9T]+-${partner}-to-${me}\.md$" \
+              | sort)
+
+  if [ -z "$reply_file" ]; then
+    echo "NO_VALID_REPLY：${conv_dir} 没找到 ${partner} → ${me} 且时间戳 > ${since} 的回复" >&2
+    echo "  → 你可能在脑补搭档回复。请等真消息到达后再推进；若怀疑 ${partner} 已崩溃，跑 is_agent_alive ${partner} 确认" >&2
+    return 1
+  fi
+
+  # 3. 提取正文（YAML frontmatter 是 --- 包裹的两段块，之后才是正文）
+  local body
+  body=$(awk 'BEGIN{fm=0} /^---$/{fm++; next} fm>=2{print}' "$conv_dir/$reply_file")
+  if ! echo "$body" | grep -iq -- "$keyword"; then
+    echo "NO_VALID_REPLY：最新回复 ${reply_file} 正文未含关键字 \"${keyword}\"" >&2
+    echo "  → 正文头 5 行：" >&2
+    echo "$body" | head -n 5 | sed 's/^/      /' >&2
+    return 1
+  fi
+
+  # 4. 命中：打印证据（frontmatter + 正文前 30 行）
+  echo "VERIFIED：${reply_file}"
+  echo "----- frontmatter -----"
+  awk 'BEGIN{fm=0} /^---$/{fm++; if(fm==2){exit}; next} fm==1{print}' "$conv_dir/$reply_file"
+  echo "----- body (前 30 行) -----"
+  echo "$body" | head -n 30
+  return 0
+}

@@ -20,6 +20,14 @@
 3. **检查 call-chain 完整性**:每个 build-scope 中的功能 slug 是否都有对应 `.harness/call-chain/{slug}.md`
 4. **检查产出目录可写**:`{OUTPUT_DIR}/qa-evidence/` 已创建
 5. **疑问回查**:若对 Builder 上一轮回复的细节(交付承诺、问题分类、引用工件)记不清,去 `${output_dir}/conversation/` 倒序 Read 最新文件——磁盘是真相,自由文本里的搭档原话都在那里(`send_to_agent` 自动落盘,YAML frontmatter 含 from/to/timestamp/artifact)
+6. **跨阶段必须用磁盘证据,不允许凭印象/脑补**:任何"上一阶段已完成、进入下一阶段"的判断都必须通过 Bash 调用 `verify_partner_reply harness-builder <关键字>`,函数返回 0(且打印 VERIFIED + 证据)才能动手:
+   - 进入 **Scope 审阅** 前:`verify_partner_reply harness-builder build-scope`
+   - 进入 **测试评审** 前:`verify_partner_reply harness-builder 构建完成`
+   - 进入 **修复循环重审** 前:`verify_partner_reply harness-builder 修复完成`
+   - 进入 **用户调整验证** 前:`verify_partner_reply harness-builder 用户调整已完成`
+   - 进入 **流程收尾** 前:`verify_partner_reply harness-builder 结束迭代`
+
+   函数从 `${output_dir}/conversation/` 取真实回复存档,验证 frontmatter 来源 + 时间戳新于你最近一次发出 + 正文含关键字。**返回 1 = builder 还没真发**,STOP 等下一条消息触发,**不要**靠"我记得它说过构建完成了"推进——和 builder 那一头症状对称,LLM 长链路里 qa 也会脑补搭档回复,这条门就是堵它的。
 </pre-flight>
 
 ---
@@ -43,6 +51,8 @@
 9. **worker 返回后必须核证据,不能直接采信**:每次 worker 返回后,主 qa **必须**对 worker 标 FAIL 的每条 grep 验证一次行号 + 原文是否真实命中。证据不实或"未取得证据"占比 > 20% → 重派该 worker,**不要**自己脑补补全证据
 
 10. **worker 报告不能直接拷贝进 qa-feedback**:必须先做**根因聚类**(N 个 worker 各报 1 条同质问题往往是同一根因),再决定 P0/P1/P2 优先级和"必须修复的问题"清单。机械累加 worker 报告 = qa-feedback 同义反复刷屏
+
+11. **跨阶段切换必须走磁盘真相,严禁脑补 Builder 回复**:从 build-scope 就绪 → Scope 审阅、从构建完成 → 测试评审、从修复完成 → 重审、从用户调整完成 → 验证,**每一次**阶段切换前都必须在 Bash 里跑 `verify_partner_reply harness-builder <关键字>`,函数返回 0 才能动手。**未跑 / 跑了但返回 1 仍继续 / 用 assistant 文本"我看到 builder 说构建完成了"代替函数调用**——任一情况都视为本轮评审失败。这条堵的就是"没收到真消息就自己脑补一句 builder 说构建完成"的失败模式:模型可以幻觉文本,但骗不过 grep conversation/ 的脚本。
 </red-lines>
 
 ---
@@ -408,6 +418,8 @@ slug: user-register
 <phase name="Scope 审阅">
 **触发**:收到 Builder 的 build-scope-v{N}.md 就绪通知
 
+**进入前门槛(红线 #11)**:动手前**必须**在 Bash 里跑 `verify_partner_reply harness-builder build-scope` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息。
+
 | 步骤 | 操作 |
 |------|------|
 | 1 | Read `${plan_path}` 与 `${output_dir}/build-scope-v{N}.md`(都来自 config.json) |
@@ -420,6 +432,8 @@ slug: user-register
 
 <phase name="测试评审">
 **触发**:收到 Builder 构建完成通知
+
+**进入前门槛(红线 #11)**:动手前**必须**在 Bash 里跑 `verify_partner_reply harness-builder 构建完成` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息。
 
 | 步骤 | 操作 |
 |------|------|
@@ -437,6 +451,8 @@ slug: user-register
 <phase name="修复循环">
 **触发**:Builder 修复完成通知
 
+**进入前门槛(红线 #11)**:动手前**必须**在 Bash 里跑 `verify_partner_reply harness-builder 修复完成` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息。
+
 | 步骤 | 操作 |
 |------|------|
 | 1 | 收到 Builder 修复完成通知 |
@@ -451,6 +467,8 @@ slug: user-register
 <phase name="用户调整验证">
 **触发**:收到 Builder 的"用户调整已完成"消息
 
+**进入前门槛(红线 #11)**:动手前**必须**在 Bash 里跑 `verify_partner_reply harness-builder 用户调整已完成` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息。
+
 | 步骤 | 操作 |
 |------|------|
 | 1 | Read `user-adjustment-round-{N}.md`,了解用户原始需求 |
@@ -464,6 +482,8 @@ slug: user-register
 
 <phase name="流程收尾">
 **触发**:收到 Builder 的"结束迭代"消息
+
+**进入前门槛(红线 #11)**:动手前**必须**在 Bash 里跑 `verify_partner_reply harness-builder 结束迭代` 返回 0,把 VERIFIED 行贴在回复里。返回 1 → STOP 等真消息。
 
 | 步骤 | 操作 |
 |------|------|
