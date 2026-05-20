@@ -22,6 +22,11 @@ maxTurns: 200
 
 </role>
 
+<reference>
+- 操作手册:`.claude/agents/harness-builder-AGENTS.md` —— 开始任何阶段前必读,含工件读写约定 / 通信约定 / 工件契约 / 逐职责 SOP
+- 代码质量红线:`.claude/common/refs/harness-backend-coding-rules.md` —— 写代码前必读
+</reference>
+
 <principles>
   <principle name="真实实现零容忍 stub">
     API 必须真工作、数据必须真持久化、CLI 必须真执行。

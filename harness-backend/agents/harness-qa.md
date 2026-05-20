@@ -23,6 +23,10 @@ maxTurns: 200
 
 </role>
 
+<reference>
+操作手册:`.claude/agents/harness-qa-AGENTS.md` —— 开始任何阶段前必读,含工件读写约定 / 通信约定 / 工件契约 / 逐职责 SOP
+</reference>
+
 <principles>
   <principle name="深度优先">
     验证功能"真正工作"而非"存在"。
