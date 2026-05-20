@@ -86,18 +86,51 @@ source .claude/common/scripts/harness-init.sh
 
 ### 第一步 B：基线检查
 
-在启动 Agent 之前，验证项目当前能编译且能启动：
+在启动 Agent 之前，做一次「项目能跑」的基线检查。**目标是排除「项目主代码已坏」的硬阻塞，而非要求 100% 干净基线** —— 测试代码编译失败（他人未合并代码污染）、外部中间件不可用（Dubbo/Nacos/Redis 等 profile 依赖）这类「环境/既有」失败应让用户决定是否绕过，**不**硬终止。
 
-1. 读取项目 CLAUDE.md，确认构建命令（如 `mvn compile`）和启动命令（如 `mvn spring-boot:run`）
-2. 执行编译检查：
-   ```bash
-   # 根据项目实际构建工具调整命令
-   mvn compile -q 2>&1 | tail -20
-   ```
-3. 如果编译通过，尝试启动服务并验证健康检查（启动后等待端口就绪，确认后立即关闭）
-4. **使用 AskUserQuestion 工具**向用户报告基线状态：
-   - 编译和启动均通过：「✅ 基线检查通过（编译成功、服务可启动），继续启动 Agent。」（自动继续，无需用户操作）
-   - 编译或启动失败：「❌ 基线检查失败：[失败原因]。项目当前无法编译/启动，请先修复后重新运行 /harness-backend。」（终止流程）
+所有基线产物落到 `${HARNESS_OUTPUT_DIR}/baseline/`，供 Agent 后续诊断「基线本来就坏」用：
+
+```bash
+mkdir -p "${HARNESS_OUTPUT_DIR}/baseline"
+```
+
+1. 读取项目 CLAUDE.md，确认构建命令(如 `mvn compile`)与启动命令(如 `mvn spring-boot:run`)
+
+2. **主代码编译**(跳过测试代码，避免被他人未合并的测试代码污染):
+   ```bash
+   mvn -DskipTests=true compile -q > "${HARNESS_OUTPUT_DIR}/baseline/main-compile.log" 2>&1
+   echo $? > "${HARNESS_OUTPUT_DIR}/baseline/main-compile.exit"
+   ```
+   - 退出码 != 0 → **主代码炸了，真阻塞**。把 `tail -30 main-compile.log` 的关键错误贴出来，**使用 AskUserQuestion 工具**让用户决定:
+     - 选项一:「终止流程，我先修主代码」(推荐)
+     - 选项二:「主代码这个炸点不在本轮 plan 范围内，强行启动 Agent」(少数场景:用户明知有遗留炸点但本轮不修)
+   - 退出码 == 0 → 进 3
+
+3. **测试代码编译**(只编不跑，失败**不阻塞**):
+   ```bash
+   mvn test-compile -q > "${HARNESS_OUTPUT_DIR}/baseline/test-compile.log" 2>&1
+   echo $? > "${HARNESS_OUTPUT_DIR}/baseline/test-compile.exit"
+   ```
+   - 退出码 != 0 → 测试代码有既有问题(常见原因:他人未合并的测试代码引用了未发布的接口)。把失败行摘要贴出来，**使用 AskUserQuestion 工具**让用户决定:
+     - 选项一:「继续，builder/qa 后续应把这些识别为基线遗留，不计入本轮」(推荐)
+     - 选项二:「终止，我先修测试代码」
+   - 退出码 == 0 → 进 4
+
+4. **启动健康检查**(仅当 CLAUDE.md 提供启动命令时执行):
+   - 后台启动 → 等端口就绪(最多 60s) → 命中健康检查后立即关闭。全过程输出落到 `${HARNESS_OUTPUT_DIR}/baseline/startup.log`
+   - 启动失败 / 健康检查超时 → **grep 关键词做疑似归因**，把摘要 + 归因贴出来:
+     - 含 `Connection refused` / `Unable to connect` / `timeout` / `nacos` / `dubbo` / `redis` / `zookeeper` / `kafka` → 疑似**环境依赖**(本地不具备所需中间件，常见于 testcase profile)
+     - 含 `BeanCreationException` / `NullPointerException` / `SQLException` / `ClassNotFoundException` → 疑似**主代码异常**
+   - **使用 AskUserQuestion 工具**让用户决定:
+     - 选项一:「继续(我确认是环境/既有问题，不阻塞本轮迭代)」
+     - 选项二:「终止，我先修启动」
+   - 启动通过 → 自动继续
+
+5. **用户在 2 / 3 / 4 任一步选择了「继续」**:第四步发送给 Agent 的初始 prompt 里**追加一段告知**，让 builder/qa 知道基线本来就有遗留:
+
+   > 「基线检查发现遗留问题(详见 `${HARNESS_OUTPUT_DIR}/baseline/*.log`)，用户已确认绕过。请在你的工作中识别这些遗留失败，**不要**把它们记到本轮迭代的问题里。」
+
+   全部通过则无需追加。
 
 ### 第二步：启动两个 Agent 的 pane（不发送 prompt）
 
@@ -118,10 +151,18 @@ write_config "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/plan.md"
 
 ### 第四步：向两个 Agent 发送初始 prompt
 
+**基线遗留告知拼接**:如果第一步 B 的 2/3/4 任一步用户选择了「继续」，准备一段告知拼到下面两个 prompt 的尾部(中间用换行隔开):
+
+> 「基线检查发现遗留问题(详见 `${HARNESS_OUTPUT_DIR}/baseline/*.log`，含 main-compile.log / test-compile.log / startup.log 中失败的那几个)，用户已确认绕过。请在你的工作中把这些识别为基线遗留，**不要**计入本轮迭代的问题。」
+
+全部通过则不拼接。
+
 ```bash
-dispatch_initial_prompt "harness-builder" "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 run 的 config.json 路径并 Read 它；plan.md 路径见 config.json 的 plan_path 字段（已就绪）。然后按你的常规启动流程开始范围对齐。"
-dispatch_initial_prompt "harness-qa"      "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 run 的 config.json 路径并 Read 它；plan.md 路径见 config.json 的 plan_path 字段。然后按你的常规启动流程，等待搭档通知后开始 Scope Review。"
+dispatch_initial_prompt "harness-builder" "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 run 的 config.json 路径并 Read 它；plan.md 路径见 config.json 的 plan_path 字段（已就绪）。然后按你的常规启动流程开始范围对齐。${BASELINE_NOTE:-}"
+dispatch_initial_prompt "harness-qa"      "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 run 的 config.json 路径并 Read 它；plan.md 路径见 config.json 的 plan_path 字段。然后按你的常规启动流程，等待搭档通知后开始 Scope Review。${BASELINE_NOTE:-}"
 ```
+
+其中 `BASELINE_NOTE` 由编排器在第一步 B 末尾根据用户决定拼好(有遗留则置为换行 + 上述告知文本，否则置空)。
 
 向用户提示：「harness-builder 和 harness-qa 已全部启动，它们将自主协调工作。你可以在各个 Pane 中观察实时进展。」
 
