@@ -86,7 +86,11 @@ source .claude/common/scripts/harness-init.sh
 
 ### 第一步 B：基线检查
 
-在启动 Agent 之前，做一次「项目能跑」的基线检查。**目标是排除「项目主代码已坏」的硬阻塞，而非要求 100% 干净基线** —— 测试代码编译失败（他人未合并代码污染）、外部中间件不可用（Dubbo/Nacos/Redis 等 profile 依赖）这类「环境/既有」失败应让用户决定是否绕过，**不**硬终止。
+在启动 Agent 之前，做一次「项目能跑」的基线检查。**分三段处置**:
+
+- **主代码编译失败** → 硬终止(用户必须保证基线干净后再跑)。builder 在被污染基线上工作风险不可控，且历史观察到 builder 会被主代码编译错误吸住注意力死磕，故强制基线干净
+- **测试代码编译失败**(常见:他人未合并的测试代码污染) → 不阻塞，AskUserQuestion 让用户拍板继续 / 终止
+- **启动健康检查失败**(常见:本地缺 Dubbo / Nacos / Redis 等中间件) → 信息性输出，**不阻塞、不询问**，自动继续。启动不归 builder 责任，最终由用户通过 `/harness-backend-smoke` 端到端验证
 
 所有基线产物落到 `${HARNESS_OUTPUT_DIR}/baseline/`，供 Agent 后续诊断「基线本来就坏」用：
 
@@ -98,12 +102,10 @@ mkdir -p "${HARNESS_OUTPUT_DIR}/baseline"
 
 2. **主代码编译**(跳过测试代码，避免被他人未合并的测试代码污染):
    ```bash
-   mvn -DskipTests=true compile -q > "${HARNESS_OUTPUT_DIR}/baseline/main-compile.log" 2>&1
+   mvn clean compile -DskipTests=true -q > "${HARNESS_OUTPUT_DIR}/baseline/main-compile.log" 2>&1
    echo $? > "${HARNESS_OUTPUT_DIR}/baseline/main-compile.exit"
    ```
-   - 退出码 != 0 → **主代码炸了，真阻塞**。把 `tail -30 main-compile.log` 的关键错误贴出来，**使用 AskUserQuestion 工具**让用户决定:
-     - 选项一:「终止流程，我先修主代码」(推荐)
-     - 选项二:「主代码这个炸点不在本轮 plan 范围内，强行启动 Agent」(少数场景:用户明知有遗留炸点但本轮不修)
+   - 退出码 != 0 → **主代码炸了，硬终止**。把 `tail -30 main-compile.log` 的关键错误贴出来，告知用户:「基线主代码编译失败，请修复后重新运行 /harness-backend。」**不再提供「强行启动」逃生口** —— builder 在被污染的基线上工作风险不可控，基线必须干净。
    - 退出码 == 0 → 进 3
 
 3. **测试代码编译**(只编不跑，失败**不阻塞**):
@@ -116,17 +118,15 @@ mkdir -p "${HARNESS_OUTPUT_DIR}/baseline"
      - 选项二:「终止，我先修测试代码」
    - 退出码 == 0 → 进 4
 
-4. **启动健康检查**(仅当 CLAUDE.md 提供启动命令时执行):
+4. **启动健康检查**(**信息性，不阻塞** —— 启动受 profile / 环境 / 依赖服务多因素影响，不归 builder 责任):
+   - 仅当 CLAUDE.md 提供启动命令时执行；未提供则跳过本步
    - 后台启动 → 等端口就绪(最多 60s) → 命中健康检查后立即关闭。全过程输出落到 `${HARNESS_OUTPUT_DIR}/baseline/startup.log`
-   - 启动失败 / 健康检查超时 → **grep 关键词做疑似归因**，把摘要 + 归因贴出来:
+   - 启动失败 / 健康检查超时 → **grep 关键词做疑似归因**，把摘要 + 归因**信息性**打印给用户(不询问，不阻塞):
      - 含 `Connection refused` / `Unable to connect` / `timeout` / `nacos` / `dubbo` / `redis` / `zookeeper` / `kafka` → 疑似**环境依赖**(本地不具备所需中间件，常见于 testcase profile)
-     - 含 `BeanCreationException` / `NullPointerException` / `SQLException` / `ClassNotFoundException` → 疑似**主代码异常**
-   - **使用 AskUserQuestion 工具**让用户决定:
-     - 选项一:「继续(我确认是环境/既有问题，不阻塞本轮迭代)」
-     - 选项二:「终止，我先修启动」
-   - 启动通过 → 自动继续
+     - 含 `BeanCreationException` / `NullPointerException` / `SQLException` / `ClassNotFoundException` → 疑似配置/profile 问题(主编译已通过，不是真的代码炸了)
+   - **不做 AskUserQuestion，自动继续**。启动失败信息纳入第 5 步 BASELINE_NOTE 给 Agent 参考。启动验证最终由用户通过 `/harness-backend-smoke` 端到端确认
 
-5. **用户在 2 / 3 / 4 任一步选择了「继续」**:第四步发送给 Agent 的初始 prompt 里**追加一段告知**，让 builder/qa 知道基线本来就有遗留:
+5. **第 3 步用户选了「继续」 或 第 4 步启动失败被自动跳过时**:第四步发送给 Agent 的初始 prompt 里**追加一段告知**，让 builder/qa 知道基线本来就有遗留:
 
    > 「基线检查发现遗留问题(详见 `${HARNESS_OUTPUT_DIR}/baseline/*.log`)，用户已确认绕过。请在你的工作中识别这些遗留失败，**不要**把它们记到本轮迭代的问题里。」
 

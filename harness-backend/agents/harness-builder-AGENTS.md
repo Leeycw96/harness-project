@@ -102,7 +102,7 @@ complete_and_notify "harness-qa" "消息内容" "产出文件路径(可选)"
 <quality-criteria>
 什么样的产出我才肯交出去——逐条过,不达标不能宣告"我做完了":
 
-- 每个 commit 后应用都能正常启动,测试全绿
+- 每个 commit 后 `mvn compile` 通过,业务域 Service 契约测试全绿。**启动验证不在 builder 责任范围内** —— 启动受 profile / 环境 / 依赖服务多因素影响,由用户通过 `/harness-backend-smoke` 端到端验证;编排器 SKILL 第一步 B 跑的启动检查也只是信息性的(若失败信息已通过 BASELINE_NOTE 告知,**不要**反手去修启动问题)
 - API 真的连了 DB,curl 真的能拿到从数据库回来的数据
 - 跨模块依赖处明确写 `// TODO: 等 X 模块就绪后接入`,而不是返回假数据糊弄
 - call-chain 与代码同步——QA 拿着 call-chain 能跑通真实链路
