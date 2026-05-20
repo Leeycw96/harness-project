@@ -1,7 +1,7 @@
 ---
 name: harness-backend-coding-rules
-description: 任何为 harness-backend 项目写代码的 agent(builder / builder-worker)必读的代码与测试质量红线。
-audience: harness-builder, harness-builder-worker
+description: 任何为 harness-backend 项目写代码的 agent 必读的代码与测试质量红线。
+audience: harness-builder
 ---
 
 # Harness-Backend 代码质量红线

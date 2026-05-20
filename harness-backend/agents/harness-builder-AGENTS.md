@@ -15,7 +15,7 @@
 
 ## 通信约定
 
-**与 harness-qa 的所有交互必须经由 `harness-common.sh`**——禁止用 Agent 工具 spawn qa 子任务扮演搭档(**允许** spawn `harness-builder-worker` 做内部分工,见 SOP 2)。
+**与 harness-qa 的所有交互必须经由 `harness-common.sh`**——禁止用 Agent 工具 spawn qa 子任务扮演搭档。
 
 ```bash
 source .claude/common/scripts/harness-common.sh
@@ -60,10 +60,7 @@ verify_partner_reply harness-qa APPROVED      # 进入 SOP 4 用户调整前
 - 必须具体可测,**不接受模糊描述**
 
 #### 实现顺序
-按功能 slug 排出顺序(基础设施 / 共享 Entity 优先)。**不需要详细类变更清单或并发分组**——主 builder 在实现阶段按需决定。
-
-#### 并发派 worker(可选)
-仅在**跨 ≥ 5 个独立类、文件互不相交、单 worker 工作量 ≥ 1 个完整类**时,标注哪些功能可并发派 `harness-builder-worker`。否则主 builder 自己实现更高效。
+按功能 slug 排出顺序(基础设施 / 共享 Entity 优先)。**不需要详细类变更清单**——主 builder 在实现阶段按需决定粒度。
 </artifact>
 
 <artifact path="{OUTPUT_DIR}/user-adjustment-round-{N}.md">
@@ -112,7 +109,7 @@ verify_partner_reply harness-qa APPROVED      # 进入 SOP 4 用户调整前
 |----|------|
 | **输入** | Read `${plan_path}` + 项目根 `CLAUDE.md` + `ls .harness/call-chain/` 已有 slug;<br>触发:收到编排层启动消息 / 收到 QA 的 NEEDS_ADJUSTMENT |
 | **产出** | `${output_dir}/build-scope-v{N}.md` |
-| **步骤** | 1. Read plan + CLAUDE.md<br>2. ls call-chain 复用 slug<br>3. 按 build-scope 章节模板产出(技术栈 / 功能清单 / 验证目标 / 实现顺序 / 并发派 worker 可选)<br>4. 验证目标无法从 plan 推导时**不要自己拍**,明文列出等 QA 在 Scope 审阅阶段补全<br>5. `complete_and_notify "harness-qa" "build-scope-v{N}.md 已就绪,请审阅" "${output_dir}/build-scope-v{N}.md"` |
+| **步骤** | 1. Read plan + CLAUDE.md<br>2. ls call-chain 复用 slug<br>3. 按 build-scope 章节模板产出(技术栈 / 功能清单 / 验证目标 / 实现顺序)<br>4. 验证目标无法从 plan 推导时**不要自己拍**,明文列出等 QA 在 Scope 审阅阶段补全<br>5. `complete_and_notify "harness-qa" "build-scope-v{N}.md 已就绪,请审阅" "${output_dir}/build-scope-v{N}.md"` |
 | **完成标准** | qa 回复 ALIGNED(由 SOP 2 入门 verify 验证);对齐循环 ≤ 2 轮(build-scope 最多到 v3),第二轮仍未对齐 → 通知用户介入 |
 | **禁忌** | **ALIGNED 前不写一行业务代码、不初始化项目、不安装依赖**;不替用户拍验证目标;不**自己跑 mvn compile / spring-boot:run** —— 编译启动基线已由编排器跑过,产物在 `${output_dir}/baseline/`,需要时 Read 不重跑 |
 
@@ -124,7 +121,7 @@ verify_partner_reply harness-qa APPROVED      # 进入 SOP 4 用户调整前
 |----|------|
 | **输入** | Read `${output_dir}/build-scope-v{N}.md`;<br>触发:`verify_partner_reply harness-qa ALIGNED` 返回 0 |
 | **产出** | `src/**/*.java` + `src/test/java/**/*.java` + 更新 `.harness/call-chain/{slug}.md` + git commit |
-| **步骤** | 1. **TDD 边界**:TDD 对象**只是业务域 Service 对外 public 方法**。Controller / RPC Provider / MQ Listener / Scheduler 入口层**不写单测**(端到端契约由 `/harness-backend-smoke` 覆盖)。详见 `.claude/common/refs/harness-backend-coding-rules.md`<br>2. 按功能 slug 顺序实现(基础设施 → 业务 Service → 入口层)<br>3. 每个功能:**Service public 方法的契约测试 → 实现**(Red → Green → Refactor)<br>4. **派 worker 时机**:仅当 build-scope 标注并发派 worker 且本批改动跨 ≥ 5 个独立类、文件不交集时,同一 message 并行 spawn `harness-builder-worker`。worker prompt 必含:**路径白名单 / 关键签名 / 约定签名 / 验证目标 / 完成标准**<br>5. worker 返回后跑 `git status` 校验改动文件 ⊆ 该 worker 路径白名单,**越界即重派**<br>6. 跑全量 `mvn test`,确认无回归<br>7. 同步更新本次涉及的 call-chain<br>8. `git commit`<br>9. `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "${output_dir}/build-scope-v{N}.md"` |
+| **步骤** | 1. **TDD 边界**:TDD 对象**只是业务域 Service 对外 public 方法**。Controller / RPC Provider / MQ Listener / Scheduler 入口层**不写单测**(端到端契约由 `/harness-backend-smoke` 覆盖)。详见 `.claude/common/refs/harness-backend-coding-rules.md`<br>2. 按功能 slug 顺序实现(基础设施 → 业务 Service → 入口层)<br>3. 每个功能:**Service public 方法的契约测试 → 实现**(Red → Green → Refactor)<br>4. 跑全量 `mvn test`,确认无回归<br>5. 同步更新本次涉及的 call-chain<br>6. `git commit`<br>7. `complete_and_notify "harness-qa" "构建完成,请开始测试。启动命令:..., 应用地址:..." "${output_dir}/build-scope-v{N}.md"` |
 | **完成标准** | `mvn compile` 通过;业务域 Service 契约测试全绿(入口层无单测算正常);call-chain 与代码同步;每个业务 API 真连 DB(不是返回硬编码);跨模块依赖处用 `// TODO` 明确标注非 stub。**通知 qa 后本 turn 立即停手**——**不输出**"开发已完成,可以输入调整需求"等用户面向文本(STOP 边界,等 qa 真回复 APPROVED/REJECTED 后由 SOP 3 或 SOP 4 触发) |
 | **禁忌** | 不写 stub/Mock 充数;不调测试参数让 QA 失败的用例通过;**业务逻辑禁止写在入口层**(Controller/Listener/Scheduler/RPC 只做参数校验 + 序列化反序列化 + 调 Service);通知 qa 后不脑补回复(用 assistant 文本"我看到 qa 说 ALIGNED 了"代替 verify_partner_reply = 本轮交付失败) |
 | **卡住怎么办** | 依赖装不上 → 尝试同等功能的备选包;编译/运行时错误修两次仍败 → 标注 TODO 跳过本功能继续下一个;测试失败 → 不调测试参数,先看代码逻辑;连续三个功能失败 → **停下**审视架构,通知 QA 重对齐 |
