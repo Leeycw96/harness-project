@@ -86,11 +86,12 @@ source .claude/common/scripts/harness-init.sh
 
 ### 第一步 B：基线检查
 
-在启动 Agent 之前，做一次「项目能跑」的基线检查。**分三段处置**:
+在启动 Agent 之前，做一次「项目能跑」的基线检查。**分两段处置**:
 
-- **主代码编译失败** → 硬终止(用户必须保证基线干净后再跑)。builder 在被污染基线上工作风险不可控，且历史观察到 builder 会被主代码编译错误吸住注意力死磕，故强制基线干净
+- **主代码编译失败** → 硬终止(用户必须保证基线干净后再跑)。builder 在被污染基线上工作风险不可控，故强制基线干净
 - **测试代码编译失败**(常见:他人未合并的测试代码污染) → 不阻塞，AskUserQuestion 让用户拍板继续 / 终止
-- **启动健康检查失败**(常见:本地缺 Dubbo / Nacos / Redis 等中间件) → 信息性输出，**不阻塞、不询问**，自动继续。启动不归 builder 责任，最终由用户通过 `/harness-backend-smoke` 端到端验证
+
+**不再做启动健康检查**——启动受 profile / 环境 / 依赖服务多因素影响,不归 builder 责任;Agent 拿到启动状态也不能动它(SOP 内已明确)。启动验证完全由用户通过 `/harness-backend-smoke` 端到端兜底。
 
 所有基线产物落到 `${HARNESS_OUTPUT_DIR}/baseline/`，供 Agent 后续诊断「基线本来就坏」用：
 
@@ -98,7 +99,7 @@ source .claude/common/scripts/harness-init.sh
 mkdir -p "${HARNESS_OUTPUT_DIR}/baseline"
 ```
 
-1. 读取项目 CLAUDE.md，确认构建命令(如 `mvn compile`)与启动命令(如 `mvn spring-boot:run`)
+1. 读取项目 CLAUDE.md,确认构建命令(如 `mvn compile`)
 
 2. **主代码编译**(跳过测试代码，避免被他人未合并的测试代码污染):
    ```bash
@@ -118,15 +119,7 @@ mkdir -p "${HARNESS_OUTPUT_DIR}/baseline"
      - 选项二:「终止，我先修测试代码」
    - 退出码 == 0 → 进 4
 
-4. **启动健康检查**(**信息性，不阻塞** —— 启动受 profile / 环境 / 依赖服务多因素影响，不归 builder 责任):
-   - 仅当 CLAUDE.md 提供启动命令时执行；未提供则跳过本步
-   - 后台启动 → 等端口就绪(最多 60s) → 命中健康检查后立即关闭。全过程输出落到 `${HARNESS_OUTPUT_DIR}/baseline/startup.log`
-   - 启动失败 / 健康检查超时 → **grep 关键词做疑似归因**，把摘要 + 归因**信息性**打印给用户(不询问，不阻塞):
-     - 含 `Connection refused` / `Unable to connect` / `timeout` / `nacos` / `dubbo` / `redis` / `zookeeper` / `kafka` → 疑似**环境依赖**(本地不具备所需中间件，常见于 testcase profile)
-     - 含 `BeanCreationException` / `NullPointerException` / `SQLException` / `ClassNotFoundException` → 疑似配置/profile 问题(主编译已通过，不是真的代码炸了)
-   - **不做 AskUserQuestion，自动继续**。启动失败信息纳入第 5 步 BASELINE_NOTE 给 Agent 参考。启动验证最终由用户通过 `/harness-backend-smoke` 端到端确认
-
-5. **第 3 步用户选了「继续」 或 第 4 步启动失败被自动跳过时**:第四步发送给 Agent 的初始 prompt 里**追加一段告知**，让 builder/qa 知道基线本来就有遗留:
+4. **第 3 步用户选了「继续」时**:第四步发送给 Agent 的初始 prompt 里**追加一段告知**,让 builder/qa 知道测试代码有基线遗留:
 
    > 「基线检查发现遗留问题(详见 `${HARNESS_OUTPUT_DIR}/baseline/*.log`)，用户已确认绕过。请在你的工作中识别这些遗留失败，**不要**把它们记到本轮迭代的问题里。」
 
