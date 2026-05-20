@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Harness 部署 CLI:harness <mode> [target-dir]
 # 把 common/、harness-plan/、harness-<mode>/ 部署到目标项目的 .claude/
+# 通过 manifest 跟踪已部署文件,下次部署时自动清理已被废弃的文件(不动用户自定义)
 
 set -euo pipefail
 
@@ -26,7 +27,8 @@ usage() {
 
 行为:
   - 同名文件直接覆盖
-  - 其他已有 skill / agent 不受影响
+  - 通过 .claude/.harness/installed-manifest 跟踪部署文件;本次源里没有的
+    旧文件会被自动清理(只清 manifest 记录过的文件,不动用户自定义文件)
 
 示例:
   harness backend                # 部署到当前目录
@@ -58,7 +60,60 @@ target="$(cd "$target_arg" && pwd)"
 echo "部署到: $target/.claude/"
 
 mkdir -p "$target/.claude/skills" "$target/.claude/agents" "$target/.claude/common"
+mkdir -p "$target/.claude/.harness"
 
+manifest_file="$target/.claude/.harness/installed-manifest"
+new_manifest=$(mktemp)
+trap 'rm -f "$new_manifest"' EXIT
+
+# 收集源目录里的所有文件,转为 target 视角相对路径(以 .claude 开头)
+# 用法:collect_files <src_dir> <target_prefix>
+collect_files() {
+  local src="$1" prefix="$2"
+  [ -d "$src" ] || return 0
+  find "$src" -type f 2>/dev/null | while read -r f; do
+    local rel="${f#$src/}"
+    echo "${prefix}/${rel}"
+  done
+}
+
+# 1) 收集本次部署的全部文件清单
+{
+  collect_files "$HARNESS_ROOT/common" ".claude/common"
+  if [ -d "$HARNESS_ROOT/harness-plan" ]; then
+    collect_files "$HARNESS_ROOT/harness-plan/skills" ".claude/skills"
+    collect_files "$HARNESS_ROOT/harness-plan/agents" ".claude/agents"
+  fi
+  collect_files "$mode_dir/skills" ".claude/skills"
+  collect_files "$mode_dir/agents" ".claude/agents"
+} | sort -u > "$new_manifest"
+
+# 2) 与旧 manifest 对比,清理"旧 manifest 有但本次清单没有"的文件
+if [ -f "$manifest_file" ]; then
+  obsolete=$(comm -23 <(sort -u "$manifest_file") "$new_manifest" || true)
+  if [ -n "$obsolete" ]; then
+    echo "[清理] 已废弃文件:"
+    while IFS= read -r rel; do
+      [ -z "$rel" ] && continue
+      full="$target/$rel"
+      if [ -e "$full" ]; then
+        rm -f "$full"
+        echo "  - $rel"
+      fi
+    done <<< "$obsolete"
+    # 顺手清空目录(有用户其他文件则 rmdir 失败,自然跳过)
+    while IFS= read -r rel; do
+      [ -z "$rel" ] && continue
+      dir="$(dirname "$target/$rel")"
+      while [ "$dir" != "$target" ] && [ "$dir" != "/" ]; do
+        rmdir "$dir" 2>/dev/null || break
+        dir="$(dirname "$dir")"
+      done
+    done <<< "$obsolete"
+  fi
+fi
+
+# 3) 执行部署(cp -r)
 deploy_module() {
   local src="$1" name="$2"
   if [ -d "$src/skills" ] && [ -n "$(ls -A "$src/skills" 2>/dev/null)" ]; then
@@ -71,19 +126,22 @@ deploy_module() {
   fi
 }
 
-# 1) common 通用脚本
 echo "[common] common/ → .claude/common/"
 cp -r "$HARNESS_ROOT/common/." "$target/.claude/common/"
 
-# 2) harness-plan 通用模块(无条件部署)
 if [ -d "$HARNESS_ROOT/harness-plan" ]; then
   deploy_module "$HARNESS_ROOT/harness-plan" "harness-plan"
 fi
 
-# 3) 用户指定的 mode 模块
 deploy_module "$mode_dir" "harness-$mode"
 
+# 4) 保存新 manifest(原子覆盖旧的)
+mv "$new_manifest" "$manifest_file"
+trap - EXIT
+
+count=$(wc -l < "$manifest_file" | tr -d ' ')
 echo ""
-echo "完成。在目标项目的 Claude Code 中可使用:"
+echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
+echo "在目标项目的 Claude Code 中可使用:"
 echo "  /harness-plan       生成 plan 文件"
 echo "  /harness-$mode   消费 plan 启动构建与验收"
