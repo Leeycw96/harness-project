@@ -158,8 +158,8 @@ write_config "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/plan.md"
 全部通过则不拼接。
 
 ```bash
-dispatch_initial_prompt "harness-builder" "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 run 的 config.json 路径并 Read 它；plan.md 路径见 config.json 的 plan_path 字段（已就绪）。然后按你的常规启动流程开始范围对齐。${BASELINE_NOTE:-}"
-dispatch_initial_prompt "harness-qa"      "先在 Bash 工具里跑 \`echo \$HARNESS_CONFIG\` 拿到本次 run 的 config.json 路径并 Read 它；plan.md 路径见 config.json 的 plan_path 字段。然后按你的常规启动流程，等待搭档通知后开始 Scope Review。${BASELINE_NOTE:-}"
+dispatch_initial_prompt "harness-builder" "1) Bash 跑 \`echo \$HARNESS_CONFIG\` 拿 config.json 路径 → Read 它,记下 output_dir / plan_path。2) Read .claude/agents/harness-builder.md(我是谁、责任与原则) + .claude/agents/harness-builder-AGENTS.md(逐职责 SOP / 工件契约 / 通信约定 / 消息 TAG 模板)。3) 按 SOP 1(与 QA 对齐 scope)开始,产出 build-scope-v1.md 后用 \`complete_and_notify\` 发 \`SCOPE_READY\` 通知 qa。${BASELINE_NOTE:-}"
+dispatch_initial_prompt "harness-qa"      "1) Bash 跑 \`echo \$HARNESS_CONFIG\` 拿 config.json 路径 → Read 它,记下 output_dir / plan_path。2) Read .claude/agents/harness-qa.md(我是谁、责任与原则) + .claude/agents/harness-qa-AGENTS.md(逐职责 SOP / 工件契约 / 通信约定 / 消息 TAG 模板)。3) 等搭档发 \`SCOPE_READY\`(用 \`verify_partner_reply harness-builder SCOPE_READY\` 确认是真消息,函数返回 0 才能动手),然后按 SOP 1(Scope 审阅)开始。${BASELINE_NOTE:-}"
 ```
 
 其中 `BASELINE_NOTE` 由编排器在第一步 B 末尾根据用户决定拼好(有遗留则置为换行 + 上述告知文本，否则置空)。
