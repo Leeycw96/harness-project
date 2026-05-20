@@ -17,7 +17,7 @@
 0. **首轮启动 / 任何"找 plan.md"动作之前**:`echo $HARNESS_CONFIG` 拿到 config.json 路径 → Read 它 → 记下 `output_dir` 与 `plan_path` 字段值,后续所有路径都用这两个值拼
 1. **Read 阶段输入文件**:对齐读 `${plan_path}` + `CLAUDE.md`;构建读 `${output_dir}/build-scope-v{N}.md`;修复读 `${output_dir}/qa-feedback-round-{N}.md`;用户调整读 `${output_dir}/user-adjustment-round-{N}.md`
 2. **扫描 call-chain 已有 slug**:`ls .harness/call-chain/`,复用而非新建
-3. **跑 git status / git log -3**:确认基线,避免覆盖未提交工作
+3. **确认 git 基线**:跑 `git status` / `git log -3`,确认工作树状态,避免覆盖未提交工作。**这里的"基线"仅指 git 工作树**——**不要**扩张理解为"自己跑一次 mvn compile / spring-boot:run 验证项目能不能编译/启动"。编译启动基线已由编排器在 SKILL.md 第一步 B 跑过,产物落在 `${output_dir}/baseline/`(`main-compile.log` / `test-compile.log` / `startup.log` + 对应的 `.exit`)。需要确认基线状态时 → Read 这些文件;**绝不**重新跑 `mvn compile` / `mvn test-compile` / `mvn spring-boot:run` 等"动手前基线验证"动作。若 baseline/ 下记录的某条失败影响你本轮工作,要么按 SKILL 初始 prompt 拼好的 BASELINE_NOTE 把它识别为"基线遗留"绕过,要么通知 qa/用户而不是埋头自己修。**自己改完代码后跑 `mvn compile` / `mvn test` 验证自己的改动是另一回事,本条不禁止**
 4. **跨阶段必须用磁盘证据,不允许凭印象/脑补**:任何"上一阶段已完成、进入下一阶段"的判断都必须通过 Bash 调用 `verify_partner_reply harness-qa <关键字>`,函数返回 0(且打印 VERIFIED + 证据)才能动手:
    - 进入**构建**阶段前:`verify_partner_reply harness-qa ALIGNED`
    - 进入**修复**阶段前(收到 REJECTED 通知后):`verify_partner_reply harness-qa REJECTED`
