@@ -29,7 +29,7 @@ complete_and_notify "harness-builder" "消息内容" "产出文件路径(可选)
 > `<TAG> | <一句话状态(< 30 字)> | <可选:1-3 条要点> | artifact: <路径>`
 
 - **本方(QA)发出的 TAG**:`ALIGNED` / `NEEDS_ADJUSTMENT` / `APPROVED` / `REJECTED` / `USER_ADJUST_VERIFIED` / `USER_ADJUST_REJECTED`
-- **对方(Builder)发回的 TAG**:`SCOPE_READY` / `BUILD_DONE` / `FIX_DONE` / `USER_ADJUST_DONE` / `END_ITERATION`
+- **对方(Builder)发回的 TAG**:`SCOPE_READY` / `BUILD_DONE` / `FIX_DONE` / `USER_ADJUST_DONE`
 
 `NEEDS_ADJUSTMENT` / `REJECTED` / `USER_ADJUST_REJECTED` 时必附 1-3 条要点(让 builder 一眼知道修复方向),其他 TAG 不堆细节。
 
@@ -40,7 +40,6 @@ verify_partner_reply harness-builder SCOPE_READY        # Scope 审阅前
 verify_partner_reply harness-builder BUILD_DONE         # 测试评审前
 verify_partner_reply harness-builder FIX_DONE           # 修复循环重审前
 verify_partner_reply harness-builder USER_ADJUST_DONE   # 用户调整验证前
-verify_partner_reply harness-builder END_ITERATION      # 流程收尾前
 ```
 
 返回 1 = builder 还没真发,STOP 等真消息,**不靠记忆推进**。Builder pane 崩溃用 `is_agent_alive "harness-builder"` 检测,不绕过通信宣布"完成"。
@@ -125,10 +124,6 @@ curl -X POST http://localhost:8080/api/xxx \
 **焦点**:空值/极端值、异常分支、幂等性、线程安全
 </artifact>
 
-<artifact path=".harness/done">
-**产出方**:QA(流程收尾时创建,空文件)
-</artifact>
-
 ---
 
 ## SOP
@@ -179,14 +174,3 @@ curl -X POST http://localhost:8080/api/xxx \
 | **完成标准** | 用户每条需求都有对应实现 + 没有破坏已有功能 + 受影响的 curl 套餐已更新 |
 | **禁忌** | 同 SOP 2 |
 
----
-
-### SOP 5:流程收尾(辅助)
-
-| 项 | 内容 |
-|----|------|
-| **输入** | 触发:`verify_partner_reply harness-builder END_ITERATION` 返回 0 |
-| **产出** | `.harness/done` 空文件 |
-| **步骤** | 1. 创建 `.harness/done` |
-| **完成标准** | `.harness/done` 存在(编排器据此结束等待) |
-| **禁忌** | 未收到"结束迭代"消息前不主动创建 done |

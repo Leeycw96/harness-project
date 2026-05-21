@@ -28,7 +28,7 @@ complete_and_notify "harness-qa" "消息内容" "产出文件路径(可选)"
 
 > `<TAG> | <一句话状态(< 30 字)> | <可选:1-3 条要点> | artifact: <路径>`
 
-- **本方(Builder)发出的 TAG**:`SCOPE_READY` / `BUILD_DONE` / `FIX_DONE` / `USER_ADJUST_DONE` / `END_ITERATION`
+- **本方(Builder)发出的 TAG**:`SCOPE_READY` / `BUILD_DONE` / `FIX_DONE` / `USER_ADJUST_DONE`
 - **对方(QA)发回的 TAG**:`ALIGNED` / `NEEDS_ADJUSTMENT` / `APPROVED` / `REJECTED` / `USER_ADJUST_VERIFIED` / `USER_ADJUST_REJECTED`
 
 `REJECTED` 时必附 1-3 条关键问题(让 builder 一眼知道修复方向),其他 TAG 不堆细节。**消息正文不写"启动命令 / 应用地址"等执行细节**——这些 qa 用不到,需要时去 baseline / build-scope 看。
@@ -155,6 +155,6 @@ verify_partner_reply harness-qa APPROVED      # 进入 SOP 4 用户调整前
 |----|------|
 | **输入** | 用户输入的调整需求(对话);<br>触发:`verify_partner_reply harness-qa APPROVED` 返回 0 |
 | **产出** | `${output_dir}/user-adjustment-round-{N}.md`(先落盘) + 修改后的代码 |
-| **步骤** | 1. **STOP 关键认知**:**输出步骤 2 那条用户面向提示 = 已经进入本 SOP**,必须先过 APPROVED verify 门槛<br>2. 提示用户:「✅ 开发已完成并通过 QA 验收。你现在可以直接输入调整需求(新增功能、修改或删除已有内容),我会实现后与 QA 确认。输入"结束迭代"完成本次构建。」<br>3. 收到用户需求,**先**写入 user-adjustment-round-{N}.md(N 从 1 起递增)。有疑点先列给用户澄清,无疑点直接落盘<br>4. 逐条对照 user-adjustment 实现,修改集中在业务域 Service 内部 / 入口层翻译<br>5. **跑本次调整涉及的 Service 单测**(`mvn test -Dtest=...`)+ `mvn test-compile` 验整体编译。**不跑全量 mvn test**(跨模块运行期回归由用户 `/harness-backend-smoke` 兜底)。涉及入口层改动时提示用户用 `/harness-backend-smoke` 触发端到端回归<br>6. `send_to_agent "harness-qa" "USER_ADJUST_DONE | round-{N} 实现完成 | artifact: ${output_dir}/user-adjustment-round-{N}.md"`<br>7. 等 qa 验证:通过则继续等用户输入或结束;不通过则按 SOP 3 修复<br>8. 用户输入"结束迭代":`send_to_agent "harness-qa" "END_ITERATION | 用户确认结束迭代"` |
+| **步骤** | 1. **STOP 关键认知**:**输出步骤 2 那条用户面向提示 = 已经进入本 SOP**,必须先过 APPROVED verify 门槛<br>2. 提示用户:「✅ 开发已完成并通过 QA 验收。你现在可以直接输入调整需求(新增功能、修改或删除已有内容),我会实现后与 QA 确认。输入"结束迭代"完成本次构建。」<br>3. 收到用户需求,**先**写入 user-adjustment-round-{N}.md(N 从 1 起递增)。有疑点先列给用户澄清,无疑点直接落盘<br>4. 逐条对照 user-adjustment 实现,修改集中在业务域 Service 内部 / 入口层翻译<br>5. **跑本次调整涉及的 Service 单测**(`mvn test -Dtest=...`)+ `mvn test-compile` 验整体编译。**不跑全量 mvn test**(跨模块运行期回归由用户 `/harness-backend-smoke` 兜底)。涉及入口层改动时提示用户用 `/harness-backend-smoke` 触发端到端回归<br>6. `send_to_agent "harness-qa" "USER_ADJUST_DONE | round-{N} 实现完成 | artifact: ${output_dir}/user-adjustment-round-{N}.md"`<br>7. 等 qa 验证:通过则继续等用户输入或结束;不通过则按 SOP 3 修复<br>8. 用户输入"结束迭代"时,**告知用户**:「请到主 pane 输入'结束迭代'触发 cleanup,关闭所有 Agent pane」(qa 无需通知,清理由 SKILL 主 pane 第六步统一处理) |
 | **完成标准** | user-adjustment 落盘且原文保留;每条用户需求都有对应实现;qa 验证通过 |
 | **禁忌** | 输出"开发已完成"前未过 APPROVED verify(进入 SOP = 阶段切换);收到用户输入跳过 user-adjustment 落盘直接动手实现(上下文压缩会丢需求) |

@@ -62,7 +62,6 @@ if [ ! -f "$HARNESS_INIT_MARKER" ]; then
   # 首次运行，正常初始化
   rm -f "$HARNESS_PANES_FILE" "$HARNESS_MAIN_PANE_FILE"
   rm -f "$PROJECT_DIR/.harness/.pending-agents"
-  rm -f "$PROJECT_DIR/.harness/done"
   rm -rf "$PROJECT_DIR/.harness/signals"
   mkdir -p "$PROJECT_DIR/.harness/signals"
   echo "$TMUX_PANE" > "$HARNESS_MAIN_PANE_FILE"
@@ -98,15 +97,6 @@ fi
 # 从持久化文件读取主 pane ID，而不是每次动态获取
 # 解决多 window 场景下焦点在其他 window 时 Agent 被 split 到错误 window 的问题
 HARNESS_MAIN_PANE=$(cat "$HARNESS_MAIN_PANE_FILE")
-
-# 工具函数：等待文件生成
-wait_for_file() {
-  local file="$1" timeout="${2:-1800}" elapsed=0
-  while [ ! -f "$file" ] && [ $elapsed -lt $timeout ]; do
-    sleep 5; elapsed=$((elapsed + 5))
-  done
-  [ -f "$file" ]
-}
 
 # 工具函数：在当前窗口创建新 Pane 启动 Agent（交互模式），不发送初始 prompt
 # 关键设计：
@@ -264,7 +254,6 @@ cleanup_panes() {
   rm -f "$PROJECT_DIR/.harness/.pending-agents"
   rm -f "$PROJECT_DIR/.harness/main-pane"
   rm -f "$PROJECT_DIR/.harness/.initialized"
-  rm -f "$PROJECT_DIR/.harness/done"
 }
 
 # 工具函数：清理上次异常退出残留的 .harness 状态，然后重新初始化
@@ -289,7 +278,6 @@ cleanup_stale_session() {
   rm -f "$HARNESS_PANES_FILE" "$HARNESS_MAIN_PANE_FILE" "$HARNESS_INIT_MARKER"
   rm -f "$PROJECT_DIR/.harness/.pending-agents"
   rm -rf "$PROJECT_DIR/.harness/signals"
-  rm -f "$PROJECT_DIR/.harness/done"
   # 重新初始化
   mkdir -p "$PROJECT_DIR/.harness/signals"
   echo "$TMUX_PANE" > "$HARNESS_MAIN_PANE_FILE"

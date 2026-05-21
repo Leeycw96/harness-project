@@ -161,13 +161,13 @@ dispatch_initial_prompt "harness-qa"      "1) Bash 跑 \`echo \$HARNESS_CONFIG\`
 
 ### 第五步：放手让 Agent 自主工作(主 pane 不再阻塞)
 
-**不要**调 `wait_for_file` 阻塞主 pane —— Claude Code CLI 在长 Bash 调用中会持有 context 占内存(几小时累积几百 MB,电脑会变卡)。
+**不要**通过任何 Bash 阻塞主 pane(如轮询 / sleep / wait 文件)—— Claude Code CLI 在长 Bash 调用中会持有 context 占内存(几小时累积几百 MB,电脑会变卡)。
 
 完成 dispatch_initial_prompt 后,直接向用户输出指引,然后**结束本次执行**(不调任何 Bash 工具):
 
 > 「harness-builder 和 harness-qa 已自主启动,后续会在自己的 pane 内协作完成本次迭代。你可以在各个 Pane 中观察实时进展。
 >
-> **当 Agent 完成本轮迭代(QA 创建 .harness/done)或你想提前停止时,在本主 pane 输入 `结束迭代`(或类似措辞),我会用 AskUserQuestion 确认是否关闭 Agent pane。**
+> **当 Agent 完成本轮迭代或你想提前停止时,在本主 pane 输入 `结束迭代`(或类似措辞),我会用 AskUserQuestion 确认是否关闭 Agent pane。**
 >
 > 本主 pane 现在进入待命状态,不会占用资源。」
 
