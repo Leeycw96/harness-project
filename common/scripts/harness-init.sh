@@ -231,6 +231,10 @@ dispatch_initial_prompt() {
   local prompt_file="$PROJECT_DIR/.harness/${name}.prompt"
   printf '%s' "$prompt" > "$prompt_file"
 
+  # 落盘到 conversation/(from=skill,便于诊断 dispatch 是否被异常重发)
+  # 失败不阻塞主流程(_persist_conversation 内部已做了异常吞掉)
+  ( HARNESS_AGENT_NAME="skill" _persist_conversation "$name" "$prompt" )
+
   # 通过 send-keys 发送初始 prompt（-l 逐字符发送，Enter 单独发送）
   tmux send-keys -t "$pane" -l "$(cat "$prompt_file")"
   # 等待对方 TUI 把字符消化进输入框,再回车提交;不 sleep 时 Enter 常被吃掉
