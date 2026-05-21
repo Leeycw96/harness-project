@@ -159,33 +159,39 @@ dispatch_initial_prompt "harness-qa"      "1) Bash 跑 \`echo \$HARNESS_CONFIG\`
 
 向用户提示：「harness-builder 和 harness-qa 已全部启动，它们将自主协调工作。你可以在各个 Pane 中观察实时进展。」
 
-### 第五步：等待完成
+### 第五步：放手让 Agent 自主工作(主 pane 不再阻塞)
 
-**你必须通过执行以下 Bash 命令阻塞等待，不要自行判断流程是否结束、不要轮询 Agent 状态、不要提前执行第六步。**
+**不要**调 `wait_for_file` 阻塞主 pane —— Claude Code CLI 在长 Bash 调用中会持有 context 占内存(几小时累积几百 MB,电脑会变卡)。
+
+完成 dispatch_initial_prompt 后,直接向用户输出指引,然后**结束本次执行**(不调任何 Bash 工具):
+
+> 「harness-builder 和 harness-qa 已自主启动,后续会在自己的 pane 内协作完成本次迭代。你可以在各个 Pane 中观察实时进展。
+>
+> **当 Agent 完成本轮迭代(QA 创建 .harness/done)或你想提前停止时,在本主 pane 输入 `结束迭代`(或类似措辞),我会用 AskUserQuestion 确认是否关闭 Agent pane。**
+>
+> 本主 pane 现在进入待命状态,不会占用资源。」
+
+输出完上述指引后,**本次 SKILL 执行结束**,等待用户后续输入。
+
+### 第六步：用户触发收尾时执行
+
+当用户在主 pane 输入「结束迭代」、「关闭 agent」、「收工」等收尾意图措辞时,你应:
+
+1. **使用 AskUserQuestion 工具**确认:
+   - 选项一:「关闭 Agent 会话」→ 执行 cleanup_panes
+   - 选项二:「保留 Agent 会话」→ 跳过 cleanup,仅提示流程已完成
+
+2. 若选择关闭,在 Bash 中执行:
 
 ```bash
-wait_for_file .harness/done 28800
-```
-
-总超时 8 小时。`.harness/done` 由 harness-qa 在用户"结束迭代"后的收尾阶段创建——APPROVED 不等于流程结束，APPROVED 后还有用户调整阶段。
-
-### 第六步：完成
-
-检测到 `.harness/done` 后，**使用 AskUserQuestion 工具**询问用户是否关闭 Agent 会话：
-- 选项一：「关闭 Agent 会话」→ 执行 cleanup_panes
-- 选项二：「保留 Agent 会话」→ 跳过 cleanup，仅提示流程已完成
-
-用户选择关闭时执行：
-
-```bash
+source .claude/common/scripts/harness-init.sh
 cleanup_panes
 ```
 
-向用户提示：「构建流程已完成，详见 ${HARNESS_OUTPUT_DIR}/harness-trace.md。」
+3. 向用户提示:「构建流程已完成,详见 ${HARNESS_OUTPUT_DIR}/。」
 
 ## 错误处理
 
-- 如果 `wait_for_file` 超时（8 小时），向用户报告并建议检查各 Agent 的 tmux pane 输出
 - 如果 tmux 不可用，回退到使用 Agent 工具（subagent 模式）启动 Agent
 
 ## 重要提醒
