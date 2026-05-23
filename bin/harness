@@ -135,7 +135,60 @@ fi
 
 deploy_module "$mode_dir" "harness-$mode"
 
-# 4) 保存新 manifest(原子覆盖旧的)
+# 4) 安装 PostCompact hook 到目标 .claude/settings.json
+#    压缩会抹掉"我在按手册执行、走到哪一步"的执行游标,builder/qa 协作时
+#    完成阶段后会忘了按手册通知对方。注入被动提示,普通对话不打扰,手册
+#    任务到阶段切换点时 agent 会自然回查手册下一步规则。
+#    marker 用于识别"这条是 harness 装的",支持幂等部署。
+postcompact_marker="harness:postcompact-hint"
+postcompact_hook=$(cat <<'HOOK_JSON'
+{
+  "matcher": "auto",
+  "hooks": [
+    {
+      "type": "command",
+      "command": "jq -n '{hookSpecificOutput:{additionalContext:\"[上下文压缩后提示] 提醒:你的工作手册定义了任务流程与协作规则,需要时请回查手册。\"}}' # harness:postcompact-hint"
+    }
+  ]
+}
+HOOK_JSON
+)
+
+install_postcompact_hook() {
+  local settings_file="$target/.claude/settings.json"
+
+  if [ ! -f "$settings_file" ]; then
+    jq -n --argjson e "$postcompact_hook" '{hooks:{PostCompact:[$e]}}' > "$settings_file"
+    echo "[hook] PostCompact 已安装(新建 settings.json)"
+    return
+  fi
+
+  if jq -e --arg m "$postcompact_marker" '
+    [ (.hooks.PostCompact // [])[]?.hooks[]?.command // "" ]
+    | any(test($m))
+  ' "$settings_file" >/dev/null 2>&1; then
+    echo "[hook] PostCompact 已存在,跳过"
+    return
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+  if jq --argjson e "$postcompact_hook" '
+    .hooks = (.hooks // {})
+    | .hooks.PostCompact = ((.hooks.PostCompact // []) + [$e])
+  ' "$settings_file" > "$tmp"; then
+    mv "$tmp" "$settings_file"
+    echo "[hook] PostCompact 已追加"
+  else
+    rm -f "$tmp"
+    echo "[hook] PostCompact 追加失败,settings.json 未变更" >&2
+    return 1
+  fi
+}
+
+install_postcompact_hook
+
+# 5) 保存新 manifest(原子覆盖旧的)
 mv "$new_manifest" "$manifest_file"
 trap - EXIT
 
