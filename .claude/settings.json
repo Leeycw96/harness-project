@@ -10,6 +10,17 @@
           }
         ]
       }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -n '{hookSpecificOutput:{additionalContext:\"[上下文压缩后提示] 提醒:你的工作手册定义了任务流程与协作规则,需要时请回查手册。\"}}'"
+          }
+        ]
+      }
     ]
   }
 }
