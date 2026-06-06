@@ -47,22 +47,22 @@ source ~/.zshrc      # 或新开一个终端
 
 ## 使用
 
-Claude Code 版保持旧命令兼容:
+Claude Code 版:
 
 ```bash
 cd /path/to/your/project
-harness backend
-# 等价于:
-harness claude-code backend
+harness --claude-code backend
+# 或:
+harness backend --claude-code
 ```
 
-Codex 版显式指定 runtime:
+Codex 版:
 
 ```bash
 cd /path/to/your/project
-harness codex backend
+harness --codex backend
 # 或:
-harness --runtime codex backend /path/to/your/project
+harness backend --codex /path/to/your/project
 ```
 
 部署后:
@@ -90,8 +90,9 @@ Codex 版使用 Codex App/CLI 原生 custom subagents。`harness-backend` skill 
 
 ## 部署行为
 
-- `harness <mode> [target-dir]` 默认部署 Claude Code 版到 `.claude/`
-- `harness codex <mode> [target-dir]` 部署 Codex 版到 `.codex/`
+- `harness --claude-code <mode> [target-dir]` 部署 Claude Code 版到 `.claude/`
+- `harness --codex <mode> [target-dir]` 部署 Codex 版到 `.codex/`
+- 未指定 `--claude-code` 或 `--codex` 时直接报错,避免误装 runtime
 - 同名文件直接覆盖
 - 通过 `<app-dir>/.harness/installed-manifest` 清理上次由 harness 部署、但本次源里已不存在的旧文件
 - 始终包含 `common/` 与 `harness-plan/`
@@ -104,8 +105,8 @@ Codex 版使用 Codex App/CLI 原生 custom subagents。`harness-backend` skill 
 bash -n bin/harness
 find claude-code/common codex/common common claude-proxy -type f -name '*.sh' -exec bash -n {} \;
 tmp=$(mktemp -d)
-bin/harness backend "$tmp"
-bin/harness codex backend "$tmp"
+bin/harness --claude-code backend "$tmp"
+bin/harness --codex backend "$tmp"
 rm -rf "$tmp"
 ```
 

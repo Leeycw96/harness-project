@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Harness 部署 CLI:harness [--runtime claude-code|codex] <mode> [target-dir]
-# 默认兼容旧用法: harness <mode> [target-dir] 部署 Claude Code 版到 .claude/
+# Harness 部署 CLI:harness (--claude-code|--codex) <mode> [target-dir]
+# runtime 必须显式选择，避免误装到错误目录。
 
 set -euo pipefail
 
@@ -10,12 +10,13 @@ HARNESS_ROOT="$(dirname "$SCRIPT_DIR")"
 usage() {
   cat <<'EOF'
 用法:
-  harness <mode> [target-dir]
-  harness claude-code <mode> [target-dir]
-  harness codex <mode> [target-dir]
+  harness --claude-code <mode> [target-dir]
+  harness --codex <mode> [target-dir]
+  harness <mode> --claude-code [target-dir]
+  harness <mode> --codex [target-dir]
   harness --runtime <claude-code|codex> <mode> [target-dir]
 
-部署 harness 模块到指定项目。默认 runtime 是 claude-code,保持旧用法兼容。
+部署 harness 模块到指定项目。必须显式选择 runtime。
 
 参数:
   runtime      claude-code 部署到 .claude/;codex 部署到 .codex/
@@ -23,14 +24,15 @@ usage() {
   target-dir   目标项目目录,默认当前目录
 
 示例:
-  harness backend                # Claude Code 版,部署到当前目录
-  harness backend /path/to/proj  # Claude Code 版,部署到指定目录
-  harness codex backend          # Codex 版,部署到当前目录
+  harness --claude-code backend
+  harness backend --claude-code /path/to/proj
+  harness --codex backend
+  harness backend --codex /path/to/proj
   harness --runtime codex backend /path/to/proj
 EOF
 }
 
-runtime="claude-code"
+runtime=""
 
 if [ $# -lt 1 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
   usage
@@ -46,8 +48,12 @@ case "${1:-}" in
     runtime="$2"
     shift 2
     ;;
-  claude-code|codex)
-    runtime="$1"
+  --claude-code)
+    runtime="claude-code"
+    shift
+    ;;
+  --codex)
+    runtime="codex"
     shift
     ;;
 esac
@@ -58,7 +64,59 @@ if [ $# -lt 1 ]; then
 fi
 
 mode="$1"
-target_arg="${2:-.}"
+shift
+
+target_arg="."
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --claude-code)
+      if [ -n "$runtime" ] && [ "$runtime" != "claude-code" ]; then
+        echo "错误: runtime 参数冲突" >&2
+        exit 1
+      fi
+      runtime="claude-code"
+      ;;
+    --codex)
+      if [ -n "$runtime" ] && [ "$runtime" != "codex" ]; then
+        echo "错误: runtime 参数冲突" >&2
+        exit 1
+      fi
+      runtime="codex"
+      ;;
+    --runtime)
+      if [ $# -lt 2 ]; then
+        usage >&2
+        exit 1
+      fi
+      if [ -n "$runtime" ] && [ "$runtime" != "$2" ]; then
+        echo "错误: runtime 参数冲突" >&2
+        exit 1
+      fi
+      runtime="$2"
+      shift
+      ;;
+    --*)
+      echo "错误: 未知参数 '$1'" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      if [ "$target_arg" != "." ]; then
+        echo "错误: 只能指定一个 target-dir" >&2
+        usage >&2
+        exit 1
+      fi
+      target_arg="$1"
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$runtime" ]; then
+  echo "错误: 必须显式指定 runtime: --codex 或 --claude-code" >&2
+  usage >&2
+  exit 1
+fi
 
 case "$runtime" in
   claude-code)
