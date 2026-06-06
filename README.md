@@ -1,23 +1,37 @@
 # Harness
 
-Harness 是一组 Claude Code 的 skills + agents,用于多 Agent 编排。每个模式(如 `backend`)按统一的目录约定组织,通过 `harness` CLI 一键部署到目标项目。
+Harness 是一组面向 AI Coding CLI 的 skills + agent/role 手册,用于 Builder + QA 多 pane 编排。
+
+v1.2.0 开始仓库同时维护两套运行时:
+
+- `claude-code/`:Claude Code 版,部署到目标项目 `.claude/`
+- `codex/`:Codex 版,部署到目标项目 `.codex/`
+
+根目录下保留 v1.1.x 的 `common/`、`harness-plan/`、`harness-backend/` 等目录,用于兼容既有引用；新开发应优先改对应 runtime 目录。
 
 ## 目录结构
 
 ```
 harness-project/
-├── bin/harness                    # 部署 CLI
-├── install.sh                     # 把 bin/ 写入 PATH
-├── common/scripts/                # 通用脚本
-│   ├── harness-init.sh            # 编排器初始化(launch_agent / wait_for_file 等)
-│   └── harness-common.sh          # Agent 间通信(send_to_agent / complete_and_notify 等)
-├── harness-plan/                  # 通用 plan 模块,所有模式都会自动带上
-│   └── skills/harness-plan/       # /harness-plan
-└── harness-backend/               # backend 模式
-    ├── skills/harness-backend/    # /harness-backend
-    └── agents/                    # 模式专属 agents
-        ├── harness-builder.md
-        └── harness-qa.md
+├── bin/harness                         # 部署 CLI
+├── install.sh                          # 把 bin/ 写入 PATH
+├── claude-code/                        # Claude Code runtime
+│   ├── common/
+│   ├── harness-plan/
+│   ├── harness-backend/
+│   └── harness-solidity/
+└── codex/                              # Codex runtime
+    ├── common/
+    ├── harness-plan/
+    └── harness-backend/
+```
+
+每个模式遵循统一布局:
+
+```
+harness-<mode>/
+├── skills/harness-<mode>/              # skill
+└── agents/                             # Claude agents 或 Codex role/SOP 文档
 ```
 
 ## 安装 CLI
@@ -29,62 +43,68 @@ cd harness-project
 source ~/.zshrc      # 或新开一个终端
 ```
 
-`install.sh` 会把 `bin/` 写入你的 shell rc 文件。当前终端必须 `source` 一次或新开窗口,PATH 才会生效(shell 标准行为,无法绕过)。
+`install.sh` 只把 `bin/` 加入 PATH,不会部署任何 skill。
 
 ## 使用
+
+Claude Code 版保持旧命令兼容:
 
 ```bash
 cd /path/to/your/project
 harness backend
+# 等价于:
+harness claude-code backend
 ```
 
-部署后目标项目下:
+Codex 版显式指定 runtime:
+
+```bash
+cd /path/to/your/project
+harness codex backend
+# 或:
+harness --runtime codex backend /path/to/your/project
+```
+
+部署后:
 
 ```
-.claude/
-├── common/scripts/                # 通用脚本
+.claude/ 或 .codex/
+├── common/scripts/
 ├── skills/
-│   ├── harness-plan/              # 通用,自动带上
+│   ├── harness-plan/
 │   └── harness-backend/
 └── agents/
     ├── harness-builder.md
-    └── harness-qa.md
+    ├── harness-builder-AGENTS.md
+    ├── harness-qa.md
+    └── harness-qa-AGENTS.md
 ```
 
-然后在 Claude Code 中:
+## Runtime 差异
 
-- `/harness-plan` 引导式生成 plan 文件到 `.harness/plans/`
-- `/harness-backend` 消费 plan 启动 builder/qa,完成构建与验收
+Claude Code 版使用 `.claude/agents/*.md` frontmatter 和 `claude --agent ...` 启动 Builder/QA,并安装 PostCompact hook 提醒 agent 回查手册。
 
-## 模块约定
-
-每个模式遵循统一目录布局:
-
-```
-harness-<mode>/
-├── skills/harness-<mode>/         # 模式 skill,部署到 .claude/skills/
-└── agents/                        # 模式专属 agents,部署到 .claude/agents/
-```
-
-新增 mode(如 `harness-solidity`)只需新建一个根目录,CLI 无需改动——`harness solidity` 会自动找到 `harness-solidity/` 并按同样规则部署。
+Codex 版使用普通 `codex` CLI pane。`harness-backend` skill 启动两个 Codex 会话后,通过初始 prompt 注入 `harness-builder` / `harness-qa` 角色,让它们读取 `.codex/agents/*` 手册并通过 `.harness/iterations/<branch>/run-N/conversation/` 落盘通信。
 
 ## 部署行为
 
-- `harness <mode>` 默认部署到当前目录,可附加目标路径:`harness backend /path/to/proj`
-- 同名文件**直接覆盖**;目标项目已有的其他 skill / agent 不受影响
-- 始终包含 `common/` 与 `harness-plan/`(无条件)
+- `harness <mode> [target-dir]` 默认部署 Claude Code 版到 `.claude/`
+- `harness codex <mode> [target-dir]` 部署 Codex 版到 `.codex/`
+- 同名文件直接覆盖
+- 通过 `<app-dir>/.harness/installed-manifest` 清理上次由 harness 部署、但本次源里已不存在的旧文件
+- 始终包含 `common/` 与 `harness-plan/`
 
-## Skill 说明
+## 开发与验证
 
-### harness-plan
+常用验证命令:
 
-扮演产品经理,通过对话把模糊想法逐步结构化为 XML 格式的 plan 文件,作为下游 builder/qa 的直接输入。详见 `harness-plan/skills/harness-plan/SKILL.md`。
+```bash
+bash -n bin/harness
+find claude-code/common codex/common common claude-proxy -type f -name '*.sh' -exec bash -n {} \;
+tmp=$(mktemp -d)
+bin/harness backend "$tmp"
+bin/harness codex backend "$tmp"
+rm -rf "$tmp"
+```
 
-### harness-backend
-
-消费 `.harness/plans/<名称>.md`,驱动 builder/qa 两个 Agent 完成构建与验收闭环。详见 `harness-backend/skills/harness-backend/SKILL.md`。
-
-## Agent 说明
-
-- **harness-builder**:在已有后端项目中执行开发任务,产出代码与 `.harness/call-chain/` 调用链文件
-- **harness-qa**:基于 plan 中的 `<acceptance-criteria>` 对实现进行验收,产出 `.harness/done` 完成标记
+对 `bin/harness` 做端到端测试时,目标目录必须用 `mktemp -d` 创建,测试结束后清理,避免污染真实项目。

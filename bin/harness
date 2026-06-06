@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Harness 部署 CLI:harness <mode> [target-dir]
-# 把 common/、harness-plan/、harness-<mode>/ 部署到目标项目的 .claude/
-# 通过 manifest 跟踪已部署文件,下次部署时自动清理已被废弃的文件(不动用户自定义)
+# Harness 部署 CLI:harness [--runtime claude-code|codex] <mode> [target-dir]
+# 默认兼容旧用法: harness <mode> [target-dir] 部署 Claude Code 版到 .claude/
 
 set -euo pipefail
 
@@ -10,41 +9,77 @@ HARNESS_ROOT="$(dirname "$SCRIPT_DIR")"
 
 usage() {
   cat <<'EOF'
-用法: harness <mode> [target-dir]
+用法:
+  harness <mode> [target-dir]
+  harness claude-code <mode> [target-dir]
+  harness codex <mode> [target-dir]
+  harness --runtime <claude-code|codex> <mode> [target-dir]
 
-部署 harness 模块到指定项目的 .claude/ 目录。
+部署 harness 模块到指定项目。默认 runtime 是 claude-code,保持旧用法兼容。
 
 参数:
-  mode         模式名(对应源仓库的 harness-<mode>/ 目录)
+  runtime      claude-code 部署到 .claude/;codex 部署到 .codex/
+  mode         模式名(对应源仓库 runtime 下的 harness-<mode>/ 目录)
   target-dir   目标项目目录,默认当前目录
 
-部署内容:
-  common/                       → <target>/.claude/common/
-  harness-plan/skills/*         → <target>/.claude/skills/   (通用,自动)
-  harness-plan/agents/*         → <target>/.claude/agents/   (通用,自动)
-  harness-<mode>/skills/*       → <target>/.claude/skills/
-  harness-<mode>/agents/*       → <target>/.claude/agents/
-
-行为:
-  - 同名文件直接覆盖
-  - 通过 .claude/.harness/installed-manifest 跟踪部署文件;本次源里没有的
-    旧文件会被自动清理(只清 manifest 记录过的文件,不动用户自定义文件)
-
 示例:
-  harness backend                # 部署到当前目录
-  harness backend /path/to/proj  # 部署到指定目录
+  harness backend                # Claude Code 版,部署到当前目录
+  harness backend /path/to/proj  # Claude Code 版,部署到指定目录
+  harness codex backend          # Codex 版,部署到当前目录
+  harness --runtime codex backend /path/to/proj
 EOF
 }
 
-if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+runtime="claude-code"
+
+if [ $# -lt 1 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
   usage
   exit 0
+fi
+
+case "${1:-}" in
+  --runtime)
+    if [ $# -lt 3 ]; then
+      usage >&2
+      exit 1
+    fi
+    runtime="$2"
+    shift 2
+    ;;
+  claude-code|codex)
+    runtime="$1"
+    shift
+    ;;
+esac
+
+if [ $# -lt 1 ]; then
+  usage >&2
+  exit 1
 fi
 
 mode="$1"
 target_arg="${2:-.}"
 
-mode_dir="$HARNESS_ROOT/harness-$mode"
+case "$runtime" in
+  claude-code)
+    app_dir=".claude"
+    ;;
+  codex)
+    app_dir=".codex"
+    ;;
+  *)
+    echo "错误: 未知 runtime '$runtime'(支持 claude-code / codex)" >&2
+    exit 1
+    ;;
+esac
+
+source_root="$HARNESS_ROOT/$runtime"
+if [ "$runtime" = "claude-code" ] && [ ! -d "$source_root" ]; then
+  # 兼容 v1.1.x 仓库布局
+  source_root="$HARNESS_ROOT"
+fi
+
+mode_dir="$source_root/harness-$mode"
 if [ ! -d "$mode_dir" ]; then
   echo "错误: 未找到模式 'harness-$mode'" >&2
   echo "       期望路径: $mode_dir" >&2
@@ -57,17 +92,16 @@ if [ ! -d "$target_arg" ]; then
 fi
 
 target="$(cd "$target_arg" && pwd)"
-echo "部署到: $target/.claude/"
+echo "runtime: $runtime"
+echo "部署到: $target/$app_dir/"
 
-mkdir -p "$target/.claude/skills" "$target/.claude/agents" "$target/.claude/common"
-mkdir -p "$target/.claude/.harness"
+mkdir -p "$target/$app_dir/skills" "$target/$app_dir/agents" "$target/$app_dir/common"
+mkdir -p "$target/$app_dir/.harness"
 
-manifest_file="$target/.claude/.harness/installed-manifest"
+manifest_file="$target/$app_dir/.harness/installed-manifest"
 new_manifest=$(mktemp)
 trap 'rm -f "$new_manifest"' EXIT
 
-# 收集源目录里的所有文件,转为 target 视角相对路径(以 .claude 开头)
-# 用法:collect_files <src_dir> <target_prefix>
 collect_files() {
   local src="$1" prefix="$2"
   [ -d "$src" ] || return 0
@@ -77,18 +111,16 @@ collect_files() {
   done
 }
 
-# 1) 收集本次部署的全部文件清单
 {
-  collect_files "$HARNESS_ROOT/common" ".claude/common"
-  if [ -d "$HARNESS_ROOT/harness-plan" ]; then
-    collect_files "$HARNESS_ROOT/harness-plan/skills" ".claude/skills"
-    collect_files "$HARNESS_ROOT/harness-plan/agents" ".claude/agents"
+  collect_files "$source_root/common" "$app_dir/common"
+  if [ -d "$source_root/harness-plan" ]; then
+    collect_files "$source_root/harness-plan/skills" "$app_dir/skills"
+    collect_files "$source_root/harness-plan/agents" "$app_dir/agents"
   fi
-  collect_files "$mode_dir/skills" ".claude/skills"
-  collect_files "$mode_dir/agents" ".claude/agents"
+  collect_files "$mode_dir/skills" "$app_dir/skills"
+  collect_files "$mode_dir/agents" "$app_dir/agents"
 } | sort -u > "$new_manifest"
 
-# 2) 与旧 manifest 对比,清理"旧 manifest 有但本次清单没有"的文件
 if [ -f "$manifest_file" ]; then
   obsolete=$(comm -23 <(sort -u "$manifest_file") "$new_manifest" || true)
   if [ -n "$obsolete" ]; then
@@ -101,7 +133,6 @@ if [ -f "$manifest_file" ]; then
         echo "  - $rel"
       fi
     done <<< "$obsolete"
-    # 顺手清空目录(有用户其他文件则 rmdir 失败,自然跳过)
     while IFS= read -r rel; do
       [ -z "$rel" ] && continue
       dir="$(dirname "$target/$rel")"
@@ -113,35 +144,37 @@ if [ -f "$manifest_file" ]; then
   fi
 fi
 
-# 3) 执行部署(cp -r)
 deploy_module() {
   local src="$1" name="$2"
   if [ -d "$src/skills" ] && [ -n "$(ls -A "$src/skills" 2>/dev/null)" ]; then
-    echo "  [$name] skills → .claude/skills/"
-    cp -r "$src/skills/." "$target/.claude/skills/"
+    echo "  [$name] skills → $app_dir/skills/"
+    cp -R "$src/skills/." "$target/$app_dir/skills/"
   fi
   if [ -d "$src/agents" ] && [ -n "$(ls -A "$src/agents" 2>/dev/null)" ]; then
-    echo "  [$name] agents → .claude/agents/"
-    cp -r "$src/agents/." "$target/.claude/agents/"
+    echo "  [$name] agents → $app_dir/agents/"
+    cp -R "$src/agents/." "$target/$app_dir/agents/"
   fi
 }
 
-echo "[common] common/ → .claude/common/"
-cp -r "$HARNESS_ROOT/common/." "$target/.claude/common/"
+echo "[common] common/ → $app_dir/common/"
+cp -R "$source_root/common/." "$target/$app_dir/common/"
 
-if [ -d "$HARNESS_ROOT/harness-plan" ]; then
-  deploy_module "$HARNESS_ROOT/harness-plan" "harness-plan"
+if [ -d "$source_root/harness-plan" ]; then
+  deploy_module "$source_root/harness-plan" "harness-plan"
 fi
 
 deploy_module "$mode_dir" "harness-$mode"
 
-# 4) 安装 PostCompact hook 到目标 .claude/settings.json
-#    压缩会抹掉"我在按手册执行、走到哪一步"的执行游标,builder/qa 协作时
-#    完成阶段后会忘了按手册通知对方。注入被动提示,普通对话不打扰,手册
-#    任务到阶段切换点时 agent 会自然回查手册下一步规则。
-#    marker 用于识别"这条是 harness 装的",支持幂等部署。
-postcompact_marker="harness:postcompact-hint"
-postcompact_hook=$(cat <<'HOOK_JSON'
+install_claude_postcompact_hook() {
+  command -v jq >/dev/null 2>&1 || {
+    echo "[hook] 跳过 PostCompact: jq 未安装" >&2
+    return 0
+  }
+
+  local marker="harness:postcompact-hint"
+  local settings_file="$target/.claude/settings.json"
+  local hook
+  hook=$(cat <<'HOOK_JSON'
 {
   "matcher": "auto",
   "hooks": [
@@ -154,16 +187,13 @@ postcompact_hook=$(cat <<'HOOK_JSON'
 HOOK_JSON
 )
 
-install_postcompact_hook() {
-  local settings_file="$target/.claude/settings.json"
-
   if [ ! -f "$settings_file" ]; then
-    jq -n --argjson e "$postcompact_hook" '{hooks:{PostCompact:[$e]}}' > "$settings_file"
+    jq -n --argjson e "$hook" '{hooks:{PostCompact:[$e]}}' > "$settings_file"
     echo "[hook] PostCompact 已安装(新建 settings.json)"
     return
   fi
 
-  if jq -e --arg m "$postcompact_marker" '
+  if jq -e --arg m "$marker" '
     [ (.hooks.PostCompact // [])[]?.hooks[]?.command // "" ]
     | any(test($m))
   ' "$settings_file" >/dev/null 2>&1; then
@@ -173,7 +203,7 @@ install_postcompact_hook() {
 
   local tmp
   tmp=$(mktemp)
-  if jq --argjson e "$postcompact_hook" '
+  if jq --argjson e "$hook" '
     .hooks = (.hooks // {})
     | .hooks.PostCompact = ((.hooks.PostCompact // []) + [$e])
   ' "$settings_file" > "$tmp"; then
@@ -186,15 +216,20 @@ install_postcompact_hook() {
   fi
 }
 
-install_postcompact_hook
+if [ "$runtime" = "claude-code" ]; then
+  install_claude_postcompact_hook
+fi
 
-# 5) 保存新 manifest(原子覆盖旧的)
 mv "$new_manifest" "$manifest_file"
 trap - EXIT
 
 count=$(wc -l < "$manifest_file" | tr -d ' ')
 echo ""
 echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
-echo "在目标项目的 Claude Code 中可使用:"
+if [ "$runtime" = "codex" ]; then
+  echo "在目标项目的 Codex 中可使用:"
+else
+  echo "在目标项目的 Claude Code 中可使用:"
+fi
 echo "  /harness-plan       生成 plan 文件"
 echo "  /harness-$mode   消费 plan 启动构建与验收"
