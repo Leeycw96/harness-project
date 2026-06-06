@@ -15,7 +15,7 @@ description: 读 .harness/call-chain/{slug}.md,逐入口生成 URL + 请求 JSON
 - 用户在自己的 Postman 跑一次 → 回报「通过 / 参数有问题 / 是代码 bug」
 - 通过 → skill 进入下一条
 - 参数有问题 → skill 根据错误信息调整 URL/body,再让用户重测
-- 代码 bug → skill 落盘失败记录 + 提示用户去 `/harness-plan` 或 `/harness-backend` 修复,本 skill **不**启动 builder/qa pane
+- 代码 bug → skill 落盘失败记录 + 提示用户去 `/harness-plan` 或 `/harness-backend` 修复,本 skill **不**启动 Builder/QA 构建流程
 
 > 历史包袱:`.harness/smoke-tests/{slug}/smoke.sh` 是旧 v2 时代由 qa 产出的 shell 冒烟脚本。新流程下 qa 不再产脚本,本 skill 也不再运行任何脚本。**已存在的 smoke-tests/ 目录保留不动,人工决定何时清理**。
 
@@ -324,7 +324,7 @@ SELECT id, username, status FROM user WHERE username = 'user_smoke_001';
    ```
 
 3. 在 `feedback.md` 追加 `[step-id] CODE-BUG → failures/{slug}-XXX.md`
-4. **不**启动 builder/qa pane(本 skill 是轻量 skill,修复不在职责范围)。提示用户:
+4. **不**启动 Builder/QA 构建流程(本 skill 是轻量 skill,修复不在职责范围)。提示用户:
 
    > 已落盘失败记录:`{path}`
    >
@@ -390,7 +390,7 @@ SELECT id, username, status FROM user WHERE username = 'user_smoke_001';
 
 - **不发任何业务请求**——本 skill 只读源码、生成请求清单,任何"我帮你测试一下"都越界
 - **不写 shell 冒烟脚本**——`.harness/smoke-tests/` 是旧 v2 的产物,保留不动但不再产新内容
-- **不启动 builder/qa pane**——修复职责完全外包给用户决策的 `/harness-backend` 或 `/harness-plan`
+- **不启动 Builder/QA 构建流程**——修复职责完全外包给用户决策的 `/harness-backend` 或 `/harness-plan`
 - **不批量生成请求**——逐步生成 + 等反馈是核心交互模式,违反等于把"用户校验"这一环架空
 - **不修改 call-chain**——call-chain 是 builder/qa 产出的,本 skill 只读
 - **不臆造字段**——示例值要基于 DTO 类型 + 约束注解给,猜不出来的字段(如业务特有的代码值)留 `"TODO: 业务侧填入"`,不要硬填

@@ -1,6 +1,6 @@
 # Harness
 
-Harness 是一组面向 AI Coding CLI 的 skills + agent/role 手册,用于 Builder + QA 多 pane 编排。
+Harness 是一组面向 AI Coding CLI/App 的 skills + agent/role 手册,用于 Builder + QA 多阶段编排。
 
 v1.2.0 开始仓库同时维护两套运行时:
 
@@ -76,15 +76,17 @@ harness --runtime codex backend /path/to/your/project
 └── agents/
     ├── harness-builder.md
     ├── harness-builder-AGENTS.md
+    ├── harness-builder.toml      # Codex runtime
     ├── harness-qa.md
-    └── harness-qa-AGENTS.md
+    ├── harness-qa-AGENTS.md
+    └── harness-qa.toml           # Codex runtime
 ```
 
 ## Runtime 差异
 
 Claude Code 版使用 `.claude/agents/*.md` frontmatter 和 `claude --agent ...` 启动 Builder/QA,并安装 PostCompact hook 提醒 agent 回查手册。
 
-Codex 版使用普通 `codex` CLI pane。`harness-backend` skill 启动两个 Codex 会话后,通过初始 prompt 注入 `harness-builder` / `harness-qa` 角色,让它们读取 `.codex/agents/*` 手册并通过 `.harness/iterations/<branch>/run-N/conversation/` 落盘通信。
+Codex 版使用 Codex App/CLI 原生 custom subagents。`harness-backend` skill 作为 orchestrator,按阶段 spawn `.codex/agents/harness-builder.toml` 与 `.codex/agents/harness-qa.toml`,让它们读取对应手册并通过 `.harness/iterations/<branch>/run-N/{signals,conversation}/` 落盘通信。Builder/QA 不要求常驻,每轮从磁盘工件恢复上下文。
 
 ## 部署行为
 
