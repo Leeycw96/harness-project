@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Harness Codex App 公共函数。
-# 只做磁盘通信：conversation/ 记录消息，signals/ 记录阶段完成信号。
+# 只做磁盘通信：conversation/ 记录消息，signals/ 记录阶段完成信号，progress/ 记录长任务心跳。
 
 SCRIPT_PATH="${BASH_SOURCE[0]-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
@@ -46,6 +46,34 @@ persist_conversation() {
   printf '%s\n' "$file"
 }
 
+update_progress() {
+  local agent="$1" stage="$2" message="$3" artifact="${4:-}"
+  if [ -z "$agent" ] || [ -z "$stage" ] || [ -z "$message" ]; then
+    echo "用法：update_progress <agent> <stage> <message> [artifact]" >&2
+    return 2
+  fi
+
+  local progress_dir ts_iso status_one_line
+  progress_dir=$(_harness_dir "progress") || return 1
+  mkdir -p "$progress_dir"
+  ts_iso=$(date +%FT%T%z)
+  status_one_line=$(printf '%s' "$message" | tr '\n\t' '  ')
+
+  {
+    printf "# %s progress\n\n" "$agent"
+    printf "updated_at: %s\n" "$ts_iso"
+    printf "stage: %s\n" "$stage"
+    [ -n "$artifact" ] && printf "artifact: %s\n" "$artifact"
+    printf "\n## Current\n\n"
+    printf "%s\n" "$message"
+  } > "$progress_dir/${agent}.md"
+
+  printf '%s\t%s\t%s\t%s' "$ts_iso" "$agent" "$stage" "$status_one_line" >> "$progress_dir/events.tsv"
+  [ -n "$artifact" ] && printf '\t%s' "$artifact" >> "$progress_dir/events.tsv"
+  printf '\n' >> "$progress_dir/events.tsv"
+  printf '%s/%s.md\n' "$progress_dir" "$agent"
+}
+
 complete_stage() {
   local agent="$1" tag="$2" message="$3" artifact="${4:-}"
   if [ -z "$agent" ] || [ -z "$tag" ] || [ -z "$message" ]; then
@@ -65,6 +93,7 @@ complete_stage() {
   signal_file="$signals_dir/${ts_compact}-${agent}-${tag}.md"
 
   conv_file=$(persist_conversation "$agent" "orchestrator" "${tag} | ${message}" "$artifact")
+  update_progress "$agent" "$tag" "$message" "$artifact" >/dev/null
   {
     printf -- "---\n"
     printf "agent: %s\n" "$agent"

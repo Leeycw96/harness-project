@@ -26,9 +26,18 @@ source .codex/common/scripts/harness-common.sh
 complete_stage "harness-builder" "<TAG>" "<一句话状态 + 1-3 要点>" "<artifact-path>"
 ```
 
+长阶段必须写进度心跳。开始阶段、切换 feature slug、开始/结束测试、准备 commit、遇到阻塞时,都要执行:
+
+```bash
+update_progress "harness-builder" "<STAGE>" "<当前正在做什么 + 已完成/下一步>" "<artifact-path-可选>"
+```
+
+进度文件固定写入 `${output_dir}/progress/harness-builder.md`,事件追加到 `${output_dir}/progress/events.tsv`。不要依赖 orchestrator 中途追问;Codex App 的 running subagent 不保证能稳定响应 follow-up。磁盘进度是真相。
+
 允许的 Builder TAG:
 
 - `SCOPE_READY`
+- `BUILD_SLICE_DONE`
 - `BUILD_DONE`
 - `FIX_DONE`
 - `USER_ADJUST_DONE`
@@ -80,19 +89,27 @@ complete_stage "harness-builder" "SCOPE_READY" "build-scope 已产出" "${output
 
 步骤:
 
-1. 按功能 slug 顺序实现:基础设施 -> 业务 Service -> 入口层。
-2. TDD 只覆盖业务域 Service public 方法。Controller/RPC/MQ/Scheduler 入口层不写单测。
-3. 跑本次新写/改动测试类: `mvn test -Dtest=ClassA,ClassB,...`。
-4. 跑 `mvn test-compile` 验整体编译。
-5. 同步更新 call-chain。
-6. `git commit`。
-7. 执行:
+1. 只实现 orchestrator 指定的 feature slug 或小批次 slug;没有指定时,最多处理 1 个 slug。
+2. 开始前写 `update_progress "harness-builder" "BUILD" "开始实现 <slug>..." "${output_dir}/build-scope-v{N}.md"`。
+3. 按功能 slug 顺序实现:基础设施 -> 业务 Service -> 入口层。
+4. TDD 只覆盖业务域 Service public 方法。Controller/RPC/MQ/Scheduler 入口层不写单测。
+5. 跑本次新写/改动测试类: `mvn test -Dtest=ClassA,ClassB,...`。
+6. 同步更新 call-chain。
+7. 本分片完成但还有后续 slug 时,执行:
+
+```bash
+complete_stage "harness-builder" "BUILD_SLICE_DONE" "<slug> 已完成,等待下一分片" "${output_dir}/build-scope-v{N}.md"
+```
+
+8. 最后一片或 orchestrator 指定 finalize 时,跑 `mvn test-compile` 验整体编译。
+9. `git commit`。
+10. 执行:
 
 ```bash
 complete_stage "harness-builder" "BUILD_DONE" "构建完成,等待 QA 评审" "${output_dir}/build-scope-v{N}.md"
 ```
 
-禁忌:不跑全量 `mvn test`;不写 stub;不把业务逻辑写进入口层;不调测试参数掩盖问题。
+禁忌:不在单次 BUILD 中吞掉全部大需求;不跑全量 `mvn test`;不写 stub;不把业务逻辑写进入口层;不调测试参数掩盖问题。
 
 ### FIX
 
@@ -101,10 +118,11 @@ complete_stage "harness-builder" "BUILD_DONE" "构建完成,等待 QA 评审" "$
 步骤:
 
 1. Read qa-feedback。
-2. 按 P0 -> P1 -> P2 修根因。
-3. 涉及调用链变化时同步 call-chain。
-4. 跑修复涉及测试、QA 补充测试和 `mvn test-compile`。
-5. 执行:
+2. 写 `update_progress "harness-builder" "FIX" "开始修复 qa-feedback-round-{N}: P0/P1 优先" "${output_dir}/qa-feedback-round-{N}.md"`。
+3. 按 P0 -> P1 -> P2 修根因。
+4. 涉及调用链变化时同步 call-chain。
+5. 跑修复涉及测试、QA 补充测试和 `mvn test-compile`。
+6. 执行:
 
 ```bash
 complete_stage "harness-builder" "FIX_DONE" "修复完成,等待 QA 重审" "${output_dir}/qa-feedback-round-{N}.md"
@@ -119,10 +137,11 @@ complete_stage "harness-builder" "FIX_DONE" "修复完成,等待 QA 重审" "${o
 步骤:
 
 1. Read 用户调整原文。
-2. 逐条实现,优先集中在业务 Service 和入口层翻译。
-3. 跑本次调整涉及的 Service 单测和 `mvn test-compile`。
-4. 涉及入口层时提示 orchestrator 后续建议用户跑 `harness-backend-smoke`。
-5. 执行:
+2. 写 `update_progress "harness-builder" "USER_ADJUST" "开始实现用户调整 round {N}" "${output_dir}/user-adjustment-round-{N}.md"`。
+3. 逐条实现,优先集中在业务 Service 和入口层翻译。
+4. 跑本次调整涉及的 Service 单测和 `mvn test-compile`。
+5. 涉及入口层时提示 orchestrator 后续建议用户跑 `harness-backend-smoke`。
+6. 执行:
 
 ```bash
 complete_stage "harness-builder" "USER_ADJUST_DONE" "用户调整已实现" "${output_dir}/user-adjustment-round-{N}.md"

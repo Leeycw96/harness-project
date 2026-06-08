@@ -91,10 +91,13 @@ echo $? > "${HARNESS_OUTPUT_DIR}/baseline/test-compile.exit"
 
 1. 写完指定 artifact
 2. 执行 `source .codex/common/scripts/harness-common.sh`
-3. 执行 `complete_stage <agent> <TAG> <message> <artifact>`
-4. 在最终回复中只摘要 tag、artifact、关键结论
+3. 长阶段先执行 `update_progress <agent> <STAGE> <message> [artifact]`
+4. 执行 `complete_stage <agent> <TAG> <message> <artifact>`
+5. 在最终回复中只摘要 tag、artifact、关键结论
 
 Orchestrator 等待 subagent 返回后，用 `verify_stage_signal <agent> <TAG>` 检查磁盘信号。不要靠模型回复脑补阶段完成。
+
+长时间等待时不要向 running subagent 反复追问。Codex App 的 subagent follow-up 不保证稳定返回;如果需要判断状态,只读 `${output_dir}/progress/<agent>.md`、`${output_dir}/progress/events.tsv`、`signals/` 和 git diff。若长时间没有 progress 更新或 signal,向用户说明可能卡住,让用户选择继续等、终止本轮、或基于已有 diff 重开一个分片 Builder。
 
 ## 阶段流程
 
@@ -141,9 +144,18 @@ Scope 对齐后 spawn `harness-builder`:
 阶段:BUILD
 HARNESS_CONFIG:<绝对路径>
 输入:最终 build-scope-vN.md + QA scope-review。
-按 SOP TDD 实现，更新 .harness/call-chain/，跑本次测试 + mvn test-compile，git commit。
-完成时 complete_stage "harness-builder" "BUILD_DONE" "..." "<build-scope artifact>"
+本次只实现指定 feature slug 或小批次 slug;不要一次吞掉全部 scope。
+完成本分片但仍有后续 slug 时 complete_stage "harness-builder" "BUILD_SLICE_DONE" "..." "<build-scope artifact>"。
+最后一个分片或 finalize 分片才跑 mvn test-compile、git commit，并 complete_stage "harness-builder" "BUILD_DONE" "..." "<build-scope artifact>"。
 ```
+
+分片规则:
+
+- 从 `build-scope-vN.md` 读取功能 slug 和实现顺序
+- 单次 Builder 默认只处理 1 个 feature slug;明显很小的相邻 slug 可合并,但不要超过 2 个
+- 每个分片都必须写 `${output_dir}/progress/harness-builder.md`
+- `BUILD_SLICE_DONE` 后继续 spawn 下一片 Builder,直到全部 slug 完成
+- 所有 slug 完成后 spawn 最后一片 Builder 做整体 `mvn test-compile`、call-chain 复核和 `git commit`
 
 ### 4. QA 评审
 
