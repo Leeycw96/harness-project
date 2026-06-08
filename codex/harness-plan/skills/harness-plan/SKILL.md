@@ -96,7 +96,7 @@ description: 引导式需求结构化技能。通过对话把用户的模糊想�
 
 ```bash
 mkdir -p .harness/plans
-cat .codex/skills/harness-plan/assets/plan-template.xml
+cat .agents/skills/harness-plan/assets/plan-template.xml
 ```
 
 将收集到的内容填入对应标签，生成到 `.harness/plans/<名称>.md`。文件名用简短的英文描述（kebab-case），如 `user-management.md`、`order-approval.md`。

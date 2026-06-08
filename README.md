@@ -5,7 +5,7 @@ Harness 是一组面向 AI Coding CLI/App 的 skills + agent/role 手册,用于 
 v1.2.0 开始仓库同时维护两套运行时:
 
 - `claude-code/`:Claude Code 版,部署到目标项目 `.claude/`
-- `codex/`:Codex 版,部署到目标项目 `.codex/`
+- `codex/`:Codex 版,skills 部署到目标项目 `.agents/skills/`,custom agents 部署到 `.codex/agents/`
 
 根目录下保留 v1.1.x 的 `common/`、`harness-plan/`、`harness-backend/` 等目录,用于兼容既有引用；新开发应优先改对应 runtime 目录。
 
@@ -65,10 +65,10 @@ harness --codex backend
 harness backend --codex /path/to/your/project
 ```
 
-部署后:
+Claude Code 部署后:
 
 ```
-.claude/ 或 .codex/
+.claude/
 ├── common/scripts/
 ├── skills/
 │   ├── harness-plan/
@@ -76,25 +76,43 @@ harness backend --codex /path/to/your/project
 └── agents/
     ├── harness-builder.md
     ├── harness-builder-AGENTS.md
-    ├── harness-builder.toml      # Codex runtime
     ├── harness-qa.md
-    ├── harness-qa-AGENTS.md
-    └── harness-qa.toml           # Codex runtime
+    └── harness-qa-AGENTS.md
+```
+
+Codex 部署后:
+
+```
+.agents/
+└── skills/
+    ├── harness-plan/
+    └── harness-backend/
+.codex/
+├── common/scripts/
+├── agents/
+│   ├── harness-builder.md
+│   ├── harness-builder-AGENTS.md
+│   ├── harness-builder.toml
+│   ├── harness-qa.md
+│   ├── harness-qa-AGENTS.md
+│   └── harness-qa.toml
+└── .harness/
+    └── installed-manifest
 ```
 
 ## Runtime 差异
 
 Claude Code 版使用 `.claude/agents/*.md` frontmatter 和 `claude --agent ...` 启动 Builder/QA,并安装 PostCompact hook 提醒 agent 回查手册。
 
-Codex 版使用 Codex App/CLI 原生 custom subagents。`harness-backend` skill 作为 orchestrator,按阶段 spawn `.codex/agents/harness-builder.toml` 与 `.codex/agents/harness-qa.toml`,让它们读取对应手册并通过 `.harness/iterations/<branch>/run-N/{signals,conversation}/` 落盘通信。Builder/QA 不要求常驻,每轮从磁盘工件恢复上下文。
+Codex 版使用 Codex App/CLI 原生 skills 与 custom subagents。skills 按官方目录放在 `.agents/skills/`;`harness-backend` skill 作为 orchestrator,按阶段 spawn `.codex/agents/harness-builder.toml` 与 `.codex/agents/harness-qa.toml`,让它们读取对应手册并通过 `.harness/iterations/<branch>/run-N/{signals,conversation}/` 落盘通信。Builder/QA 不要求常驻,每轮从磁盘工件恢复上下文。
 
 ## 部署行为
 
 - `harness --claude-code <mode> [target-dir]` 部署 Claude Code 版到 `.claude/`
-- `harness --codex <mode> [target-dir]` 部署 Codex 版到 `.codex/`
+- `harness --codex <mode> [target-dir]` 部署 Codex 版:skills 到 `.agents/skills/`,agents/common/manifest 到 `.codex/`
 - 未指定 `--claude-code` 或 `--codex` 时直接报错,避免误装 runtime
 - 同名文件直接覆盖
-- 通过 `<app-dir>/.harness/installed-manifest` 清理上次由 harness 部署、但本次源里已不存在的旧文件
+- 通过 `<runtime-state-dir>/.harness/installed-manifest` 清理上次由 harness 部署、但本次源里已不存在的旧文件；Codex 的 manifest 位于 `.codex/.harness/installed-manifest`
 - 始终包含 `common/` 与 `harness-plan/`
 
 ## 开发与验证

@@ -8,7 +8,7 @@ This repository packages Harness skills, role manuals, and deployment scripts fo
 
 - `./install.sh`: adds this repo's `bin/` directory to the shell rc file.
 - `bin/harness --claude-code backend "$tmpdir"`: deploys the Claude Code runtime to `.claude/`.
-- `bin/harness --codex backend "$tmpdir"`: deploys the Codex runtime to `.codex/`.
+- `bin/harness --codex backend "$tmpdir"`: deploys Codex skills to `.agents/skills/` and Codex agents/common state to `.codex/`.
 - `bash -n bin/harness`: checks the deployment CLI syntax.
 - `find claude-code/common codex/common common claude-proxy -type f -name '*.sh' -exec bash -n {} \;`: checks shell helper syntax.
 - `cd claude-proxy && ./install.sh`: regenerates Claude proxy aliases from `plans/*.json`.
@@ -21,7 +21,7 @@ Use Bash for scripts and keep `set -euo pipefail` on operational CLIs where prac
 
 ## Testing Guidelines
 
-No formal test suite exists. For deployment tests, create a target with `mktemp -d`, run both explicit deployments (`--claude-code` and `--codex`), inspect `.claude/.harness/installed-manifest` and `.codex/.harness/installed-manifest`, then remove the temp directory. Do not run end-to-end tests inside this repository or another long-lived project. Finish with `git status --short`.
+No formal test suite exists. For deployment tests, create a target with `mktemp -d`, run both explicit deployments (`--claude-code` and `--codex`), inspect `.claude/.harness/installed-manifest`, `.codex/.harness/installed-manifest`, and Codex skill files under `.agents/skills/`, then remove the temp directory. Do not run end-to-end tests inside this repository or another long-lived project. Finish with `git status --short`.
 
 ## Commit & Pull Request Guidelines
 
@@ -29,4 +29,4 @@ Recent commits use short, imperative Chinese summaries, often scoped, for exampl
 
 ## Security & Configuration Tips
 
-Do not commit real API tokens in `claude-proxy/plans/*.json`. Deployment overwrites same-name files under `.claude/` or `.codex/`, and removes obsolete files only when tracked in the harness manifest.
+Do not commit real API tokens in `claude-proxy/plans/*.json`. Deployment overwrites same-name files under `.claude/`, `.codex/`, or `.agents/skills/`, and removes obsolete files only when tracked in the harness manifest.

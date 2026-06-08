@@ -19,7 +19,7 @@ usage() {
 部署 harness 模块到指定项目。必须显式选择 runtime。
 
 参数:
-  runtime      claude-code 部署到 .claude/;codex 部署到 .codex/
+  runtime      claude-code 部署到 .claude/;codex skills 部署到 .agents/skills/,agents 部署到 .codex/agents/
   mode         模式名(对应源仓库 runtime 下的 harness-<mode>/ 目录)
   target-dir   目标项目目录,默认当前目录
 
@@ -121,9 +121,17 @@ fi
 case "$runtime" in
   claude-code)
     app_dir=".claude"
+    skills_dir=".claude/skills"
+    agents_dir=".claude/agents"
+    common_dir=".claude/common"
+    manifest_dir=".claude/.harness"
     ;;
   codex)
     app_dir=".codex"
+    skills_dir=".agents/skills"
+    agents_dir=".codex/agents"
+    common_dir=".codex/common"
+    manifest_dir=".codex/.harness"
     ;;
   *)
     echo "错误: 未知 runtime '$runtime'(支持 claude-code / codex)" >&2
@@ -151,12 +159,15 @@ fi
 
 target="$(cd "$target_arg" && pwd)"
 echo "runtime: $runtime"
-echo "部署到: $target/$app_dir/"
+if [ "$runtime" = "codex" ]; then
+  echo "部署到: $target/.agents/skills/ 和 $target/.codex/"
+else
+  echo "部署到: $target/$app_dir/"
+fi
 
-mkdir -p "$target/$app_dir/skills" "$target/$app_dir/agents" "$target/$app_dir/common"
-mkdir -p "$target/$app_dir/.harness"
+mkdir -p "$target/$skills_dir" "$target/$agents_dir" "$target/$common_dir" "$target/$manifest_dir"
 
-manifest_file="$target/$app_dir/.harness/installed-manifest"
+manifest_file="$target/$manifest_dir/installed-manifest"
 new_manifest=$(mktemp)
 trap 'rm -f "$new_manifest"' EXIT
 
@@ -170,13 +181,13 @@ collect_files() {
 }
 
 {
-  collect_files "$source_root/common" "$app_dir/common"
+  collect_files "$source_root/common" "$common_dir"
   if [ -d "$source_root/harness-plan" ]; then
-    collect_files "$source_root/harness-plan/skills" "$app_dir/skills"
-    collect_files "$source_root/harness-plan/agents" "$app_dir/agents"
+    collect_files "$source_root/harness-plan/skills" "$skills_dir"
+    collect_files "$source_root/harness-plan/agents" "$agents_dir"
   fi
-  collect_files "$mode_dir/skills" "$app_dir/skills"
-  collect_files "$mode_dir/agents" "$app_dir/agents"
+  collect_files "$mode_dir/skills" "$skills_dir"
+  collect_files "$mode_dir/agents" "$agents_dir"
 } | sort -u > "$new_manifest"
 
 if [ -f "$manifest_file" ]; then
@@ -205,17 +216,17 @@ fi
 deploy_module() {
   local src="$1" name="$2"
   if [ -d "$src/skills" ] && [ -n "$(ls -A "$src/skills" 2>/dev/null)" ]; then
-    echo "  [$name] skills → $app_dir/skills/"
-    cp -R "$src/skills/." "$target/$app_dir/skills/"
+    echo "  [$name] skills → $skills_dir/"
+    cp -R "$src/skills/." "$target/$skills_dir/"
   fi
   if [ -d "$src/agents" ] && [ -n "$(ls -A "$src/agents" 2>/dev/null)" ]; then
-    echo "  [$name] agents → $app_dir/agents/"
-    cp -R "$src/agents/." "$target/$app_dir/agents/"
+    echo "  [$name] agents → $agents_dir/"
+    cp -R "$src/agents/." "$target/$agents_dir/"
   fi
 }
 
-echo "[common] common/ → $app_dir/common/"
-cp -R "$source_root/common/." "$target/$app_dir/common/"
+echo "[common] common/ → $common_dir/"
+cp -R "$source_root/common/." "$target/$common_dir/"
 
 if [ -d "$source_root/harness-plan" ]; then
   deploy_module "$source_root/harness-plan" "harness-plan"
