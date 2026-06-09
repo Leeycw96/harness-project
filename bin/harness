@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Harness 部署 CLI:harness (--claude-code|--codex) <mode> [target-dir]
+# Harness 部署 CLI:harness (--claude-code|--codex|--codex-cli) <mode> [target-dir]
 # runtime 必须显式选择，避免误装到错误目录。
 
 set -euo pipefail
@@ -12,14 +12,16 @@ usage() {
 用法:
   harness --claude-code <mode> [target-dir]
   harness --codex <mode> [target-dir]
+  harness --codex-cli <mode> [target-dir]
   harness <mode> --claude-code [target-dir]
   harness <mode> --codex [target-dir]
-  harness --runtime <claude-code|codex> <mode> [target-dir]
+  harness <mode> --codex-cli [target-dir]
+  harness --runtime <claude-code|codex|codex-cli> <mode> [target-dir]
 
 部署 harness 模块到指定项目。必须显式选择 runtime。
 
 参数:
-  runtime      claude-code 部署到 .claude/;codex skills 部署到 .agents/skills/,agents 部署到 .codex/agents/
+  runtime      claude-code 部署到 .claude/;codex/codex-cli skills 部署到 .agents/skills/,agents 部署到 .codex/agents/
   mode         模式名(对应源仓库 runtime 下的 harness-<mode>/ 目录)
   target-dir   目标项目目录,默认当前目录
 
@@ -28,7 +30,10 @@ usage() {
   harness backend --claude-code /path/to/proj
   harness --codex backend
   harness backend --codex /path/to/proj
+  harness --codex-cli backend
+  harness backend --codex-cli /path/to/proj
   harness --runtime codex backend /path/to/proj
+  harness --runtime codex-cli backend /path/to/proj
 EOF
 }
 
@@ -54,6 +59,10 @@ case "${1:-}" in
     ;;
   --codex)
     runtime="codex"
+    shift
+    ;;
+  --codex-cli)
+    runtime="codex-cli"
     shift
     ;;
 esac
@@ -82,6 +91,13 @@ while [ $# -gt 0 ]; do
         exit 1
       fi
       runtime="codex"
+      ;;
+    --codex-cli)
+      if [ -n "$runtime" ] && [ "$runtime" != "codex-cli" ]; then
+        echo "错误: runtime 参数冲突" >&2
+        exit 1
+      fi
+      runtime="codex-cli"
       ;;
     --runtime)
       if [ $# -lt 2 ]; then
@@ -113,7 +129,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$runtime" ]; then
-  echo "错误: 必须显式指定 runtime: --codex 或 --claude-code" >&2
+  echo "错误: 必须显式指定 runtime: --codex、--codex-cli 或 --claude-code" >&2
   usage >&2
   exit 1
 fi
@@ -133,8 +149,15 @@ case "$runtime" in
     common_dir=".codex/common"
     manifest_dir=".codex/.harness"
     ;;
+  codex-cli)
+    app_dir=".codex"
+    skills_dir=".agents/skills"
+    agents_dir=".codex/agents"
+    common_dir=".codex/common"
+    manifest_dir=".codex/.harness"
+    ;;
   *)
-    echo "错误: 未知 runtime '$runtime'(支持 claude-code / codex)" >&2
+    echo "错误: 未知 runtime '$runtime'(支持 claude-code / codex / codex-cli)" >&2
     exit 1
     ;;
 esac
@@ -159,7 +182,7 @@ fi
 
 target="$(cd "$target_arg" && pwd)"
 echo "runtime: $runtime"
-if [ "$runtime" = "codex" ]; then
+if [ "$runtime" = "codex" ] || [ "$runtime" = "codex-cli" ]; then
   echo "部署到: $target/.agents/skills/ 和 $target/.codex/"
 else
   echo "部署到: $target/$app_dir/"
@@ -295,7 +318,9 @@ trap - EXIT
 count=$(wc -l < "$manifest_file" | tr -d ' ')
 echo ""
 echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
-if [ "$runtime" = "codex" ]; then
+if [ "$runtime" = "codex-cli" ]; then
+  echo "在目标项目的 Codex CLI 中可使用:"
+elif [ "$runtime" = "codex" ]; then
   echo "在目标项目的 Codex 中可使用:"
 else
   echo "在目标项目的 Claude Code 中可使用:"

@@ -2,15 +2,16 @@
 
 ## Project Structure & Module Organization
 
-This repository packages Harness skills, role manuals, and deployment scripts for AI coding CLIs. `bin/harness` is the deployment CLI. Runtime-specific sources live under `claude-code/` and `codex/`; edit these first for new work. Root-level `common/`, `harness-plan/`, `harness-backend/`, and `harness-solidity/` are retained for v1.1.x compatibility. Shared helpers are in `<runtime>/common/scripts/`. Skills live in `<runtime>/harness-<mode>/skills/`, and related agent or role SOP files live in `<runtime>/harness-<mode>/agents/`. `claude-proxy/` is separate zsh launcher tooling.
+This repository packages Harness skills, role manuals, and deployment scripts for AI coding CLIs. `bin/harness` is the deployment CLI. Runtime-specific sources live under `claude-code/`, `codex/`, and `codex-cli/`; edit these first for new work. Root-level `common/`, `harness-plan/`, `harness-backend/`, and `harness-solidity/` are retained for v1.1.x compatibility. Shared helpers are in `<runtime>/common/scripts/`. Skills live in `<runtime>/harness-<mode>/skills/`, and related agent or role SOP files live in `<runtime>/harness-<mode>/agents/`. `claude-proxy/` is separate zsh launcher tooling.
 
 ## Build, Test, and Development Commands
 
 - `./install.sh`: adds this repo's `bin/` directory to the shell rc file.
 - `bin/harness --claude-code backend "$tmpdir"`: deploys the Claude Code runtime to `.claude/`.
-- `bin/harness --codex backend "$tmpdir"`: deploys Codex skills to `.agents/skills/` and Codex agents/common state to `.codex/`.
+- `bin/harness --codex backend "$tmpdir"`: deploys the Codex App runtime with skills in `.agents/skills/` and custom agents/common state in `.codex/`.
+- `bin/harness --codex-cli backend "$tmpdir"`: deploys the Codex CLI tmux runtime with skills in `.agents/skills/` and role/common state in `.codex/`.
 - `bash -n bin/harness`: checks the deployment CLI syntax.
-- `find claude-code/common codex/common common claude-proxy -type f -name '*.sh' -exec bash -n {} \;`: checks shell helper syntax.
+- `find claude-code/common codex/common codex-cli/common common claude-proxy -type f -name '*.sh' -exec bash -n {} \;`: checks shell helper syntax.
 - `cd claude-proxy && ./install.sh`: regenerates Claude proxy aliases from `plans/*.json`.
 
 There is no package-manager build step.
@@ -21,7 +22,7 @@ Use Bash for scripts and keep `set -euo pipefail` on operational CLIs where prac
 
 ## Testing Guidelines
 
-No formal test suite exists. For deployment tests, create a target with `mktemp -d`, run both explicit deployments (`--claude-code` and `--codex`), inspect `.claude/.harness/installed-manifest`, `.codex/.harness/installed-manifest`, and Codex skill files under `.agents/skills/`, then remove the temp directory. Do not run end-to-end tests inside this repository or another long-lived project. Finish with `git status --short`.
+No formal test suite exists. For deployment tests, create a target with `mktemp -d`, run explicit deployments (`--claude-code`, `--codex`, and `--codex-cli`), inspect `.claude/.harness/installed-manifest`, `.codex/.harness/installed-manifest`, and Codex skill files under `.agents/skills/`, then remove the temp directory. Do not run end-to-end tests inside this repository or another long-lived project. Finish with `git status --short`.
 
 ## Commit & Pull Request Guidelines
 
