@@ -1,6 +1,6 @@
 ---
 name: harness-backend
-description: Codex App 原生 Builder+QA 构建技能。用户提供技术文档后，主线程作为 orchestrator，按阶段 spawn harness-builder / harness-qa custom subagents，通过磁盘工件和 signals 完成构建、评审、修复与用户调整闭环。
+description: Codex App 原生 Builder+QA 构建技能。用户提供技术文档后，主线程作为 orchestrator，按角色复用 harness-builder / harness-qa custom subagents，通过磁盘工件和 signals 完成构建、评审、修复与用户调整闭环。
 ---
 
 # Harness-Backend Codex App
@@ -10,13 +10,16 @@ description: Codex App 原生 Builder+QA 构建技能。用户提供技术文档
 **不要使用 tmux、pane、send-keys、`codex` 子进程或 Agent 直连通信。** Codex App 版的通信模型是:
 
 ```text
+orchestrator     -> first spawn or resume builder subagent
 builder subagent -> artifact + complete_stage -> orchestrator
-orchestrator     -> spawn qa subagent
+orchestrator     -> first spawn or resume qa subagent
 qa subagent      -> artifact + complete_stage -> orchestrator
-orchestrator     -> spawn builder subagent for next stage
+orchestrator     -> resume builder subagent for next stage
 ```
 
-Builder/QA 每一轮完成后可以关闭。下一轮必须从 `HARNESS_CONFIG`、`output_dir`、`plan.md`、上一轮 artifact、git diff、`conversation/` 和 `signals/` 恢复状态。
+同一个 run 内,`harness-builder` 和 `harness-qa` 各自最多保留一个主会话。下一轮优先恢复并向已有角色会话继续输入阶段任务;只有找不到已有会话、会话无法恢复/继续输入、或用户明确要求重开时,才创建新的同角色 subagent。
+
+Builder/QA 每一轮只完成当前阶段,完成后可以暂停或关闭。下一轮必须从 `HARNESS_CONFIG`、`output_dir`、`plan.md`、上一轮 artifact、git diff、`conversation/` 和 `signals/` 恢复状态;如果复用的是同一个角色会话,仍必须重新读取这些磁盘状态,不要只依赖会话记忆。
 
 ## 初始化
 
@@ -38,6 +41,7 @@ mkdir -p "$HARNESS_BRANCH_DIR"
 RUN_NUMBER=$(get_next_run_number "$HARNESS_BRANCH_DIR")
 export HARNESS_OUTPUT_DIR="${HARNESS_BRANCH_DIR}/run-${RUN_NUMBER}"
 mkdir -p "$HARNESS_OUTPUT_DIR"
+printf 'role\tagent_id\tnickname\tstatus\tupdated_at\tnotes\n' > "${HARNESS_OUTPUT_DIR}/agent-sessions.tsv"
 ```
 
 3. 处理用户技术文档:
@@ -55,11 +59,11 @@ source .codex/common/scripts/harness-init.sh
 init_harness_run "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/plan.md"
 ```
 
-记住输出的 `HARNESS_CONFIG` 绝对路径。后续 spawn subagent 时必须把它写进 prompt。
+记住输出的 `HARNESS_CONFIG` 绝对路径。后续调度 subagent 时必须把它写进 prompt。
 
 ## 基线检查
 
-在 spawn Builder 前做基线检查，产物写入 `${HARNESS_OUTPUT_DIR}/baseline/`。
+在调度 Builder 前做基线检查，产物写入 `${HARNESS_OUTPUT_DIR}/baseline/`。
 
 1. 读取项目 `AGENTS.md`；没有则读 `CLAUDE.md` 兼容旧项目，确认构建命令。
 2. 主代码编译:
@@ -87,7 +91,18 @@ echo $? > "${HARNESS_OUTPUT_DIR}/baseline/test-compile.exit"
 - `.codex/agents/harness-builder.toml`
 - `.codex/agents/harness-qa.toml`
 
-每次 spawn 都必须给 subagent 明确阶段、`HARNESS_CONFIG` 路径、输入 artifact、期望输出 tag。Subagent 完成阶段前必须:
+### 会话复用
+
+Orchestrator 必须维护 `${HARNESS_OUTPUT_DIR}/agent-sessions.tsv`:
+
+- 首次创建 `harness-builder` 或 `harness-qa` 后,记录 role、agent id、UI nickname、状态、更新时间和说明。
+- 下一次调度同一 role 前,先读 `agent-sessions.tsv`,再在 Codex App 已有 agent 列表/会话中确认该角色会话是否存在。
+- 已有会话存在时,优先用 resume/continue/send-input 类能力向该 agent 继续发送新阶段任务。
+- 已有会话已经关闭但 App 支持 resume 时,先 resume 再发送新阶段任务。
+- 只有已有会话找不到、无法恢复、无法继续输入,或用户明确要求重开时,才允许创建新的同角色 agent。重开时必须在 `agent-sessions.tsv` 追加一行并在 notes 写明原因,例如 `previous agent unreachable`。
+- 不要因为阶段从 SCOPE 切到 BUILD、从 BUILD 切到 FIX、或从 REVIEW 切到 REVIEW_FIX 就创建第二个 builder/qa。
+
+每次调度(无论首次创建还是复用已有会话)都必须给 subagent 明确阶段、`HARNESS_CONFIG` 路径、输入 artifact、期望输出 tag。Subagent 完成阶段前必须:
 
 1. 写完指定 artifact
 2. 执行 `source .codex/common/scripts/harness-common.sh`
@@ -103,7 +118,7 @@ Orchestrator 等待 subagent 返回后，用 `verify_stage_signal <agent> <TAG>`
 
 ### 1. Scope 生成
 
-Spawn `harness-builder`:
+首次创建或复用 `harness-builder`:
 
 ```text
 阶段:SCOPE
@@ -123,7 +138,7 @@ verify_stage_signal harness-builder SCOPE_READY
 
 ### 2. Scope 审阅
 
-Spawn `harness-qa`:
+首次创建或复用 `harness-qa`:
 
 ```text
 阶段:SCOPE_REVIEW
@@ -134,11 +149,11 @@ HARNESS_CONFIG:<绝对路径>
 若需调整: complete_stage "harness-qa" "NEEDS_ADJUSTMENT" "..." "<artifact>"
 ```
 
-`NEEDS_ADJUSTMENT` 时再 spawn Builder 产出 `build-scope-v{N+1}.md`。Scope 对齐最多 3 个版本；仍未对齐则停下让用户介入。
+`NEEDS_ADJUSTMENT` 时继续复用 Builder 会话产出 `build-scope-v{N+1}.md`。Scope 对齐最多 3 个版本；仍未对齐则停下让用户介入。
 
 ### 3. 构建实现
 
-Scope 对齐后 spawn `harness-builder`:
+Scope 对齐后继续复用 `harness-builder`:
 
 ```text
 阶段:BUILD
@@ -154,12 +169,12 @@ HARNESS_CONFIG:<绝对路径>
 - 从 `build-scope-vN.md` 读取功能 slug 和实现顺序
 - 单次 Builder 默认只处理 1 个 feature slug;明显很小的相邻 slug 可合并,但不要超过 2 个
 - 每个分片都必须写 `${output_dir}/progress/harness-builder.md`
-- `BUILD_SLICE_DONE` 后继续 spawn 下一片 Builder,直到全部 slug 完成
-- 所有 slug 完成后 spawn 最后一片 Builder 做整体 `mvn test-compile`、call-chain 复核和 `git commit`
+- `BUILD_SLICE_DONE` 后继续向同一个 Builder 会话发送下一片任务,直到全部 slug 完成
+- 所有 slug 完成后继续复用 Builder 做最后一片整体 `mvn test-compile`、call-chain 复核和 `git commit`
 
 ### 4. QA 评审
 
-Spawn `harness-qa`:
+首次创建或复用 `harness-qa`:
 
 ```text
 阶段:REVIEW
@@ -176,8 +191,8 @@ HARNESS_CONFIG:<绝对路径>
 
 最多 5 轮:
 
-1. Spawn `harness-builder` 阶段 `FIX`，输入最新 `qa-feedback-round-N.md`，完成时 `FIX_DONE`
-2. Spawn `harness-qa` 阶段 `REVIEW_FIX`，产出 `qa-feedback-round-{N+1}.md`
+1. 复用 `harness-builder` 阶段 `FIX`，输入最新 `qa-feedback-round-N.md`，完成时 `FIX_DONE`
+2. 复用 `harness-qa` 阶段 `REVIEW_FIX`，产出 `qa-feedback-round-{N+1}.md`
 3. QA `APPROVED` 则结束修复；`REJECTED` 则继续
 
 连续 2 轮无改善或超过 5 轮时，暂停并向用户说明最小未解问题集。
@@ -191,15 +206,16 @@ QA `APPROVED` 后提示用户:
 收到调整需求时:
 
 1. Orchestrator 先写 `${output_dir}/user-adjustment-round-N.md`，保留用户原文
-2. Spawn `harness-builder` 阶段 `USER_ADJUST`，完成时 `USER_ADJUST_DONE`
-3. Spawn `harness-qa` 阶段 `USER_ADJUST_REVIEW`
+2. 复用 `harness-builder` 阶段 `USER_ADJUST`，完成时 `USER_ADJUST_DONE`
+3. 复用 `harness-qa` 阶段 `USER_ADJUST_REVIEW`
 4. QA `USER_ADJUST_VERIFIED` 则继续等待用户；`USER_ADJUST_REJECTED` 则按修复循环处理
 
 ## 重要边界
 
 - 主线程是唯一 orchestrator；Builder/QA 不互相 spawn、不互相直接发消息
 - 阶段推进只认 artifact + `signals/`，不认口头回复
-- 不要求 Builder/QA 长驻；每次 subagent 都必须从磁盘恢复上下文
+- 同一个 run 内按角色优先复用 Builder/QA 会话；重开同角色 agent 必须有明确原因并记录到 `agent-sessions.tsv`
+- 每次 subagent 都必须从磁盘恢复上下文,即使复用了同一个会话
 - 不读取大日志全文，只读摘要或关键行
 - 不跑全量 `mvn test`；只跑本轮相关测试 + `mvn test-compile`
 - 不把 Codex App integrated terminal 当 tmux 使用

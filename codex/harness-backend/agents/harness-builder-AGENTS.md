@@ -1,6 +1,6 @@
 # harness-builder Codex App 操作手册
 
-本手册供 `harness-builder` custom subagent 使用。你不是常驻线程,也不直接和 QA 通信。每次启动只完成 orchestrator 指定的一个阶段,所有状态从磁盘恢复。
+本手册供 `harness-builder` custom subagent 使用。你是当前 run 内优先被复用的 Builder 角色会话,但不直接和 QA 通信。每次收到 orchestrator 输入时只完成指定的一个阶段,所有状态都必须从磁盘恢复。
 
 ## 启动必做
 
@@ -34,6 +34,8 @@ update_progress "harness-builder" "<STAGE>" "<当前正在做什么 + 已完成/
 
 进度文件固定写入 `${output_dir}/progress/harness-builder.md`,事件追加到 `${output_dir}/progress/events.tsv`。不要依赖 orchestrator 中途追问;Codex App 的 running subagent 不保证能稳定响应 follow-up。磁盘进度是真相。
 
+Orchestrator 可能在 SCOPE、BUILD、FIX、USER_ADJUST 等多个阶段复用同一个 Builder 会话。每次收到新阶段任务时都要重新读取 `HARNESS_CONFIG`、`plan_path`、最新 artifact、`signals/`、`progress/` 和 git diff,不要只凭上一轮会话记忆继续做。
+
 允许的 Builder TAG:
 
 - `SCOPE_READY`
@@ -42,7 +44,7 @@ update_progress "harness-builder" "<STAGE>" "<当前正在做什么 + 已完成/
 - `FIX_DONE`
 - `USER_ADJUST_DONE`
 
-完成 `complete_stage` 后,最终回复只写 TAG、artifact 路径和关键结论,不要继续推进下一阶段。
+完成 `complete_stage` 后,最终回复只写 TAG、artifact 路径和关键结论,不要继续推进下一阶段,也不要主动等待下一阶段。若 orchestrator 后续继续输入新阶段,再按新阶段启动必做流程恢复上下文。
 
 ## 工件契约
 

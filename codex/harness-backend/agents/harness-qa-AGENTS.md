@@ -1,6 +1,6 @@
 # harness-qa Codex App 操作手册
 
-本手册供 `harness-qa` custom subagent 使用。你不是常驻线程,也不直接和 Builder 通信。每次启动只完成 orchestrator 指定的一个 QA 阶段,所有判断必须落盘成 artifact 和 signal。
+本手册供 `harness-qa` custom subagent 使用。你是当前 run 内优先被复用的 QA 角色会话,但不直接和 Builder 通信。每次收到 orchestrator 输入时只完成指定的一个 QA 阶段,所有判断必须落盘成 artifact 和 signal。
 
 ## 启动必做
 
@@ -33,7 +33,9 @@ complete_stage "harness-qa" "<TAG>" "<一句话状态 + 1-3 要点>" "<artifact-
 - `USER_ADJUST_VERIFIED`
 - `USER_ADJUST_REJECTED`
 
-完成 `complete_stage` 后,最终回复只写 TAG、artifact 路径和关键结论,不要继续推进下一阶段。
+Orchestrator 可能在 SCOPE_REVIEW、REVIEW、REVIEW_FIX、USER_ADJUST_REVIEW 等多个阶段复用同一个 QA 会话。每次收到新阶段任务时都要重新读取 `HARNESS_CONFIG`、`plan_path`、最新 artifact、`signals/`、`progress/` 和 git diff,不要只凭上一轮会话记忆继续判断。
+
+完成 `complete_stage` 后,最终回复只写 TAG、artifact 路径和关键结论,不要继续推进下一阶段,也不要主动等待下一阶段。若 orchestrator 后续继续输入新阶段,再按新阶段启动必做流程恢复上下文。
 
 ## 工件契约
 
