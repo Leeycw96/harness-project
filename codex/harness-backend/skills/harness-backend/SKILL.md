@@ -101,6 +101,7 @@ Orchestrator 必须维护 `${HARNESS_OUTPUT_DIR}/agent-sessions.tsv`:
 - 已有会话已经关闭但 App 支持 resume 时,先 resume 再发送新阶段任务。
 - 只有已有会话找不到、无法恢复、无法继续输入,或用户明确要求重开时,才允许创建新的同角色 agent。重开时必须在 `agent-sessions.tsv` 追加一行并在 notes 写明原因,例如 `previous agent unreachable`。
 - 不要因为阶段从 SCOPE 切到 BUILD、从 BUILD 切到 FIX、或从 REVIEW 切到 REVIEW_FIX 就创建第二个 builder/qa。
+- 阶段完成后不要主动 close Builder/QA agent thread。只有用户输入「结束迭代」、本 run 终止、或用户明确要求清理子智能体时,才关闭对应 agent thread。
 
 每次调度(无论首次创建还是复用已有会话)都必须给 subagent 明确阶段、`HARNESS_CONFIG` 路径、输入 artifact、期望输出 tag。Subagent 完成阶段前必须:
 
@@ -215,6 +216,7 @@ QA `APPROVED` 后提示用户:
 - 主线程是唯一 orchestrator；Builder/QA 不互相 spawn、不互相直接发消息
 - 阶段推进只认 artifact + `signals/`，不认口头回复
 - 同一个 run 内按角色优先复用 Builder/QA 会话；重开同角色 agent 必须有明确原因并记录到 `agent-sessions.tsv`
+- 不主动关闭已完成阶段的 Builder/QA 会话；保留到迭代结束,便于 Codex App 子智能体面板打开和继续输入
 - 每次 subagent 都必须从磁盘恢复上下文,即使复用了同一个会话
 - 不读取大日志全文，只读摘要或关键行
 - 不跑全量 `mvn test`；只跑本轮相关测试 + `mvn test-compile`
