@@ -136,7 +136,7 @@ launch_agent_pane() {
     split_args="-v -l 50%"
   fi
 
-  local cli_cmd="${HARNESS_CLI:-codex --sandbox workspace-write --ask-for-approval on-request}"
+  local cli_cmd="${HARNESS_CLI:-codex --dangerously-bypass-approvals-and-sandbox}"
   local new_pane
   # HARNESS_CONFIG: 本次 run 的 config.json 绝对路径，Agent 进程通过该 env 找到 config
   # HARNESS_AGENT_NAME: 当前 Agent 自己的名字,send_to_agent 落盘消息时用作 frontmatter.from

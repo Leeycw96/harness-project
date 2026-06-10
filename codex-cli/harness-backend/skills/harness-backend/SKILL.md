@@ -15,12 +15,16 @@ user-invocable: true
 ### 第零步：选择 CLI 并初始化环境
 
 向用户确认使用哪个 Codex CLI 命令启动 Agent：
-- 选项一：「codex --sandbox workspace-write --ask-for-approval on-request」（推荐）
-- 选项二：「自定义命令前缀」（用户输入完整命令；必须能直接启动交互式 Codex TUI）
+- 选项一：「codex --dangerously-bypass-approvals-and-sandbox」（推荐,体验接近 Claude Code bypassPermissions）
+- 选项二：「codex --sandbox workspace-write --ask-for-approval on-request」（保守模式,但长任务中可能频繁卡权限）
+- 选项三：「自定义命令前缀」（用户输入完整命令；必须能直接启动交互式 Codex TUI）
 
 根据用户选择设置 `HARNESS_CLI`：
-- 选项一 → `export HARNESS_CLI="codex --sandbox workspace-write --ask-for-approval on-request"`
-- 选项二 → `export HARNESS_CLI="<用户在 Other 中输入的字符串>"`
+- 选项一 → `export HARNESS_CLI="codex --dangerously-bypass-approvals-and-sandbox"`
+- 选项二 → `export HARNESS_CLI="codex --sandbox workspace-write --ask-for-approval on-request"`
+- 选项三 → `export HARNESS_CLI="<用户在 Other 中输入的字符串>"`
+
+安全边界:选项一会让 Builder/QA 在当前项目环境中不再被 Codex sandbox/approval 打断。只在你信任当前仓库和任务时使用；如果项目里有未知脚本或高风险命令,选保守模式或自定义命令。
 
 设置好后执行：
 

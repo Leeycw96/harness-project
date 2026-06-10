@@ -120,7 +120,7 @@ Claude Code 版使用 `.claude/agents/*.md` frontmatter 和 `claude --agent ...`
 
 Codex App 版使用 Codex 原生 skills 与 custom subagents。skills 按官方目录放在 `.agents/skills/`;`harness-backend` skill 作为 orchestrator,按阶段 spawn `.codex/agents/harness-builder.toml` 与 `.codex/agents/harness-qa.toml`,让它们读取对应手册并通过 `.harness/iterations/<branch>/run-N/{signals,conversation}/` 落盘通信。Builder/QA 不要求常驻,每轮从磁盘工件恢复上下文。
 
-Codex CLI tmux 版使用两个普通 `codex` TUI pane 长驻协作。Codex CLI 官方没有 `codex --agent` 启动参数,所以 harness 通过初始 prompt 注入 `harness-builder` / `harness-qa` 角色,并用 `.codex/common/scripts/harness-common.sh` 进行 tmux send-keys 与 conversation 落盘通信。这个版本适合需要实时观察 Builder/QA 工作内容的场景。
+Codex CLI tmux 版使用两个普通 `codex` TUI pane 长驻协作。Codex CLI 官方没有 `codex --agent` 启动参数,所以 harness 通过初始 prompt 注入 `harness-builder` / `harness-qa` 角色,并用 `.codex/common/scripts/harness-common.sh` 进行 tmux send-keys 与 conversation 落盘通信。这个版本适合需要实时观察 Builder/QA 工作内容的场景。默认启动命令是 `codex --dangerously-bypass-approvals-and-sandbox`,体验接近 Claude Code 的 `bypassPermissions`;如需保守权限,启动时选择 workspace-write 模式或自定义 `HARNESS_CLI`。
 
 ## 部署行为
 
