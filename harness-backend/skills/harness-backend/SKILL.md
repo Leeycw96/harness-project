@@ -1,206 +1,255 @@
 ---
 name: harness-backend
-description: 技术文档驱动的 Builder+QA 构建技能。跳过 Planner，用户提供完整技术文档，直接由 harness-builder 和 harness-qa 完成构建和测试。输入 /harness-backend 加上技术文档即可启动。
+description: Codex App subagent-only 后端构建编排技能。主会话读取 plan 或技术文档,调度 Builder、QA、CodeReview subagents,通过 profile.json/state.json/progress 完成构建、并行评审、修复和汇总。
 user-invocable: true
 ---
 
-# Harness-Backend：技术文档驱动的自动构建
+# Harness-Backend：Codex App Subagent Orchestrator
 
-你是一个 **Harness-Backend 编排器**。你的唯一职责是：接收用户的技术文档，启动 harness-builder 和 harness-qa，然后等待流程完成。Agent 之间会自主协调，不需要你介入。
+你是 **Harness-Backend 主会话编排器**。用户只与你交互。你负责初始化 run、调度
+Builder / QA / CodeReview subagents、监控 progress、更新 `state.json`、判断门禁和向用户汇报。
 
-## 编排流程
+硬边界:
 
-### 第零步：选择 CLI 并初始化环境
+- 只支持 Codex App subagents。
+- 不使用 tmux、pane、send-keys、`codex` 子进程、Claude Code CLI 或 Codex CLI。
+- Builder、QA、CodeReview 不互相通信；所有阶段切换都由你完成。
+- 不实现用户调整阶段。QA 和 CodeReview 双通过后本轮结束。
+- 不读取历史多版本 artifact；只使用 `state.json` 指向的当前文件。
 
-**使用 AskUserQuestion 工具**询问用户使用哪个 CLI 启动 Agent：
-- 选项一：「claude（原生 Claude Code）」
-- 选项二：「自定义命令前缀」（用户通过 Other 输入完整命令前缀；该命令需兼容 `--agent` / `--permission-mode` 参数）
+如果当前 Codex 环境没有可用的 subagent 调度能力，停止并告知用户当前环境不支持本技能。
 
-根据用户选择设置 `HARNESS_CLI`：
-- 选项一 → `export HARNESS_CLI="claude"`
-- 选项二 → `export HARNESS_CLI="<用户在 Other 中输入的字符串>"`
+## Run 初始化
 
-设置好后执行：
-
-```bash
-source .claude/common/scripts/harness-init.sh
-```
-
-**检查输出**：如果输出包含 `HARNESS_STALE_SESSION_DETECTED`，说明上次迭代异常退出，残留了 `.harness` 状态。此时向用户提示输出中的详细信息，并询问：
-「检测到上次迭代的残留状态，是否清理并重新开始？」
-- 是 → 执行：
-  ```bash
-  source .claude/common/scripts/harness-init.sh
-  cleanup_stale_session
-  ```
-- 否 → 终止流程，让用户自行处理
-
-**初始化成功后**，向用户提示：
-「Agent 会话将以 Pane 形式在当前窗口中创建。你可以：
-- 使用 `Ctrl-b 方向键` 在 Pane 之间切换
-- 使用 `Ctrl-b z` 放大/缩小当前 Pane
-- 直接在 Agent 的 Pane 中查看实时输出和 Agent 间的对话」
-
-### 第零步 B：确认迭代分支
-
-1. 检测当前 git 分支：
-   ```bash
-   HARNESS_BRANCH=$(git branch --show-current)
-   ```
-2. **使用 AskUserQuestion 工具**向用户确认分支，提供两个选项：
-   - 选项一：「在当前分支 `{HARNESS_BRANCH}` 上构建」
-   - 选项二：「创建新分支」（用户通过 Other 输入分支名）
-   
-   如果用户选择创建新分支：
-     ```bash
-     git checkout -b {new-branch}
-     HARNESS_BRANCH=$(git branch --show-current)
-     ```
-3. 初始化产出目录（Run 级别隔离）：
-   ```bash
-   export HARNESS_BRANCH
-   HARNESS_BRANCH_DIR=".harness/iterations/${HARNESS_BRANCH}"
-   mkdir -p "${HARNESS_BRANCH_DIR}"
-   LATEST_RUN=$(get_latest_run_number "${HARNESS_BRANCH_DIR}")
-   ```
-   如果 `LATEST_RUN` > 0，向用户提示：「检测到该分支已有 {LATEST_RUN} 次历史构建记录（run-1 到 run-{LATEST_RUN}）。将创建新的 run-{LATEST_RUN+1}。」
-   ```bash
-   RUN_NUMBER=$(get_next_run_number "${HARNESS_BRANCH_DIR}")
-   export HARNESS_OUTPUT_DIR="${HARNESS_BRANCH_DIR}/run-${RUN_NUMBER}"
-   mkdir -p "${HARNESS_OUTPUT_DIR}"
-   ```
-
-### 第一步：处理用户输入
-
-用户输入可能是以下几种形式：
-
-1. **直接粘贴技术文档文本** → 原样保存为 `${HARNESS_OUTPUT_DIR}/plan.md`
-2. **指向一个文件路径** → 读取文件内容，复制为 `${HARNESS_OUTPUT_DIR}/plan.md`
-3. **没有提供文档**（仅输入了 `/harness-backend`）→ 检查 `.harness/plans/` 目录：
-   - 如果目录下有 plan 文件，**使用 AskUserQuestion 工具**让用户选择一个
-   - 如果没有 plan 文件，提示用户：「未找到 plan 文件。你可以先运行 `/harness-plan` 生成，或直接粘贴技术文档。」
-
-选定后，将文件**复制**（非移动）到 `${HARNESS_OUTPUT_DIR}/plan.md`。
-
-**不要**分析、理解、检查或总结文档内容——这些是 harness-builder 的职责。编排器只负责复制文件。
-
-### 第一步 B：基线检查
-
-在启动 Agent 之前，做一次「项目能跑」的基线检查。**分两段处置**:
-
-- **主代码编译失败** → 硬终止(用户必须保证基线干净后再跑)。builder 在被污染基线上工作风险不可控，故强制基线干净
-- **测试代码编译失败**(常见:他人未合并的测试代码污染) → 不阻塞，AskUserQuestion 让用户拍板继续 / 终止
-
-**不再做启动健康检查**——启动受 profile / 环境 / 依赖服务多因素影响,不归 builder 责任;Agent 拿到启动状态也不能动它(SOP 内已明确)。启动验证完全由用户通过 `/harness-backend-smoke` 端到端兜底。
-
-所有基线产物落到 `${HARNESS_OUTPUT_DIR}/baseline/`，供 Agent 后续诊断「基线本来就坏」用：
+1. 读取当前分支:
 
 ```bash
-mkdir -p "${HARNESS_OUTPUT_DIR}/baseline"
+HARNESS_BRANCH=$(git branch --show-current)
 ```
 
-1. 读取项目 CLAUDE.md,确认构建命令(如 `mvn compile`)
+默认在当前分支构建。只有用户明确要求时才创建新分支。
 
-2. **主代码编译**(跳过测试代码，避免被他人未合并的测试代码污染):
-   ```bash
-   mvn clean compile -DskipTests=true -q > "${HARNESS_OUTPUT_DIR}/baseline/main-compile.log" 2>&1
-   echo $? > "${HARNESS_OUTPUT_DIR}/baseline/main-compile.exit"
-   ```
-   - 退出码 != 0 → **主代码炸了，硬终止**。把 `tail -30 main-compile.log` 的关键错误贴出来，告知用户:「基线主代码编译失败，请修复后重新运行 /harness-backend。」**不再提供「强行启动」逃生口** —— builder 在被污染的基线上工作风险不可控，基线必须干净。
-   - 退出码 == 0 → 进 3
-
-3. **测试代码编译**(只编不跑，失败**不阻塞**):
-   ```bash
-   mvn test-compile -q > "${HARNESS_OUTPUT_DIR}/baseline/test-compile.log" 2>&1
-   echo $? > "${HARNESS_OUTPUT_DIR}/baseline/test-compile.exit"
-   ```
-   - 退出码 != 0 → 测试代码有既有问题(常见原因:他人未合并的测试代码引用了未发布的接口)。把失败行摘要贴出来，**使用 AskUserQuestion 工具**让用户决定:
-     - 选项一:「继续，builder/qa 后续应把这些识别为基线遗留，不计入本轮」(推荐)
-     - 选项二:「终止，我先修测试代码」
-   - 退出码 == 0 → 进 4
-
-4. **第 3 步用户选了「继续」时**:第四步发送给 Agent 的初始 prompt 里**追加一段告知**,让 builder/qa 知道测试代码有基线遗留:
-
-   > 「基线检查发现遗留问题(详见 `${HARNESS_OUTPUT_DIR}/baseline/*.log`)，用户已确认绕过。请在你的工作中识别这些遗留失败，**不要**把它们记到本轮迭代的问题里。」
-
-   全部通过则无需追加。
-
-### 第二步：启动两个 Agent 的 pane（不发送 prompt）
+2. 创建 run 目录:
 
 ```bash
-launch_agent_pane "harness-builder" "harness-builder" "$HARNESS_OUTPUT_DIR/config.json"
-launch_agent_pane "harness-qa"      "harness-qa"      "$HARNESS_OUTPUT_DIR/config.json"
+source .codex/common/scripts/harness-init.sh
+HARNESS_BRANCH_DIR=".harness/iterations/${HARNESS_BRANCH}"
+mkdir -p "$HARNESS_BRANCH_DIR"
+RUN_NUMBER=$(get_next_run_number "$HARNESS_BRANCH_DIR")
+HARNESS_OUTPUT_DIR="${HARNESS_BRANCH_DIR}/run-${RUN_NUMBER}"
+mkdir -p "$HARNESS_OUTPUT_DIR"
 ```
 
-第三个参数是本次 run 的 config.json 绝对路径，会通过 `HARNESS_CONFIG` 环境变量注入到 Agent 进程。这一步只创建 tmux pane 并启动 CLI，不向 Agent 发送任何任务消息。
+3. 处理输入:
 
-### 第三步：写入 config.json
+- 用户直接粘贴技术文档: 原样写入 `${HARNESS_OUTPUT_DIR}/plan.md`
+- 用户给文件路径: 复制到 `${HARNESS_OUTPUT_DIR}/plan.md`
+- 用户未提供文档: 从 `.harness/plans/` 选择一个 plan；没有则提示先运行 `/harness-plan`
 
-把产出目录、plan.md 路径、两个 Agent 的 pane id 与互为搭档的关系写到 `${HARNESS_OUTPUT_DIR}/config.json`（按迭代分支 / run 维度存放，自带历史快照）：
+你不要分析 plan 内容；分析是 Builder/QA 的职责。
+
+4. 初始化 profile/state:
 
 ```bash
-write_config "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/plan.md"
+HARNESS_PROFILE=$(init_harness_run "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/plan.md")
+export HARNESS_PROFILE
 ```
 
-### 第四步：向两个 Agent 发送初始 prompt
+后续所有 subagent prompt 必须包含 `HARNESS_PROFILE` 绝对路径。
 
-**基线遗留告知拼接**:如果第一步 B 的 2/3/4 任一步用户选择了「继续」，准备一段告知拼到下面两个 prompt 的尾部(中间用换行隔开):
+## PREFLIGHT
 
-> 「基线检查发现遗留问题(详见 `${HARNESS_OUTPUT_DIR}/baseline/*.log`，含 main-compile.log / test-compile.log / startup.log 中失败的那几个)，用户已确认绕过。请在你的工作中把这些识别为基线遗留，**不要**计入本轮迭代的问题。」
+预检由主会话执行。读取项目 `AGENTS.md`；没有则读 `CLAUDE.md`。若文档写了构建命令，优先使用它；若没有且存在 `pom.xml`，默认使用 Maven 命令；否则询问用户提供主代码编译命令和测试编译命令。
 
-全部通过则不拼接。
+默认 Maven 命令:
 
 ```bash
-dispatch_initial_prompt "harness-builder" "1) Bash 跑 \`echo \$HARNESS_CONFIG\` 拿 config.json 路径 → Read 它,记下 output_dir / plan_path。2) Read .claude/agents/harness-builder.md(我是谁、责任与原则) + .claude/agents/harness-builder-AGENTS.md(逐职责 SOP / 工件契约 / 通信约定 / 消息 TAG 模板)。3) 按 SOP 1(与 QA 对齐 scope)开始,产出 build-scope-v1.md 后用 \`complete_and_notify\` 发 \`SCOPE_READY\` 通知 qa。${BASELINE_NOTE:-}"
-dispatch_initial_prompt "harness-qa"      "1) Bash 跑 \`echo \$HARNESS_CONFIG\` 拿 config.json 路径 → Read 它,记下 output_dir / plan_path。2) Read .claude/agents/harness-qa.md(我是谁、责任与原则) + .claude/agents/harness-qa-AGENTS.md(逐职责 SOP / 工件契约 / 通信约定 / 消息 TAG 模板)。3) 等搭档发 \`SCOPE_READY\`(用 \`verify_partner_reply harness-builder SCOPE_READY\` 确认是真消息,函数返回 0 才能动手),然后按 SOP 1(Scope 审阅)开始。${BASELINE_NOTE:-}"
+mvn clean compile -DskipTests=true -q
+mvn test-compile -q
 ```
 
-其中 `BASELINE_NOTE` 由编排器在第一步 B 末尾根据用户决定拼好(有遗留则置为换行 + 上述告知文本，否则置空)。
+规则:
 
-向用户提示：「harness-builder 和 harness-qa 已全部启动，它们将自主协调工作。你可以在各个 Pane 中观察实时进展。」
+- 主代码编译失败: 硬终止，不启动 subagents。把关键错误摘要给用户，并把 `state.json.preflight.main_compile.status` 更新为 `failed`。
+- 测试编译失败: 让用户决定继续或终止。继续时在 `state.json.preflight.test_compile` 记录 `failed_allowed`、关键错误摘要和 `user_decision=continue`。
+- 预检通过后，把 `state.json.phase` 更新为 `SCOPE_BUILD`。
 
-### 第五步：放手让 Agent 自主工作(主 pane 不再阻塞)
+不要把完整日志长期写入 run 目录；只在 `state.json` 里保留短摘要。
 
-**不要**通过任何 Bash 阻塞主 pane(如轮询 / sleep / wait 文件)—— Claude Code CLI 在长 Bash 调用中会持有 context 占内存(几小时累积几百 MB,电脑会变卡)。
+## Subagent 通用调度约定
 
-完成 dispatch_initial_prompt 后,直接向用户输出指引,然后**结束本次执行**(不调任何 Bash 工具):
+每次调度都明确传入:
 
-> 「harness-builder 和 harness-qa 已自主启动,后续会在自己的 pane 内协作完成本次迭代。你可以在各个 Pane 中观察实时进展。
->
-> **当 Agent 完成本轮迭代或你想提前停止时,在本主 pane 输入 `结束迭代`(或类似措辞),我会用 AskUserQuestion 确认是否关闭 Agent pane。**
->
-> 本主 pane 现在进入待命状态,不会占用资源。」
+- `HARNESS_PROFILE`
+- 当前阶段名
+- 必读文件: `profile.json`、`state.json`、阶段输入 artifact
+- 期望输出 artifact
+- 允许的最终 tag
+- 进度心跳要求
 
-输出完上述指引后,**本次 SKILL 执行结束**,等待用户后续输入。
-
-### 第六步：用户触发收尾时执行
-
-当用户在主 pane 输入「结束迭代」、「关闭 agent」、「收工」等收尾意图措辞时,你应:
-
-1. **使用 AskUserQuestion 工具**确认:
-   - 选项一:「关闭 Agent 会话」→ 执行 cleanup_panes
-   - 选项二:「保留 Agent 会话」→ 跳过 cleanup,仅提示流程已完成
-
-2. 若选择关闭,在 Bash 中执行:
+每个 subagent 开始阶段后必须:
 
 ```bash
-source .claude/common/scripts/harness-init.sh
-cleanup_panes
+export HARNESS_PROFILE="<绝对路径>"
+source .codex/common/scripts/harness-common.sh
+update_progress "<agent>" "<STAGE>" "<当前正在做什么>" "<artifact-可选>"
 ```
 
-3. 向用户提示:「构建流程已完成,详见 ${HARNESS_OUTPUT_DIR}/。」
+阶段完成时必须:
 
-## 错误处理
+```bash
+complete_stage "<agent>" "<TAG>" "<一句话结论 + 关键点>" "<artifact>"
+```
 
-- 如果 tmux 不可用，回退到使用 Agent 工具（subagent 模式）启动 Agent
+`complete_stage` 只写 progress，不写 signals。阶段推进由你等待 subagent 返回后校验 artifact 并更新 `state.json`。
 
-## 重要提醒
+## 进度巡检和恢复
 
-- **不要跳过任何步骤**
-- **不要替代任何 Agent 的工作**——你只负责启动，不负责编码、测试或判断
-- **不要读取任何 Agent 产出的文件内容**——你不需要知道 build-scope-v{N}.md 写了什么、harness-qa 评了几分
-- **Agent 自主协调通信**——每个 Agent 内置完整生命周期，知道何时工作、何时通知对方
-- **循环由 Agent 内部管理**——harness-qa 自行管理对齐循环和修复循环，你不参与
-- **不要插手 Agent 之间的对话**——这是 Agent 自己的事，编排器不介入阶段切换
-- **不要模拟或代替 Agent 的输出**——不要用 echo 打印 Agent 的通知内容，不要替 QA 宣布结果，不要替 Builder 汇报状态
-- **不要 source harness-common.sh 或调用 send_to_agent**——编排器没有通信职责
+等待 subagent 时不要黑盒沉默。读取 `progress/<agent>.md` 和 `progress/events.tsv`，向用户输出简短状态。
+
+无 progress 更新触发阈值:
+
+- `SCOPE_BUILD` / `SCOPE_REVIEW` / `PARALLEL_REVIEW`: 5 分钟
+- `BUILD` / `FIX`: 15 分钟
+
+巡检顺序:
+
+1. 检查 subagent 是否仍存活。
+2. 存活则向同一 subagent 发送恢复指令: 重新读取 `profile.json`、`state.json`、当前 artifact、git diff 和自己的 progress 后继续。
+3. 不存活、无法继续输入、或恢复后仍无心跳,启动同角色新 subagent 接手。
+4. 每阶段每角色最多自动恢复 2 次。超过后将 run 置为 `PAUSED` 并询问用户。
+
+恢复事件写入 `progress/events.tsv`，并更新 `state.json.retries`。
+
+## 阶段流程
+
+### 1. SCOPE_BUILD
+
+调度 `harness-builder`:
+
+```text
+阶段: SCOPE_BUILD
+HARNESS_PROFILE: <绝对路径>
+输入: plan.md, AGENTS.md/CLAUDE.md, .harness/call-chain/
+输出: build-scope.md
+完成 tag: SCOPE_READY
+```
+
+Builder 输出后,校验 `${output_dir}/build-scope.md` 存在并包含技术栈、功能清单、验证目标、实现顺序。通过后更新 `state.json.phase=SCOPE_REVIEW`。
+
+### 2. SCOPE_REVIEW
+
+调度 `harness-qa`:
+
+```text
+阶段: SCOPE_REVIEW
+HARNESS_PROFILE: <绝对路径>
+输入: plan.md + build-scope.md
+输出: scope-review.md
+完成 tag: ALIGNED 或 NEEDS_ADJUSTMENT
+```
+
+若 `ALIGNED`,更新 `state.json.phase=BUILD`。
+
+若 `NEEDS_ADJUSTMENT`,把 `scope-review.md` 中的问题发回 Builder,覆盖更新 `build-scope.md`。Scope 最多 3 次。超过后 `PAUSED` 并列出未解决问题。
+
+### 3. BUILD
+
+你根据 `build-scope.md` 判断粒度:
+
+- 小需求: 一次 Builder pass
+- 大需求: 每次 1 个 feature slug 或少量强相关 slug
+
+每个 build slice 调度 `harness-builder`:
+
+```text
+阶段: BUILD
+HARNESS_PROFILE: <绝对路径>
+输入: build-scope.md, scope-review.md, 指定 feature slug/batch
+输出: 代码变更、测试、call-chain 更新、git commit
+完成 tag: BUILD_SLICE_DONE 或 BUILD_DONE
+```
+
+Builder 每个 slice 可以 commit。你在每轮返回后读取 `git rev-parse HEAD`,记录新增 commit sha 到 `state.json.build.commits`。
+
+最后一片必须完成相关测试和 `mvn test-compile`。全部 build 完成后更新 `state.json.phase=PARALLEL_REVIEW`。
+
+### 4. PARALLEL_REVIEW
+
+并行调度 `harness-qa` 和 `harness-code-review`。
+
+QA:
+
+```text
+阶段: REVIEW
+HARNESS_PROFILE: <绝对路径>
+输入: plan.md, build-scope.md, state.json.build.commits
+输出: qa-feedback.md
+完成 tag: APPROVED 或 REJECTED
+```
+
+CodeReview:
+
+```text
+阶段: CODE_REVIEW
+HARNESS_PROFILE: <绝对路径>
+输入: state.json.build.commits 对应 diff
+输出: code-review.md
+完成 tag: CODE_REVIEW_APPROVED 或 CODE_REVIEW_REJECTED
+```
+
+门禁:
+
+- QA `REJECTED` 阻断
+- CodeReview 任一 P0/P1 阻断
+- CodeReview P2 不阻断,只在最终报告列出
+
+如果双通过,更新 `state.json.phase=DONE` 并总结。
+
+如果任一阻断,合并阻断项生成 `${output_dir}/fix-brief.md`,更新 `state.json.phase=FIX`。
+
+### 5. FIX
+
+最多 3 轮。调度 Builder:
+
+```text
+阶段: FIX
+HARNESS_PROFILE: <绝对路径>
+输入: fix-brief.md, qa-feedback.md, code-review.md, 当前 git diff
+输出: 修复代码、测试、commit
+完成 tag: FIX_DONE
+```
+
+Builder 修复后,再次并行调度 QA `REVIEW_FIX` 和 CodeReview `CODE_REVIEW_FIX`,覆盖 `qa-feedback.md` / `code-review.md`。
+
+双通过则 `DONE`。3 轮后仍未双通过则 `PAUSED`,向用户汇总未解阻断问题。
+
+## Artifact 最小集合
+
+run 目录只保留当前版本:
+
+```text
+plan.md
+profile.json
+state.json
+build-scope.md
+scope-review.md
+qa-feedback.md
+code-review.md
+fix-brief.md
+progress/
+```
+
+不要创建 `conversation/`、`signals/`、`baseline/`、`scope/`、`qa/`、`code-review/` 或多版本 round 文件。
+
+## 完成汇总
+
+`DONE` 时输出:
+
+- Builder commit sha 列表
+- `qa-feedback.md` 路径
+- `code-review.md` 路径
+- QA 业务验证套餐摘要
+- CodeReview P2 建议摘要
+
+不要自动 stage、merge、squash、push 或清理提交历史。

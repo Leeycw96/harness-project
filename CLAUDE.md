@@ -1,6 +1,6 @@
 # Harness 项目协作规范
 
-本文件给后续协作的 Claude 实例使用,记录在当前仓库工作时必须遵守的约定。
+本文件保留给旧工具读取。当前仓库以 `AGENTS.md` 为主要协作规范,并且只维护 Codex App subagent runtime。
 
 ## 测试 `bin/harness` 时的清理规则
 
@@ -8,21 +8,22 @@
 
 - **目标目录用 `mktemp -d` 创建**:不要在 harness-project 仓库内或其他长期目录跑测试
 - **测试结束后用 `rm -rf "$test_dir"` 清理**临时目录,不要遗留
-- **如果测试期间临时移走了仓库内文件**(例如 `mv harness-backend/skills/harness-backend-smoke /tmp/...` 模拟旧版部署),**务必把它恢复回原位置**
-- **完成后跑 `git status` 确认工作区干净**,无未跟踪 / 已修改的测试遗留
-- 端到端命令尽量在一行 `&&` 链中收尾(包含 `rm -rf`),避免中间步骤失败导致清理被跳过
+- **如果测试期间临时移走了仓库内文件**,务必恢复回原位置
+- 完成后跑 `git status --short` 确认没有测试遗留
 
-## Agent 预注入 skill
+推荐验证:
 
-需要让 subagent 启动时自动加载特定 skill,在 `.claude/agents/`(或 `~/.claude/agents/`)的 agent markdown frontmatter 中加 `skills` 字段,逗号分隔:
-
-```yaml
----
-name: db-admin
-description: 数据库运维任务
-tools: Bash, Read
-skills: database-migration, postgres-ops
----
+```bash
+bash -n bin/harness
+find common -type f -name '*.sh' -exec bash -n {} \;
+tmp=$(mktemp -d)
+bin/harness backend "$tmp"
+rm -rf "$tmp"
+git status --short
 ```
 
-无需在正文中再"指引"agent 去调用——启动时即预注入。
+## Runtime 边界
+
+- 不再维护 `.claude/` agent runtime。
+- 不再维护 Codex CLI tmux runtime。
+- 新工作应修改根级 `common/`、`harness-plan/`、`harness-backend/`。

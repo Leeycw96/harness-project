@@ -1,176 +1,154 @@
 # harness-qa 操作手册
 
-本文件是 `harness-qa.md` 的配套操作手册。soul 描述「我是谁、我关心什么」,本文件描述「每个职责怎么做」。
+本手册描述 QA 每个阶段怎么做。你不直接联系 Builder,也不等待 CodeReview。所有阶段切换由主会话 orchestrator 负责。
 
----
+## 启动必做
 
-## 工件读写约定
+每次收到主会话任务都必须重新执行:
 
-- **启动时必做**:在 Bash 里跑 `echo $HARNESS_CONFIG` 拿到本次 run 的 config.json 绝对路径,Read 它,记下 `output_dir` 与 `plan_path` 字段值,后续所有路径用它们拼出来,**不要凭记忆猜路径**
-- `${output_dir}` 下放一次性工件(qa-feedback / qa-evidence / build-scope / user-adjustment / conversation 等)
-- `.harness/call-chain/` 跨迭代持久工件,在项目根目录
-- `${output_dir}/baseline/` 是编排器跑过的基线产物,需要时 Read **不重跑**
+1. 从任务 prompt 读取 `HARNESS_PROFILE` 绝对路径。
+2. Read `profile.json`,记下 `project_dir`、`output_dir`、`plan_path`、artifact 路径。
+3. Read `${output_dir}/state.json`。
+4. Read `.codex/agents/harness-qa.md` 和本手册。
+5. Read 项目根 `AGENTS.md`;没有则读 `CLAUDE.md`。
+6. 只读取主会话指定的当前 artifact,不要扫描历史版本。
 
----
-
-## 通信约定
-
-**与 harness-builder 的所有交互必须经由 `harness-common.sh`**——禁止用 Agent 工具 spawn builder 子任务扮演搭档。
+初始化进度:
 
 ```bash
-source .claude/common/scripts/harness-common.sh
-complete_and_notify "harness-builder" "消息内容" "产出文件路径(可选)"
+export HARNESS_PROFILE="<绝对路径>"
+source .codex/common/scripts/harness-common.sh
+update_progress "harness-qa" "<STAGE>" "开始阶段,正在恢复 profile/state" "<artifact-可选>"
 ```
 
-`source` 和函数调用必须在**同一个 Bash 工具调用**中执行。通知后**完全停止等待**——不轮询。
+## 通信规则
 
-**消息格式**(固定模板,简洁命中要点,详情走 artifact):
-
-> `<TAG> | <一句话状态(< 30 字)> | <可选:1-3 条要点> | artifact: <路径>`
-
-- **本方(QA)发出的 TAG**:`ALIGNED` / `NEEDS_ADJUSTMENT` / `APPROVED` / `REJECTED` / `USER_ADJUST_VERIFIED` / `USER_ADJUST_REJECTED`
-- **对方(Builder)发回的 TAG**:`SCOPE_READY` / `BUILD_DONE` / `FIX_DONE` / `USER_ADJUST_DONE`
-
-`NEEDS_ADJUSTMENT` / `REJECTED` / `USER_ADJUST_REJECTED` 时必附 1-3 条要点(让 builder 一眼知道修复方向),其他 TAG 不堆细节。
-
-**跨阶段必须用磁盘证据**(堵脑补搭档回复):任何"上一阶段已完成"判断都通过 `verify_partner_reply harness-builder <TAG>` 返回 0:
+- 不给 Builder 或 CodeReview 发消息。
+- 不读取 `conversation/`、`signals/` 或 round 历史文件。
+- 阶段完成时执行:
 
 ```bash
-verify_partner_reply harness-builder SCOPE_READY        # Scope 审阅前
-verify_partner_reply harness-builder BUILD_DONE         # 测试评审前
-verify_partner_reply harness-builder FIX_DONE           # 修复循环重审前
-verify_partner_reply harness-builder USER_ADJUST_DONE   # 用户调整验证前
+complete_stage "harness-qa" "<TAG>" "<一句话结论 + 1-3 个关键点>" "<artifact>"
 ```
 
-返回 1 = builder 还没真发,STOP 等真消息,**不靠记忆推进**。Builder pane 崩溃用 `is_agent_alive "harness-builder"` 检测,不绕过通信宣布"完成"。
+然后最终回复只写 tag、artifact 和关键结论。
 
-疑问回查 Builder 上一轮回复细节 → 倒序 Read `${output_dir}/conversation/`,磁盘是真相。
+## Artifact 契约
 
----
+### `${output_dir}/scope-review.md`
 
-## 工件契约
+必须包含:
 
-<artifact path="{OUTPUT_DIR}/qa-feedback-round-{N}.md">
-**产出方**:QA(每轮评审一份)
-**消费方**:Builder(修复输入)、用户(查阅)
+- 最终判定: `ALIGNED` 或 `NEEDS_ADJUSTMENT`
+- plan 覆盖性检查
+- 验证目标可测性检查
+- 需要 Builder 调整的最小清单
+- QA 补充的业务验收期待
+
+### `${output_dir}/qa-feedback.md`
+
+必须包含:
 
 ```markdown
 # QA 评审报告
 
+## 最终判定
+APPROVED 或 REJECTED
+
 ## 总评
-[1-2 句话:质量概述 + 最关键问题]
-
-## 分数总览
-
-| 标准 | 分数 | 阈值 | 是否通过 |
-|------|------|------|---------|
-| 功能完整性 | X/10 | 7 | PASS/FAIL |
-| 产品深度 | X/10 | 6 | PASS/FAIL |
-| 接口规范性 | X/10 | 6 | PASS/FAIL |
-| 代码质量 | X/10 | 6 | PASS/FAIL |
+[1-2 句话说明业务质量和最关键结论]
 
 ## 逐功能验证
+| 功能 slug | 验证目标 | 结果 | 证据 |
+|-----------|----------|------|------|
 
-### 功能 1:[名称]
-| 验证目标 | 结果 | 测试方式 | 证据 |
-|----------|------|---------|------|
-| [目标] | PASS/FAIL | JUnit/curl/代码审查 | [输出摘要或证据文件路径] |
-
-## 业务冒烟套餐(交付凭据)
-
-### 场景 1:[业务场景名]
-\`\`\`bash
-curl -X POST http://localhost:8080/api/xxx \
-  -H "Content-Type: application/json" \
-  -d '{"key": "value"}'
-\`\`\`
-**期望响应**:HTTP 201,body 含 `{"userId": "..."}`
-**期望副作用**:DB users 表多一行 username=xxx
-
-### 场景 2:[业务场景名]
-...
-
-## 必须修复的问题(按优先级)
-
-### P0 - 阻断性问题
-1. **[标题]**:重现 / 预期 / 实际 / 根因 / 建议修复方向
-
-### P1 - 重要问题
-### P2 - 改进建议
-
-## Java 测试汇总
-
-| 项目 | 结果 |
-|------|------|
-| Builder 测试通过/失败 | X / Y |
-| QA 补充测试类数量 | X 个(默认 0) |
-
-## 最终判定
-**APPROVED** / **REJECTED**(REJECTED 则列出最小必修集)
+## 业务验证套餐
+### 场景: [名称]
+```bash
+curl ...
 ```
-</artifact>
+期望响应: ...
+期望副作用: ...
 
-<artifact path="{OUTPUT_DIR}/qa-evidence/*.log">
-**产出方**:QA(运行副产品)
-**用途**:报告中以路径引用,**不**直接展开 200+ 行
+## 阻断问题
+### P0
+### P1
 
-典型文件:`junit.log` / `curl-{endpoint}.log` / `diff-files.txt`
-</artifact>
+## 非阻断观察
+```
 
-<artifact path="src/test/java/**/QA_*.java">
-**产出方**:QA(**默认跳过**)
-**触发条件**:仅在主 qa 明确发现 Service public 方法未覆盖时才写
-**命名**:`QA_<被测类名>_<场景>.java`
-**焦点**:空值/极端值、异常分支、幂等性、线程安全
-</artifact>
+QA 的 P0/P1 是业务阻断问题。代码质量、架构边界、测试质量由 CodeReview 另行判断。
 
----
+## Stage SOP
 
-## SOP
+### SCOPE_REVIEW
 
-### SOP 1:Scope 审阅(职责 #1:翻译 plan + 对照 build-scope)
+输入: `plan.md` + `build-scope.md`。
 
-| 项 | 内容 |
-|----|------|
-| **输入** | Read `${plan_path}` + `${output_dir}/build-scope-v{N}.md`;<br>触发:`verify_partner_reply harness-builder SCOPE_READY` 返回 0 |
-| **产出** | send-keys 回复 Builder:`ALIGNED \| scope 完整可测,可以开始构建` 或 `NEEDS_ADJUSTMENT \| 1. xxx 2. yyy(附 1-3 调整项)` |
-| **步骤** | 1. Read plan + build-scope-v{N}.md<br>2. 把 plan 翻译为可测的业务场景清单<br>3. 对照 build-scope 逐功能比对:每条需求是否有规划?验证目标是否具体可测?<br>4. plan 缺验收标准时补全 QA 期望(**不**替 Builder 做技术决策)<br>5. send-keys 回复 Builder |
-| **完成标准** | 收到 builder 进入下一阶段的信号;对齐循环 ≤ 2 轮(build-scope 最多到 v3),第二轮仍未对齐 → 通知用户介入 |
-| **禁忌** | 替 Builder 做技术决策;Builder pane 崩溃时绕过通信宣布"完成" |
+步骤:
 
----
+1. 把 plan 翻译成可测业务场景清单。
+2. 对照 `build-scope.md` 检查每条需求是否覆盖。
+3. 检查每个验证目标是否具体可测。
+4. plan 缺少验收标准时,补充 QA 期望,但不替 Builder 做技术方案决策。
+5. 写 `${output_dir}/scope-review.md`。
+6. 覆盖完整且可测时:
 
-### SOP 2:测试评审 + 产出 curl 凭据(职责 #2 + #3,本轮工作量大头)
+```bash
+complete_stage "harness-qa" "ALIGNED" "scope 完整可测" "${output_dir}/scope-review.md"
+```
 
-| 项 | 内容 |
-|----|------|
-| **输入** | Read build-scope-v{N}.md + 本轮 git diff;<br>触发:`verify_partner_reply harness-builder BUILD_DONE` 返回 0 |
-| **产出** | `${output_dir}/qa-feedback-round-{N}.md`(**含「业务冒烟套餐」节**)+ `qa-evidence/junit.log` 等 |
-| **步骤** | 1. `git diff --name-only $(git rev-parse HEAD~)..HEAD > qa-evidence/diff-files.txt` 拿本轮改动清单<br>2. Read 改动的 .java 文件(主 qa 单 turn,**不卷入存量代码**)<br>3. **跑本轮 diff 涉及测试,不跑全量 mvn test**:从 `diff-files.txt` 拿 `src/test/java/**` 的测试类清单 → `mvn test -Dtest=ClassA,ClassB,... > qa-evidence/junit.log 2>&1; echo "EXIT=$?"`;再跑 `mvn test-compile > qa-evidence/test-compile.log 2>&1` 验整体编译(捕获跨模块编译期破坏)。EXIT 任一非 0 → `grep -E "(BUILD FAILURE\|Tests run.*Failures: [^0]\|FAILED)" junit.log \| head -30` 抓关键行,**禁止 Read 整个 junit.log**。**运行期跨模块回归交给用户 `/harness-backend-smoke` 兜底**<br>4. 按四角度审计:**stub 零容忍** / **入口层下沉**(grep Controller/Listener/Scheduler/RPC 命中 if/for/计算即 FAIL)/ **Service 契约测试完整** / **测试无假断言**(assertTrue(true) / 空 setUp / 只打 log 即 FAIL)<br>5. **为每个核心业务场景产出 curl + 期望 JSON 套餐**(写入 qa-feedback 的「业务冒烟套餐」节),含 HTTP 期望码 + body 期望片段 + 关键副作用(DB 行变更 / 流水表新增等)<br>6. (可选)仅在 Service public 方法明确未覆盖时才写 `QA_*.java`,**默认跳过**<br>7. 按四维评分,产出 qa-feedback<br>8. **自检 3 条**:矛盾(全 PASS 但分数 < 9 → 重审)/ 证据(无证据 PASS 改判 FAIL)/ 措辞(删"总体不错"/"小问题不影响使用"等放水语)<br>9. `complete_and_notify "harness-builder" "APPROVED \| 四维全过 + 业务冒烟套餐已附 \| artifact: ${output_dir}/qa-feedback-round-{N}.md" "${output_dir}/qa-feedback-round-{N}.md"`(REJECTED 时换成 `REJECTED \| 1. xxx 2. yyy(1-3 关键问题) \| artifact: ...`) |
-| **完成标准** | qa-feedback 每条 PASS 附证据(JUnit 行号 / curl 输出路径 / DB query);**每个核心业务场景有 curl + 期望 json**;四维评分**任意一项明显低于阈值 → REJECTED**(主 qa 综合判断,不机械卡分数) |
-| **禁忌** | 无证据的 PASS(自动 FAIL);放水措辞("小问题不影响使用"/"考虑到 Builder 的努力");stub/mock 视为通过 = 自动 FAIL;评审卷入存量代码(只看本轮 diff 范围) |
+7. 需要调整时:
 
----
+```bash
+complete_stage "harness-qa" "NEEDS_ADJUSTMENT" "scope 需调整: 1. ... 2. ..." "${output_dir}/scope-review.md"
+```
 
-### SOP 3:修复循环重审(职责 #4)
+禁忌: 不扩大 plan 范围;不把 out-of-scope 判为遗漏。
 
-| 项 | 内容 |
-|----|------|
-| **输入** | Read 上一轮 `qa-feedback-round-{N}.md` + 本轮 git diff;<br>触发:`verify_partner_reply harness-builder FIX_DONE` 返回 0 |
-| **产出** | `qa-feedback-round-{N+1}.md`(含更新后的「业务冒烟套餐」) |
-| **步骤** | 1. **跑修复涉及测试 + `mvn test-compile`,不跑全量 mvn test**:`mvn test -Dtest=<上一轮 P0/P1 涉及类 + QA_*.java>` + `mvn test-compile` 验整体编译<br>2. 对照上一轮 P0/P1 修复点,Read 涉及文件,**验证根因是否真修**(不是改头换面)<br>3. 涉及 API 行为变化时**同步更新冒烟套餐**的 curl + 期望 json<br>4. 产出 qa-feedback-round-{N+1}.md,跑自检 3 条<br>5. `complete_and_notify "harness-builder" "APPROVED \| 根因都修了 \| artifact: ${output_dir}/qa-feedback-round-{N+1}.md" "..."`(REJECTED 时换成 `REJECTED \| 1. xxx 2. yyy(1-3 未修根因) \| artifact: ...`) |
-| **完成标准** | 上一轮根因消失(不是同一根因的变种,如 if 从 Controller 挪到 RequestValidator 仍含业务逻辑);修复循环 ≤ 5 轮 / 连续 2 轮无改善则终止,无论结果通知 Builder 进入用户调整阶段 |
-| **禁忌** | 同 SOP 2 + 识别"绕过":根因相同只是表面换皮的视为未修 |
+### REVIEW
 
----
+输入: `plan.md`、`build-scope.md`、`state.json.build.commits`。
 
-### SOP 4:用户调整验证(职责 #5)
+步骤:
 
-| 项 | 内容 |
-|----|------|
-| **输入** | Read `${output_dir}/user-adjustment-round-{N}.md`;<br>触发:`verify_partner_reply harness-builder USER_ADJUST_DONE` 返回 0 |
-| **产出** | send-keys 回复 Builder:`USER_ADJUST_VERIFIED \| round-{N} 所有需求实现且回归通过` 或 `USER_ADJUST_REJECTED \| 1. 用户需求 #N 未实现 ...(附 1-3 缺漏点)` |
-| **步骤** | 1. Read user-adjustment-round-{N}.md 了解用户原始需求<br>2. 跑 `git diff`,逐条交叉对照"用户需求 ↔ Builder 实际改动"<br>3. **对照 curl 套餐**:用户调整应该让"哪些 curl/json 跟之前不一样",有变化的部分实证<br>4. **跑本轮调整涉及测试 + `mvn test-compile`**(`mvn test -Dtest=<diff 涉及类>` + `mvn test-compile`),**不跑全量**<br>5. send-keys 回复 |
-| **完成标准** | 用户每条需求都有对应实现 + 没有破坏已有功能 + 受影响的 curl 套餐已更新 |
-| **禁忌** | 同 SOP 2 |
+1. 从 `state.json.build.commits` 计算 Builder 本轮 diff。不要审用户无关改动。
+2. Read 与业务行为相关的改动文件和测试。
+3. 跑 diff 涉及的测试类和测试编译;没有明确测试类时,按项目手册选择最小相关验证命令。
+4. 对照 plan 和 build-scope 逐功能验证业务闭环。
+5. 为每个核心场景写 curl + 期望响应 + 关键副作用。
+6. 写 `${output_dir}/qa-feedback.md`。
+7. 业务通过时:
 
+```bash
+complete_stage "harness-qa" "APPROVED" "业务验收通过,验证套餐已附" "${output_dir}/qa-feedback.md"
+```
+
+8. 有业务阻断问题时:
+
+```bash
+complete_stage "harness-qa" "REJECTED" "业务阻断: 1. ... 2. ..." "${output_dir}/qa-feedback.md"
+```
+
+禁忌:
+
+- 无证据 PASS
+- 只看接口 200 不验证副作用
+- 卷入 Builder commit diff 之外的存量代码
+- 因 CodeReview 会审就跳过业务验证
+
+### REVIEW_FIX
+
+输入: `fix-brief.md`、上一轮 `qa-feedback.md`、最新 Builder 修复 commit。
+
+步骤:
+
+1. 只复审 `fix-brief.md` 中 QA 相关阻断项和受影响业务场景。
+2. 跑修复涉及测试 + 测试编译。
+3. 更新业务验证套餐。
+4. 覆盖写 `${output_dir}/qa-feedback.md`。
+5. 通过则 `APPROVED`,否则 `REJECTED`。
+
+## 基线遗留
+
+若 `state.json.preflight.test_compile.status` 为 `failed_allowed`,把摘要里的失败识别为基线遗留。不要把它计入本轮 QA 阻断,除非 Builder 本轮改动扩大或重新触发了问题。

@@ -1,7 +1,7 @@
 ---
 name: harness-backend-coding-rules
-description: 任何为 harness-backend 项目写代码的 agent 必读的代码与测试质量红线。
-audience: harness-builder
+description: harness-backend Builder 写代码与 CodeReview 审查时共用的代码与测试质量红线。
+audience: harness-builder,harness-code-review
 ---
 
 # Harness-Backend 代码质量红线
@@ -49,7 +49,7 @@ Controller / RPC Provider / MQ Listener / Scheduler 这四类入口**只做**:
 - 状态判断
 - 任何业务逻辑
 
-理由:入口层没有单测保护,业务逻辑藏在这里 = 把无回归保护的代码塞给冒烟脚本,而冒烟脚本未必覆盖到所有分支。
+理由:入口层没有单测保护,业务逻辑藏在这里 = 把无回归保护的代码留给人工端到端验证,而人工验证未必覆盖到所有分支。
 
 ## 5. 测试质量
 

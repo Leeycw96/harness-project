@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Harness 部署 CLI:harness (--claude-code|--codex|--codex-cli) <mode> [target-dir]
-# runtime 必须显式选择，避免误装到错误目录。
+# Harness deployment CLI.
+# Codex App is the only supported runtime. Source lives at the repository root.
 
 set -euo pipefail
 
@@ -10,34 +10,28 @@ HARNESS_ROOT="$(dirname "$SCRIPT_DIR")"
 usage() {
   cat <<'EOF'
 用法:
-  harness --claude-code <mode> [target-dir]
-  harness --codex <mode> [target-dir]
-  harness --codex-cli <mode> [target-dir]
-  harness <mode> --claude-code [target-dir]
-  harness <mode> --codex [target-dir]
-  harness <mode> --codex-cli [target-dir]
-  harness --runtime <claude-code|codex|codex-cli> <mode> [target-dir]
+  harness <mode> [target-dir]
 
-部署 harness 模块到指定项目。必须显式选择 runtime。
+部署 Harness 模块到 Codex App 项目。
 
 参数:
-  runtime      claude-code 部署到 .claude/;codex/codex-cli skills 部署到 .agents/skills/,agents 部署到 .codex/agents/
-  mode         模式名(对应源仓库 runtime 下的 harness-<mode>/ 目录)
-  target-dir   目标项目目录,默认当前目录
+  mode        模式名,对应源码目录 harness-<mode>/
+  target-dir  目标项目目录,默认当前目录
 
 示例:
-  harness --claude-code backend
-  harness backend --claude-code /path/to/proj
-  harness --codex backend
-  harness backend --codex /path/to/proj
-  harness --codex-cli backend
-  harness backend --codex-cli /path/to/proj
-  harness --runtime codex backend /path/to/proj
-  harness --runtime codex-cli backend /path/to/proj
+  harness backend
+  harness backend /path/to/project
+
+说明:
+  Harness v2 只支持 Codex App subagent 工作流。
+  旧参数 --claude-code、--codex-cli、--runtime 已移除。
 EOF
 }
 
-runtime=""
+fail() {
+  echo "错误: $*" >&2
+  exit 1
+}
 
 if [ $# -lt 1 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
   usage
@@ -45,176 +39,75 @@ if [ $# -lt 1 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
 fi
 
 case "${1:-}" in
-  --runtime)
-    if [ $# -lt 3 ]; then
-      usage >&2
-      exit 1
-    fi
-    runtime="$2"
-    shift 2
+  --claude-code|--codex-cli|--runtime|--codex)
+    fail "Harness v2 只支持 Codex App,不再接受 runtime 参数。请使用: harness <mode> [target-dir]"
     ;;
-  --claude-code)
-    runtime="claude-code"
-    shift
-    ;;
-  --codex)
-    runtime="codex"
-    shift
-    ;;
-  --codex-cli)
-    runtime="codex-cli"
-    shift
+  --*)
+    fail "未知参数 '$1'"
     ;;
 esac
-
-if [ $# -lt 1 ]; then
-  usage >&2
-  exit 1
-fi
 
 mode="$1"
 shift
 
 target_arg="."
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --claude-code)
-      if [ -n "$runtime" ] && [ "$runtime" != "claude-code" ]; then
-        echo "错误: runtime 参数冲突" >&2
-        exit 1
-      fi
-      runtime="claude-code"
-      ;;
-    --codex)
-      if [ -n "$runtime" ] && [ "$runtime" != "codex" ]; then
-        echo "错误: runtime 参数冲突" >&2
-        exit 1
-      fi
-      runtime="codex"
-      ;;
-    --codex-cli)
-      if [ -n "$runtime" ] && [ "$runtime" != "codex-cli" ]; then
-        echo "错误: runtime 参数冲突" >&2
-        exit 1
-      fi
-      runtime="codex-cli"
-      ;;
-    --runtime)
-      if [ $# -lt 2 ]; then
-        usage >&2
-        exit 1
-      fi
-      if [ -n "$runtime" ] && [ "$runtime" != "$2" ]; then
-        echo "错误: runtime 参数冲突" >&2
-        exit 1
-      fi
-      runtime="$2"
-      shift
-      ;;
-    --*)
-      echo "错误: 未知参数 '$1'" >&2
-      usage >&2
-      exit 1
-      ;;
-    *)
-      if [ "$target_arg" != "." ]; then
-        echo "错误: 只能指定一个 target-dir" >&2
-        usage >&2
-        exit 1
-      fi
-      target_arg="$1"
-      ;;
-  esac
-  shift
-done
-
-if [ -z "$runtime" ]; then
-  echo "错误: 必须显式指定 runtime: --codex、--codex-cli 或 --claude-code" >&2
+if [ $# -gt 1 ]; then
   usage >&2
   exit 1
 fi
-
-case "$runtime" in
-  claude-code)
-    app_dir=".claude"
-    skills_dir=".claude/skills"
-    agents_dir=".claude/agents"
-    common_dir=".claude/common"
-    manifest_dir=".claude/.harness"
-    ;;
-  codex)
-    app_dir=".codex"
-    skills_dir=".agents/skills"
-    agents_dir=".codex/agents"
-    common_dir=".codex/common"
-    manifest_dir=".codex/.harness"
-    ;;
-  codex-cli)
-    app_dir=".codex"
-    skills_dir=".agents/skills"
-    agents_dir=".codex/agents"
-    common_dir=".codex/common"
-    manifest_dir=".codex/.harness"
-    ;;
-  *)
-    echo "错误: 未知 runtime '$runtime'(支持 claude-code / codex / codex-cli)" >&2
-    exit 1
-    ;;
-esac
-
-source_root="$HARNESS_ROOT/$runtime"
-if [ "$runtime" = "claude-code" ] && [ ! -d "$source_root" ]; then
-  # 兼容 v1.1.x 仓库布局
-  source_root="$HARNESS_ROOT"
+if [ $# -eq 1 ]; then
+  case "$1" in
+    --*)
+      fail "未知参数 '$1'"
+      ;;
+    *)
+      target_arg="$1"
+      ;;
+  esac
 fi
 
-mode_dir="$source_root/harness-$mode"
-if [ ! -d "$mode_dir" ]; then
-  echo "错误: 未找到模式 'harness-$mode'" >&2
-  echo "       期望路径: $mode_dir" >&2
-  exit 1
-fi
-
-if [ ! -d "$target_arg" ]; then
-  echo "错误: 目标目录不存在: $target_arg" >&2
-  exit 1
-fi
+mode_dir="$HARNESS_ROOT/harness-$mode"
+[ -d "$mode_dir" ] || fail "未找到模式 'harness-$mode'(期望路径: $mode_dir)"
+[ -d "$HARNESS_ROOT/common" ] || fail "缺少 common/ 目录"
+[ -d "$target_arg" ] || fail "目标目录不存在: $target_arg"
 
 target="$(cd "$target_arg" && pwd)"
-echo "runtime: $runtime"
-if [ "$runtime" = "codex" ] || [ "$runtime" = "codex-cli" ]; then
-  echo "部署到: $target/.agents/skills/ 和 $target/.codex/"
-else
-  echo "部署到: $target/$app_dir/"
-fi
+
+skills_dir=".agents/skills"
+agents_dir=".codex/agents"
+common_dir=".codex/common"
+manifest_dir=".codex/.harness"
+manifest_file="$target/$manifest_dir/installed-manifest"
+
+echo "runtime: codex-app"
+echo "部署到: $target/.agents/skills/ 和 $target/.codex/"
 
 mkdir -p "$target/$skills_dir" "$target/$agents_dir" "$target/$common_dir" "$target/$manifest_dir"
 
-manifest_file="$target/$manifest_dir/installed-manifest"
-new_manifest=$(mktemp)
+new_manifest="$(mktemp)"
 trap 'rm -f "$new_manifest"' EXIT
 
 collect_files() {
   local src="$1" prefix="$2"
   [ -d "$src" ] || return 0
-  find "$src" -type f 2>/dev/null | while read -r f; do
+  find "$src" -type f 2>/dev/null | while IFS= read -r f; do
     local rel="${f#$src/}"
     echo "${prefix}/${rel}"
   done
 }
 
 {
-  collect_files "$source_root/common" "$common_dir"
-  if [ -d "$source_root/harness-plan" ]; then
-    collect_files "$source_root/harness-plan/skills" "$skills_dir"
-    collect_files "$source_root/harness-plan/agents" "$agents_dir"
+  collect_files "$HARNESS_ROOT/common" "$common_dir"
+  if [ -d "$HARNESS_ROOT/harness-plan" ]; then
+    collect_files "$HARNESS_ROOT/harness-plan/skills" "$skills_dir"
+    collect_files "$HARNESS_ROOT/harness-plan/agents" "$agents_dir"
   fi
   collect_files "$mode_dir/skills" "$skills_dir"
   collect_files "$mode_dir/agents" "$agents_dir"
 } | sort -u > "$new_manifest"
 
 if [ -f "$manifest_file" ]; then
-  obsolete=$(comm -23 <(sort -u "$manifest_file") "$new_manifest" || true)
+  obsolete="$(comm -23 <(sort -u "$manifest_file") "$new_manifest" || true)"
   if [ -n "$obsolete" ]; then
     echo "[清理] 已废弃文件:"
     while IFS= read -r rel; do
@@ -236,94 +129,33 @@ if [ -f "$manifest_file" ]; then
   fi
 fi
 
+deploy_tree() {
+  local src="$1" dest="$2" label="$3"
+  [ -d "$src" ] || return 0
+  if [ -n "$(find "$src" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+    echo "  [$label] $src -> $dest/"
+    cp -R "$src/." "$target/$dest/"
+  fi
+}
+
 deploy_module() {
-  local src="$1" name="$2"
-  if [ -d "$src/skills" ] && [ -n "$(ls -A "$src/skills" 2>/dev/null)" ]; then
-    echo "  [$name] skills → $skills_dir/"
-    cp -R "$src/skills/." "$target/$skills_dir/"
-  fi
-  if [ -d "$src/agents" ] && [ -n "$(ls -A "$src/agents" 2>/dev/null)" ]; then
-    echo "  [$name] agents → $agents_dir/"
-    cp -R "$src/agents/." "$target/$agents_dir/"
-  fi
+  local src="$1" label="$2"
+  deploy_tree "$src/skills" "$skills_dir" "$label skills"
+  deploy_tree "$src/agents" "$agents_dir" "$label agents"
 }
 
-echo "[common] common/ → $common_dir/"
-cp -R "$source_root/common/." "$target/$common_dir/"
-
-if [ -d "$source_root/harness-plan" ]; then
-  deploy_module "$source_root/harness-plan" "harness-plan"
+deploy_tree "$HARNESS_ROOT/common" "$common_dir" "common"
+if [ -d "$HARNESS_ROOT/harness-plan" ]; then
+  deploy_module "$HARNESS_ROOT/harness-plan" "harness-plan"
 fi
-
 deploy_module "$mode_dir" "harness-$mode"
-
-install_claude_postcompact_hook() {
-  command -v jq >/dev/null 2>&1 || {
-    echo "[hook] 跳过 PostCompact: jq 未安装" >&2
-    return 0
-  }
-
-  local marker="harness:postcompact-hint"
-  local settings_file="$target/.claude/settings.json"
-  local hook
-  hook=$(cat <<'HOOK_JSON'
-{
-  "matcher": "auto",
-  "hooks": [
-    {
-      "type": "command",
-      "command": "jq -n '{hookSpecificOutput:{additionalContext:\"[上下文压缩后提示] 提醒:你的工作手册定义了任务流程与协作规则,需要时请回查手册。\"}}' # harness:postcompact-hint"
-    }
-  ]
-}
-HOOK_JSON
-)
-
-  if [ ! -f "$settings_file" ]; then
-    jq -n --argjson e "$hook" '{hooks:{PostCompact:[$e]}}' > "$settings_file"
-    echo "[hook] PostCompact 已安装(新建 settings.json)"
-    return
-  fi
-
-  if jq -e --arg m "$marker" '
-    [ (.hooks.PostCompact // [])[]?.hooks[]?.command // "" ]
-    | any(test($m))
-  ' "$settings_file" >/dev/null 2>&1; then
-    echo "[hook] PostCompact 已存在,跳过"
-    return
-  fi
-
-  local tmp
-  tmp=$(mktemp)
-  if jq --argjson e "$hook" '
-    .hooks = (.hooks // {})
-    | .hooks.PostCompact = ((.hooks.PostCompact // []) + [$e])
-  ' "$settings_file" > "$tmp"; then
-    mv "$tmp" "$settings_file"
-    echo "[hook] PostCompact 已追加"
-  else
-    rm -f "$tmp"
-    echo "[hook] PostCompact 追加失败,settings.json 未变更" >&2
-    return 1
-  fi
-}
-
-if [ "$runtime" = "claude-code" ]; then
-  install_claude_postcompact_hook
-fi
 
 mv "$new_manifest" "$manifest_file"
 trap - EXIT
 
-count=$(wc -l < "$manifest_file" | tr -d ' ')
+count="$(wc -l < "$manifest_file" | tr -d ' ')"
 echo ""
 echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
-if [ "$runtime" = "codex-cli" ]; then
-  echo "在目标项目的 Codex CLI 中可使用:"
-elif [ "$runtime" = "codex" ]; then
-  echo "在目标项目的 Codex 中可使用:"
-else
-  echo "在目标项目的 Claude Code 中可使用:"
-fi
-echo "  /harness-plan       生成 plan 文件"
-echo "  /harness-$mode   消费 plan 启动构建与验收"
+echo "在目标项目的 Codex App 中可使用:"
+echo "  /harness-plan       生成 XML plan 文件"
+echo "  /harness-$mode      消费 plan 启动 subagent 构建与验收"
