@@ -96,7 +96,7 @@ HARNESS_PROFILE: <绝对路径>
 
 - `FEEDBACK_ACCEPTED`: 反馈成立且在原始需求或工程质量门禁内。校验 `fix-brief.md` 存在,更新 `state.json.feedback.status=accepted`,进入 `POST_REVIEW_FIX`。
 - `FEEDBACK_REJECTED`: 反馈不成立。更新 `state.json.feedback.status=rejected`,总结原因后结束。
-- `FEEDBACK_NEEDS_CLARIFICATION`: 信息不足。把 `user-feedback-review.md` 中的一个澄清问题问用户。用户回答后追加到 `user-feedback.md`,重新调度 triage。最多 3 次。
+- `FEEDBACK_NEEDS_CLARIFICATION`: 信息不足。把 `user-feedback-review.md` 中的一个最小澄清问题问用户。用户回答后追加到 `user-feedback.md`,重新调度 triage。不设固定次数上限;每轮只问一个关键问题,直到可以裁决为 `FEEDBACK_ACCEPTED` / `FEEDBACK_REJECTED` / `FEEDBACK_NEEDS_NEW_PLAN`,或用户明确终止。
 - `FEEDBACK_NEEDS_NEW_PLAN`: 反馈属于新需求或范围变化。更新 `state.json.feedback.status=needs_new_plan`,提示用户走 `/harness-plan`,结束。
 
 不要跳过 triage 直接让 Builder 修复。

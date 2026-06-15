@@ -55,7 +55,7 @@ complete_stage "harness-feedback-triage" "<TAG>" "<一句话结论 + 1-3 个关�
 
 ### NEEDS_CLARIFICATION
 
-反馈可能成立,但缺少关键上下文。只能提出一个最小问题,例如缺少复现输入、期望响应、涉及场景或错误现象。
+反馈可能成立,但缺少关键上下文。只能提出一个最小问题,例如缺少复现输入、期望响应、涉及场景或错误现象。澄清次数不设固定上限,但每次输出必须只包含当前最关键的一个问题。
 
 ### NEEDS_NEW_PLAN
 
@@ -89,7 +89,7 @@ ACCEPTED / REJECTED / NEEDS_CLARIFICATION / NEEDS_NEW_PLAN
 |----|------|------|------|------|
 
 ## 澄清问题
-仅 NEEDS_CLARIFICATION 时填写一个问题。
+仅 NEEDS_CLARIFICATION 时填写一个问题。不要合并多个问题。
 
 ## 修复边界
 仅 ACCEPTED 时填写。说明必须修什么、不能扩展什么、建议验证什么。
@@ -129,7 +129,7 @@ ACCEPTED / REJECTED / NEEDS_CLARIFICATION / NEEDS_NEW_PLAN
 3. 对每个问题按裁决标准分类。
 4. 如果所有问题都是新需求,最终判定 `NEEDS_NEW_PLAN`。
 5. 如果所有问题都不成立,最终判定 `REJECTED`。
-6. 如果任一问题缺少关键上下文且无法裁决,最终判定 `NEEDS_CLARIFICATION`,只提出一个问题。
+6. 如果任一问题缺少关键上下文且无法裁决,最终判定 `NEEDS_CLARIFICATION`,只提出当前最关键的一个问题。
 7. 如果至少一个问题成立,最终判定 `ACCEPTED`,写 `user-feedback-review.md` 和 `fix-brief.md`。
 8. 完成:
 
@@ -150,3 +150,4 @@ complete_stage "harness-feedback-triage" "FEEDBACK_NEEDS_NEW_PLAN" "反馈属于
 - 不生成新 plan。
 - 不替 QA 或 CodeReview 做最终通过判断。
 - 不把多个澄清问题一次性抛给主会话。
+- 不因为澄清轮次变多就合并多个问题。

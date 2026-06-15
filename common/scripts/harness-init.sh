@@ -307,7 +307,7 @@ init_harness_fix_run() {
         long_stage_no_progress_seconds: 900
       },
       limits: {
-        feedback_clarifications: 3,
+        feedback_clarifications: null,
         fix_rounds: 3,
         stage_recoveries: 2
       }
