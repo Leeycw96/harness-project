@@ -1,8 +1,0 @@
-{
-  "env": {
-    "ANTHROPIC_AUTH_TOKEN": "",
-    "ANTHROPIC_BASE_URL": "https://dashscope.aliyuncs.com/api/v2/apps/claude-code-proxy",
-    "ANTHROPIC_MODEL": "qwen3-coder-plus",
-    "ANTHROPIC_SMALL_FAST_MODEL": "qwen3-coder-flash"
-  }
-}

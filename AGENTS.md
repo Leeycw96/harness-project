@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository packages Harness skills, custom agent manuals, and deployment scripts for Codex App. `bin/harness` is the deployment CLI. Root-level `common/`, `harness-plan/`, and `harness-backend/` are the only supported runtime sources. Shared helpers live in `common/scripts/`. Skills live in `harness-<mode>/skills/`, and related custom agents or SOP files live in `harness-<mode>/agents/`. `claude-proxy/` is separate zsh launcher tooling.
+This repository packages Harness skills, custom agent manuals, and deployment scripts for Codex App. `bin/harness` is the deployment CLI. Root-level `common/`, `harness-plan/`, and `harness-backend/` are the only supported runtime sources. Shared helpers live in `common/scripts/`. Skills live in `harness-<mode>/skills/`, and related custom agents or SOP files live in `harness-<mode>/agents/`.
 
 ## Build, Test, and Development Commands
 
@@ -10,8 +10,6 @@ This repository packages Harness skills, custom agent manuals, and deployment sc
 - `bin/harness backend "$tmpdir"`: deploys the Codex App runtime with skills in `.agents/skills/` and custom agents/common state in `.codex/`.
 - `bash -n bin/harness`: checks the deployment CLI syntax.
 - `find common -type f -name '*.sh' -exec bash -n {} \;`: checks shell helper syntax.
-- `cd claude-proxy && ./install.sh`: regenerates Claude proxy aliases from `plans/*.json`.
-
 There is no package-manager build step.
 
 ## Coding Style & Naming Conventions
@@ -28,4 +26,4 @@ Recent commits use short, imperative Chinese summaries, often scoped, for exampl
 
 ## Security & Configuration Tips
 
-Do not commit real API tokens in `claude-proxy/plans/*.json`. Deployment overwrites same-name files under `.codex/` or `.agents/skills/`, and removes obsolete files only when tracked in the Harness manifest.
+Deployment overwrites same-name files under `.codex/` or `.agents/skills/`, and removes obsolete files only when tracked in the Harness manifest.

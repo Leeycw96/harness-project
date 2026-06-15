@@ -120,6 +120,5 @@ git status --short
 
 ## 安全
 
-- 不要在 `claude-proxy/plans/*.json` 提交真实 API token。
 - Harness 不会自动 merge、squash、push 或清理 Builder commits。
 - Deployment 会覆盖目标项目中的同名 Harness 文件。
