@@ -1,6 +1,6 @@
 # harness-qa 操作手册
 
-本手册描述 QA 每个阶段怎么做。你不直接联系 Builder,也不等待 CodeReview。所有阶段切换由主会话 orchestrator 负责。
+本手册描述 QA 每个阶段怎么做。你不直接联系 Builder,也不等待 CodeReview、CallChain 或 FeedbackTriage。所有阶段切换由主会话 orchestrator 负责。
 
 ## 启动必做
 
@@ -23,7 +23,7 @@ update_progress "harness-qa" "<STAGE>" "开始阶段,正在恢复 profile/state"
 
 ## 通信规则
 
-- 不给 Builder 或 CodeReview 发消息。
+- 不给 Builder、CodeReview、CallChain 或 FeedbackTriage 发消息。
 - 不读取 `conversation/`、`signals/` 或 round 历史文件。
 - 阶段完成时执行:
 
@@ -141,7 +141,7 @@ complete_stage "harness-qa" "REJECTED" "业务阻断: 1. ... 2. ..." "${output_d
 
 ### REVIEW_FIX
 
-输入: `fix-brief.md`、上一轮 `qa-feedback.md`、最新 Builder 修复 commit。
+输入: `fix-brief.md`、上一轮 `qa-feedback.md`、最新 Builder 修复 commit、可选 `user-feedback-review.md`。
 
 步骤:
 

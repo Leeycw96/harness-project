@@ -1,6 +1,6 @@
 # harness-builder 操作手册
 
-本手册描述 Builder 每个阶段怎么做。你不是 orchestrator,不要调度 QA/CodeReview,不要等待其他 subagent。
+本手册描述 Builder 每个阶段怎么做。你不是 orchestrator,不要调度 QA/CodeReview/CallChain/FeedbackTriage,不要等待其他 subagent。
 
 ## 启动必做
 
@@ -23,7 +23,7 @@ update_progress "harness-builder" "<STAGE>" "开始阶段,正在恢复 profile/s
 
 ## 通信规则
 
-- 不给 QA 或 CodeReview 发消息。
+- 不给 QA、CodeReview、CallChain 或 FeedbackTriage 发消息。
 - 不读取 `conversation/`、`signals/`、多版本 round 文件;这些在新协议中不存在。
 - 阶段完成时执行:
 
@@ -143,7 +143,7 @@ complete_stage "harness-builder" "BUILD_DONE" "构建完成,已提交 commit" "$
 
 ### FIX
 
-输入: `fix-brief.md`、`qa-feedback.md`、`code-review.md`、当前 git diff。
+输入: `fix-brief.md`、`qa-feedback.md`、`code-review.md`、可选 `user-feedback-review.md`、当前 git diff。
 
 步骤:
 

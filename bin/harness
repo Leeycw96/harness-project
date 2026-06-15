@@ -159,3 +159,6 @@ echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
 echo "在目标项目的 Codex App 中可使用:"
 echo "  /harness-plan       生成 XML plan 文件"
 echo "  /harness-$mode      消费 plan 启动 subagent 构建与验收"
+if [ "$mode" = "backend" ]; then
+  echo "  /harness-backend-fix 处理用户 CR 后置反馈并按需修复"
+fi

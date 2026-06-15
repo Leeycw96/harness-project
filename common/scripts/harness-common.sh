@@ -100,6 +100,7 @@ update_progress() {
     harness-qa|qa) progress_file="$progress_dir/qa.md"; display_agent="harness-qa" ;;
     harness-code-review|code-review|code_review) progress_file="$progress_dir/code-review.md"; display_agent="harness-code-review" ;;
     harness-call-chain|call-chain|call_chain) progress_file="$progress_dir/call-chain.md"; display_agent="harness-call-chain" ;;
+    harness-feedback-triage|feedback-triage|feedback_triage|triage) progress_file="$progress_dir/feedback-triage.md"; display_agent="harness-feedback-triage" ;;
     *) progress_file="$progress_dir/${agent}.md"; display_agent="$agent" ;;
   esac
 

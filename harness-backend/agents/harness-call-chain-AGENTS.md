@@ -1,6 +1,6 @@
 # harness-call-chain 操作手册
 
-本手册描述 CallChain 阶段怎么做。你不直接联系 Builder、QA 或 CodeReview,只维护跨迭代业务流程入口索引。
+本手册描述 CallChain 阶段怎么做。你不直接联系 Builder、QA、CodeReview 或 FeedbackTriage,只维护跨迭代业务流程入口索引。
 
 ## 启动必做
 
@@ -24,7 +24,7 @@ update_progress "harness-call-chain" "CALL_CHAIN" "开始审查业务流程入�
 
 ## 通信规则
 
-- 不给 Builder、QA 或 CodeReview 发消息。
+- 不给 Builder、QA、CodeReview 或 FeedbackTriage 发消息。
 - 不读取 `conversation/`、`signals/` 或 round 历史文件。
 - 阶段完成时执行:
 

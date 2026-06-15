@@ -1,6 +1,6 @@
 # harness-code-review 操作手册
 
-本手册描述 CodeReview 每个阶段怎么做。你不直接联系 Builder 或 QA,不修改代码,只产出当前 `code-review.md`。
+本手册描述 CodeReview 每个阶段怎么做。你不直接联系 Builder、QA、CallChain 或 FeedbackTriage,不修改代码,只产出当前 `code-review.md`。
 
 ## 启动必做
 
@@ -108,7 +108,7 @@ complete_stage "harness-code-review" "CODE_REVIEW_REJECTED" "发现阻断问题:
 
 ### CODE_REVIEW_FIX
 
-输入: `fix-brief.md`、上一轮 `code-review.md`、最新修复 commit。
+输入: `fix-brief.md`、上一轮 `code-review.md`、最新修复 commit、可选 `user-feedback-review.md`。
 
 步骤:
 
