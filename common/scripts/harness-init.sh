@@ -192,6 +192,99 @@ init_harness_run() {
   printf '%s\n' "$profile_file"
 }
 
+init_harness_fast_run() {
+  local output_dir="$1"
+  local plan_path="$2"
+  if [ -z "$output_dir" ] || [ -z "$plan_path" ]; then
+    echo "用法: init_harness_fast_run <output_dir> <plan_path>" >&2
+    return 2
+  fi
+
+  output_dir="$(_abs_path "$output_dir")"
+  plan_path="$(_abs_path "$plan_path")"
+  mkdir -p "$output_dir/progress"
+
+  local profile_file="$output_dir/profile.json"
+  local state_file="$output_dir/state.json"
+
+  jq -n \
+    --arg project_dir "$PROJECT_DIR" \
+    --arg output_dir "$output_dir" \
+    --arg plan_path "$plan_path" \
+    '{
+      runtime: "codex-app",
+      mode: "fast",
+      project_dir: $project_dir,
+      output_dir: $output_dir,
+      plan_path: $plan_path,
+      artifacts: {
+        code_review: ($output_dir + "/code-review.md"),
+        fix_brief: ($output_dir + "/fix-brief.md")
+      },
+      progress: {
+        dir: ($output_dir + "/progress"),
+        builder: ($output_dir + "/progress/builder.md"),
+        code_review: ($output_dir + "/progress/code-review.md"),
+        events: ($output_dir + "/progress/events.tsv")
+      },
+      agents: {
+        "harness-builder": {
+          config: ".codex/agents/harness-builder.toml",
+          role_doc: ".codex/agents/harness-builder.md",
+          sop_doc: ".codex/agents/harness-builder-AGENTS.md"
+        },
+        "harness-code-review": {
+          config: ".codex/agents/harness-code-review.toml",
+          role_doc: ".codex/agents/harness-code-review.md",
+          sop_doc: ".codex/agents/harness-code-review-AGENTS.md"
+        }
+      },
+      thresholds: {
+        short_stage_no_progress_seconds: 300,
+        long_stage_no_progress_seconds: 900
+      },
+      limits: {
+        fix_rounds: 3,
+        stage_recoveries: 2
+      }
+    }' > "$profile_file"
+
+  jq -n \
+    --arg profile_path "$profile_file" \
+    --arg output_dir "$output_dir" \
+    --arg plan_path "$plan_path" \
+    '{
+      phase: "INIT",
+      mode: "fast",
+      profile_path: $profile_path,
+      output_dir: $output_dir,
+      plan_path: $plan_path,
+      preflight: {
+        main_compile: { status: "pending", summary: [] },
+        test_compile: { status: "pending", summary: [], user_decision: null }
+      },
+      build: {
+        current_slice: "fast",
+        completed_slices: [],
+        commits: []
+      },
+      review: {
+        code_review: { status: "pending", artifact: null, p0: 0, p1: 0, p2: 0 }
+      },
+      fast: {
+        skipped: ["qa", "scope-review", "call-chain"]
+      },
+      fix_round: 0,
+      retries: {},
+      events: [],
+      next_action: "PREFLIGHT"
+    }' > "$state_file"
+
+  : > "$output_dir/progress/events.tsv"
+  export HARNESS_PROFILE="$profile_file"
+  printf '%s\n' "$profile_file"
+}
+
 init_harness_fix_run() {
   local output_dir="$1"
   local source_run="$2"

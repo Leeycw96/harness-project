@@ -12,7 +12,7 @@ harness-project/
 ├── install.sh                          # 把 bin/ 写入 PATH
 ├── common/                             # 部署到 .codex/common/
 ├── harness-plan/                       # /harness-plan skill
-└── harness-backend/                    # /harness-backend skill + agents
+└── harness-backend/                    # /harness-backend, /harness-backend-fast skill + agents
 ```
 
 每个模式遵循统一布局:
@@ -49,7 +49,9 @@ harness backend /path/to/your/project
 .agents/
 └── skills/
     ├── harness-plan/
-    └── harness-backend/
+    ├── harness-backend/
+    ├── harness-backend-fast/
+    └── harness-backend-fix/
 .codex/
 ├── common/
 │   ├── refs/
@@ -63,7 +65,13 @@ harness backend /path/to/your/project
 │   ├── harness-qa.toml
 │   ├── harness-code-review.md
 │   ├── harness-code-review-AGENTS.md
-│   └── harness-code-review.toml
+│   ├── harness-code-review.toml
+│   ├── harness-call-chain.md
+│   ├── harness-call-chain-AGENTS.md
+│   ├── harness-call-chain.toml
+│   ├── harness-feedback-triage.md
+│   ├── harness-feedback-triage-AGENTS.md
+│   └── harness-feedback-triage.toml
 └── .harness/
     └── installed-manifest
 ```
@@ -78,6 +86,14 @@ harness backend /path/to/your/project
 4. 任一阻断问题都会由主会话合并为 `fix-brief.md` 后派 Builder 修复。最多 3 轮。
 5. QA 通过且 CodeReview 无 P0/P1 后,本轮结束。
 
+小改动可由用户显式选择快速路径:
+
+```text
+/harness-backend-fast <plan-path>
+```
+
+fast run 只调度 Builder 和 CodeReview,不运行 QA、Scope Review 或 CallChain。适合小范围 bugfix、局部逻辑调整、简单校验或错误处理;复杂业务流程、数据库迁移、权限审计、事务/并发等高风险改动仍应使用 `/harness-backend`。
+
 run 目录最小结构:
 
 ```text
@@ -88,6 +104,18 @@ run 目录最小结构:
   build-scope.md
   scope-review.md
   qa-feedback.md
+  code-review.md
+  fix-brief.md
+  progress/
+```
+
+fast run 最小结构:
+
+```text
+.harness/iterations/<branch>/run-N/
+  plan.md
+  profile.json
+  state.json
   code-review.md
   fix-brief.md
   progress/

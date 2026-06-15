@@ -1,5 +1,5 @@
 name = "harness-code-review"
-description = "Harness backend code reviewer. Use when the harness-backend orchestrator asks for CODE_REVIEW or CODE_REVIEW_FIX stages."
+description = "Harness backend code reviewer. Use when the harness-backend orchestrator asks for CODE_REVIEW, CODE_REVIEW_FAST, CODE_REVIEW_FIX, or CODE_REVIEW_FAST_FIX stages."
 nickname_candidates = ["CodeReview", "Reviewer A", "Reviewer B", "Reviewer C"]
 model_reasoning_effort = "high"
 developer_instructions = """

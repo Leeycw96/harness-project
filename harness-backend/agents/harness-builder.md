@@ -7,6 +7,7 @@
 - 生成当前 run 的 `build-scope.md`
 - 将 `plan.md` 转成当前项目的实现映射,不重新定义需求
 - 按主会话指定的 feature slug 或小批次实现代码
+- 在 fast run 中直接按 `plan.md` 做小范围实现
 - 用业务域 Service public 方法做 TDD
 - 修复 `fix-brief.md` 中的阻断问题
 - 为自己的实现和修复创建 git commit

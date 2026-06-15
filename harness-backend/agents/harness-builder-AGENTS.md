@@ -80,11 +80,11 @@ complete_stage "harness-builder" "<TAG>" "<一句话结论 + 1-3 个关键点>" 
 
 跨迭代持久业务流程入口索引。Builder 在 `SCOPE_BUILD` 中只读取它来理解已有复杂业务流程,不要创建或更新 call-chain 文件。
 
-call-chain 由 `harness-call-chain` agent 在 QA/CodeReview 双通过后维护。Builder 禁止:
+call-chain 由 `harness-call-chain` agent 在 QA/CodeReview 双通过后维护。fast run 不运行 CallChain。Builder 禁止:
 
 - 按 feature slug 创建 `.harness/call-chain/<slug>.md`
 - 为简单查询、单步 CRUD 或内部同步 RPC 调用创建 call-chain
-- 在 BUILD 或 FIX 阶段修改 `.harness/call-chain/`
+- 在 BUILD、BUILD_FAST、FIX 或 FIX_FAST 阶段修改 `.harness/call-chain/`
 
 ## Stage SOP
 
@@ -141,6 +141,41 @@ complete_stage "harness-builder" "BUILD_DONE" "构建完成,已提交 commit" "$
 - 不跑全量测试拖慢流程,除非项目手册明确要求
 - 不修改与当前 slug 无关的用户改动
 
+### BUILD_FAST
+
+输入: `plan.md`、项目手册、当前代码。
+
+步骤:
+
+1. 写 progress,说明正在快速实现的需求范围。
+2. 直接从 `plan.md` 提取本次明确要求,不要扩大需求,不要补做 plan 未确认的能力。
+3. 按顺序实现: 业务 Service -> 入口层 -> 相关测试。必要的基础设施调整要保持最小。
+4. TDD 只覆盖业务域 Service public 方法。入口层不写单测。
+5. 不把业务逻辑写进 Controller/RPC/MQ/Scheduler;入口层只做参数校验、序列化和调 Service。
+6. 跑本次新增/修改测试类,再跑测试编译:
+
+```bash
+mvn test -Dtest=ClassA,ClassB,...
+mvn test-compile
+```
+
+若项目不是 Maven,按 `AGENTS.md` 的等价命令执行。
+
+7. 只 stage 本阶段自己改动的代码和测试文件,不要 stage 用户无关改动,不要 stage `.harness/call-chain/`。
+8. 创建 git commit,提交信息使用简短中文命令式摘要。
+9. 执行:
+
+```bash
+complete_stage "harness-builder" "BUILD_FAST_DONE" "快速构建完成,已提交 commit" "${output_dir}/plan.md"
+```
+
+禁忌:
+
+- 不写 stub / fake / hardcode response
+- 不调测试参数掩盖失败
+- 不为 fast run 创建 `build-scope.md`、`scope-review.md`、`qa-feedback.md` 或 `call-chain-review.md`
+- 不修改与当前需求无关的用户改动
+
 ### FIX
 
 输入: `fix-brief.md`、`qa-feedback.md`、`code-review.md`、可选 `user-feedback-review.md`、当前 git diff。
@@ -161,6 +196,28 @@ complete_stage "harness-builder" "FIX_DONE" "阻断问题已修复,已提交 com
 
 - 不通过改测试期望来让反馈消失
 - 不删除 CodeReview/QA 发现问题的触发路径
+- 不继续等复审结果
+
+### FIX_FAST
+
+输入: `fix-brief.md`、`code-review.md`、当前 git diff。
+
+步骤:
+
+1. Read `fix-brief.md`,只修其中 CodeReview P0/P1 阻断项。
+2. 修根因,不要用表面绕过或改测试期望掩盖问题。
+3. 跑修复涉及测试 + 测试编译。
+4. 只 stage 本轮修复文件,不要 stage `.harness/call-chain/`,创建 git commit。
+5. 执行:
+
+```bash
+complete_stage "harness-builder" "FIX_FAST_DONE" "快速修复完成,已提交 commit" "${output_dir}/fix-brief.md"
+```
+
+禁忌:
+
+- 不新增超出 `fix-brief.md` 的需求
+- 不创建 QA、Scope Review 或 CallChain artifact
 - 不继续等复审结果
 
 ## 基线遗留

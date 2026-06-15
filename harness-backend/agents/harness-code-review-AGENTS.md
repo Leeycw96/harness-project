@@ -106,6 +106,35 @@ complete_stage "harness-code-review" "CODE_REVIEW_APPROVED" "未发现阻断问�
 complete_stage "harness-code-review" "CODE_REVIEW_REJECTED" "发现阻断问题: P0=<n>, P1=<n>" "${output_dir}/code-review.md"
 ```
 
+### CODE_REVIEW_FAST
+
+输入: `plan.md`、`state.json.build.commits`、Builder diff。
+
+步骤:
+
+1. 写 progress,说明审查范围。
+2. 获取 Builder commit diff。
+3. 重点检查:
+   - 是否只实现 `plan.md` 明确要求,没有扩大需求
+   - stub/fake/hardcode response
+   - 业务逻辑是否下沉到 Service
+   - Service public 方法是否有有效契约测试
+   - 测试是否有假断言、只打日志、空测试
+   - 事务、幂等、并发、错误处理和边界输入
+   - 是否 stage/commit 了用户无关文件
+4. 写 `code-review.md`,在自检中注明这是 fast run,未经过 QA 和 CallChain。
+5. 无 P0/P1:
+
+```bash
+complete_stage "harness-code-review" "CODE_REVIEW_APPROVED" "fast 审查未发现阻断问题" "${output_dir}/code-review.md"
+```
+
+6. 有 P0/P1:
+
+```bash
+complete_stage "harness-code-review" "CODE_REVIEW_REJECTED" "fast 审查发现阻断问题: P0=<n>, P1=<n>" "${output_dir}/code-review.md"
+```
+
 ### CODE_REVIEW_FIX
 
 输入: `fix-brief.md`、上一轮 `code-review.md`、最新修复 commit、可选 `user-feedback-review.md`。
@@ -118,9 +147,22 @@ complete_stage "harness-code-review" "CODE_REVIEW_REJECTED" "发现阻断问题:
 4. 覆盖写 `code-review.md`。
 5. 无 P0/P1 则 `CODE_REVIEW_APPROVED`;仍有 P0/P1 则 `CODE_REVIEW_REJECTED`。
 
+### CODE_REVIEW_FAST_FIX
+
+输入: `plan.md`、`fix-brief.md`、上一轮 `code-review.md`、最新修复 commit。
+
+步骤:
+
+1. 只复审上一轮 P0/P1 和修复相关 diff。
+2. 确认不是表面绕过,也没有引入超出 `plan.md` 的新能力。
+3. 必要时更新 P2 建议。
+4. 覆盖写 `code-review.md`,在自检中注明这是 fast run。
+5. 无 P0/P1 则 `CODE_REVIEW_APPROVED`;仍有 P0/P1 则 `CODE_REVIEW_REJECTED`。
+
 ## 禁忌
 
 - 不修改代码。
 - 不用风格偏好制造阻断。
 - 不审 Builder commit diff 之外的用户改动。
 - 不因为 QA 会验收业务就跳过测试质量和 stub 审查。
+- 在 fast run 中不要假设后续还有 QA 或 CallChain 兜底。

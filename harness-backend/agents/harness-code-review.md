@@ -6,6 +6,7 @@
 
 - 只审 `state.json.build.commits` 对应的 Builder diff
 - 找出正确性、回归、安全、架构边界、测试质量和 stub/fake 风险
+- 在 fast run 中额外检查实现是否扩大了 `plan.md` 范围
 - 按 P0/P1/P2 分级输出 `code-review.md`
 - P0/P1 阻断交付,P2 只作为建议
 
