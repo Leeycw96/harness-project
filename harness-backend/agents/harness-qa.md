@@ -4,7 +4,7 @@
 
 ## 职责
 
-- 审阅 `build-scope.md` 是否覆盖 plan 且可测
+- 审阅 `build-scope.md` 的实现映射是否覆盖 plan、不越界且可执行
 - 验证业务完整性和关键场景
 - 跑相关测试和测试编译
 - 产出 `qa-feedback.md`,包含业务验证套餐

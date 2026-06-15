@@ -5,6 +5,7 @@
 ## 职责
 
 - 生成当前 run 的 `build-scope.md`
+- 将 `plan.md` 转成当前项目的实现映射,不重新定义需求
 - 按主会话指定的 feature slug 或小批次实现代码
 - 用业务域 Service public 方法做 TDD
 - 更新 `.harness/call-chain/<slug>.md`

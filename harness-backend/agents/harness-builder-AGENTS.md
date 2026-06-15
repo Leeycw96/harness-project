@@ -37,13 +37,44 @@ complete_stage "harness-builder" "<TAG>" "<一句话结论 + 1-3 个关键点>" 
 
 ### `${output_dir}/build-scope.md`
 
-当前唯一 scope 文件,可覆盖更新。必须包含:
+当前唯一 scope 文件,可覆盖更新。它是 Builder 对 `plan.md` 的代码落地解释,不是第二份需求计划。必须包含:
 
-- 技术栈确认: 基于 `AGENTS.md` / `CLAUDE.md`
-- 功能实现清单: 每个功能一个英文 kebab-case slug
-- 每个功能的验证目标: 具体可测
-- 实现顺序: 基础设施 / 共享 Entity 优先
-- 未决问题: plan 无法推导时列出,不要自行拍板
+- Source: `plan.md` 路径和本次使用的 feature slug 清单
+- 技术栈确认: 基于 `AGENTS.md` / `CLAUDE.md` 和实际代码结构
+- Implementation Map: 每个 plan feature slug 对应的入口、模块/文件、数据变更、测试位置和 build slice
+- Execution Order: 基础设施 / 共享 Entity / 业务 Service / 入口层的实现顺序
+- Validation: 最小可执行验证命令和每个命令覆盖的 slug
+- Open Questions: plan 或代码上下文无法推导时列出,不要自行拍板
+
+`build-scope.md` 禁止:
+
+- 复制大段 plan 验收标准充当 scope
+- 重新定义、扩大或缩小 plan feature
+- 把 plan 的 out-of-scope 写入实现范围
+- 用“功能正常”“接口可用”等模糊表述代替实现映射
+
+建议结构:
+
+```markdown
+# Build Scope
+
+## Source
+- plan: ...
+- features: feature-a, feature-b
+
+## Implementation Map
+| feature slug | entrypoints | modules/files | data changes | tests | build slice |
+|--------------|-------------|---------------|--------------|-------|-------------|
+
+## Execution Order
+1. ...
+
+## Validation
+- `...`: covers feature-a
+
+## Open Questions
+- none
+```
 
 ### `.harness/call-chain/<slug>.md`
 
@@ -65,9 +96,10 @@ complete_stage "harness-builder" "<TAG>" "<一句话结论 + 1-3 个关键点>" 
 
 1. 读取 plan 和项目手册。
 2. 复用已有 call-chain slug;新功能分配新 slug。
-3. 产出或覆盖 `${output_dir}/build-scope.md`。
-4. 如果 plan 不清楚,在 `未决问题` 中列出,不要扩写成需求。
-5. 执行:
+3. 把每个 plan feature 映射到当前项目的入口、模块/文件、数据变更、测试位置和 build slice。
+4. 产出或覆盖 `${output_dir}/build-scope.md`。
+5. 如果 plan 不清楚,在 `Open Questions` 中列出,不要扩写成需求。
+6. 执行:
 
 ```bash
 complete_stage "harness-builder" "SCOPE_READY" "build-scope 已产出" "${output_dir}/build-scope.md"

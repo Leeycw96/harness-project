@@ -40,10 +40,11 @@ complete_stage "harness-qa" "<TAG>" "<一句话结论 + 1-3 个关键点>" "<art
 必须包含:
 
 - 最终判定: `ALIGNED` 或 `NEEDS_ADJUSTMENT`
-- plan 覆盖性检查
-- 验证目标可测性检查
+- plan 到 build-scope 实现映射的覆盖性检查
+- 越界检查: 是否把 out-of-scope 或未确认需求写入实现范围
+- 可执行性检查: 入口、模块、数据变更、测试和验证命令是否足够支撑后续构建
 - 需要 Builder 调整的最小清单
-- QA 补充的业务验收期待
+- QA 补充的业务验证关注点
 
 ### `${output_dir}/qa-feedback.md`
 
@@ -88,23 +89,24 @@ QA 的 P0/P1 是业务阻断问题。代码质量、架构边界、测试质量�
 步骤:
 
 1. 把 plan 翻译成可测业务场景清单。
-2. 对照 `build-scope.md` 检查每条需求是否覆盖。
-3. 检查每个验证目标是否具体可测。
-4. plan 缺少验收标准时,补充 QA 期望,但不替 Builder 做技术方案决策。
-5. 写 `${output_dir}/scope-review.md`。
-6. 覆盖完整且可测时:
+2. 对照 `build-scope.md` 检查每个 plan feature 是否有实现映射: 入口、模块/文件、数据变更、测试或验证命令。
+3. 检查 `build-scope.md` 是否越界: 不得包含 out-of-scope、未确认 feature 或与 plan 冲突的实现目标。
+4. 检查执行蓝图是否可用: build slice 顺序清楚,验证命令能支撑后续业务验收。
+5. plan 缺少验收标准时,只补充 QA 业务验证关注点,不要替 Builder 做技术方案决策。
+6. 写 `${output_dir}/scope-review.md`。
+7. 实现映射覆盖完整、不越界且可执行时:
 
 ```bash
-complete_stage "harness-qa" "ALIGNED" "scope 完整可测" "${output_dir}/scope-review.md"
+complete_stage "harness-qa" "ALIGNED" "scope 实现映射完整可执行" "${output_dir}/scope-review.md"
 ```
 
-7. 需要调整时:
+8. 需要调整时:
 
 ```bash
 complete_stage "harness-qa" "NEEDS_ADJUSTMENT" "scope 需调整: 1. ... 2. ..." "${output_dir}/scope-review.md"
 ```
 
-禁忌: 不扩大 plan 范围;不把 out-of-scope 判为遗漏。
+禁忌: 不扩大 plan 范围;不把 out-of-scope 判为遗漏;不要求 Builder 复制 plan 验收标准。
 
 ### REVIEW
 
@@ -115,7 +117,7 @@ complete_stage "harness-qa" "NEEDS_ADJUSTMENT" "scope 需调整: 1. ... 2. ..." 
 1. 从 `state.json.build.commits` 计算 Builder 本轮 diff。不要审用户无关改动。
 2. Read 与业务行为相关的改动文件和测试。
 3. 跑 diff 涉及的测试类和测试编译;没有明确测试类时,按项目手册选择最小相关验证命令。
-4. 对照 plan 和 build-scope 逐功能验证业务闭环。
+4. 以 plan 为业务验收依据,用 build-scope 定位实现入口、相关模块和验证命令,逐功能验证业务闭环。
 5. 为每个核心场景写 curl + 期望响应 + 关键副作用。
 6. 写 `${output_dir}/qa-feedback.md`。
 7. 业务通过时:

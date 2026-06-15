@@ -103,6 +103,13 @@ complete_stage "<agent>" "<TAG>" "<一句话结论 + 关键点>" "<artifact>"
 
 `complete_stage` 只写 progress，不写 signals。阶段推进由你等待 subagent 返回后校验 artifact 并更新 `state.json`。
 
+## Plan 与 Build Scope 分工
+
+- `plan.md` 是需求契约: 描述要做什么、怎样算完成、什么不做、依赖和约束。
+- `build-scope.md` 是实现契约: Builder 读代码后说明这些需求准备在当前项目里怎么落地。
+- `build-scope.md` 不得重新定义、扩大或缩小 plan;不得复制大段验收标准充当 scope。
+- QA 在 `SCOPE_REVIEW` 只判断实现映射是否覆盖 plan、是否越界、是否可执行;不把 `build-scope.md` 当第二份需求文档。
+
 ## 进度巡检和恢复
 
 等待 subagent 时不要黑盒沉默。读取 `progress/<agent>.md` 和 `progress/events.tsv`，向用户输出简短状态。
@@ -135,7 +142,7 @@ HARNESS_PROFILE: <绝对路径>
 完成 tag: SCOPE_READY
 ```
 
-Builder 输出后,校验 `${output_dir}/build-scope.md` 存在并包含技术栈、功能清单、验证目标、实现顺序。通过后更新 `state.json.phase=SCOPE_REVIEW`。
+Builder 输出后,校验 `${output_dir}/build-scope.md` 存在并包含来源 plan、技术栈确认、feature 到入口/模块/数据/测试的实现映射、实现顺序、验证命令和未决问题。若只是重复 plan、缺少实现映射或引入越界功能,要求 Builder 重做。通过后更新 `state.json.phase=SCOPE_REVIEW`。
 
 ### 2. SCOPE_REVIEW
 
@@ -148,6 +155,8 @@ HARNESS_PROFILE: <绝对路径>
 输出: scope-review.md
 完成 tag: ALIGNED 或 NEEDS_ADJUSTMENT
 ```
+
+QA 只评审 `build-scope.md` 的实现映射是否覆盖 plan、是否越界、是否有可执行验证路径。
 
 若 `ALIGNED`,更新 `state.json.phase=BUILD`。
 
