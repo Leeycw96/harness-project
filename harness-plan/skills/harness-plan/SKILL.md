@@ -68,8 +68,8 @@ user-invocable: true
 把“本次开发”拆成 feature:
 
 - 每个 feature 一个英文 kebab-case slug
-- slug 必须稳定,会用于 `build-scope.md`、call-chain 和 QA 验证材料
-- 已有业务流程优先复用 `.harness/call-chain/` 中的 slug
+- slug 必须稳定,会用于 `build-scope.md` 和 QA 验证材料
+- 已有 `.harness/call-chain/` 只作为复杂业务流程上下文,不要强制 feature slug 对应 call-chain 文件
 - 每个 feature 应能独立描述业务价值和验收目标
 
 向用户确认 feature 清单是否完整、是否越界、优先级是否合理。

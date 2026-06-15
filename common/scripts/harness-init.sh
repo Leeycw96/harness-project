@@ -79,13 +79,15 @@ init_harness_run() {
         scope_review: ($output_dir + "/scope-review.md"),
         qa_feedback: ($output_dir + "/qa-feedback.md"),
         code_review: ($output_dir + "/code-review.md"),
-        fix_brief: ($output_dir + "/fix-brief.md")
+        fix_brief: ($output_dir + "/fix-brief.md"),
+        call_chain_review: ($output_dir + "/call-chain-review.md")
       },
       progress: {
         dir: ($output_dir + "/progress"),
         builder: ($output_dir + "/progress/builder.md"),
         qa: ($output_dir + "/progress/qa.md"),
         code_review: ($output_dir + "/progress/code-review.md"),
+        call_chain: ($output_dir + "/progress/call-chain.md"),
         events: ($output_dir + "/progress/events.tsv")
       },
       agents: {
@@ -103,6 +105,11 @@ init_harness_run() {
           config: ".codex/agents/harness-code-review.toml",
           role_doc: ".codex/agents/harness-code-review.md",
           sop_doc: ".codex/agents/harness-code-review-AGENTS.md"
+        },
+        "harness-call-chain": {
+          config: ".codex/agents/harness-call-chain.toml",
+          role_doc: ".codex/agents/harness-call-chain.md",
+          sop_doc: ".codex/agents/harness-call-chain-AGENTS.md"
         }
       },
       thresholds: {
@@ -138,6 +145,12 @@ init_harness_run() {
       review: {
         qa: { status: "pending", artifact: null, blocking_count: 0 },
         code_review: { status: "pending", artifact: null, p0: 0, p1: 0, p2: 0 }
+      },
+      call_chain: {
+        status: "pending",
+        artifact: null,
+        action: null,
+        commit: null
       },
       fix_round: 0,
       retries: {},

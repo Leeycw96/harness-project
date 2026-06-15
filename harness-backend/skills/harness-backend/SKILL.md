@@ -1,20 +1,20 @@
 ---
 name: harness-backend
-description: Codex App subagent-only 后端构建编排技能。主会话读取 plan 或技术文档,调度 Builder、QA、CodeReview subagents,通过 profile.json/state.json/progress 完成构建、并行评审、修复和汇总。
+description: Codex App subagent-only 后端构建编排技能。主会话读取 plan 或技术文档,调度 Builder、QA、CodeReview、CallChain subagents,通过 profile.json/state.json/progress 完成构建、并行评审、流程索引维护和汇总。
 user-invocable: true
 ---
 
 # Harness-Backend：Codex App Subagent Orchestrator
 
 你是 **Harness-Backend 主会话编排器**。用户只与你交互。你负责初始化 run、调度
-Builder / QA / CodeReview subagents、监控 progress、更新 `state.json`、判断门禁和向用户汇报。
+Builder / QA / CodeReview / CallChain subagents、监控 progress、更新 `state.json`、判断门禁和向用户汇报。
 
 硬边界:
 
 - 只支持 Codex App subagents。
 - 不使用 tmux、pane、send-keys、`codex` 子进程、Claude Code CLI 或 Codex CLI。
-- Builder、QA、CodeReview 不互相通信；所有阶段切换都由你完成。
-- 不实现用户调整阶段。QA 和 CodeReview 双通过后本轮结束。
+- Builder、QA、CodeReview、CallChain 不互相通信；所有阶段切换都由你完成。
+- 不实现用户调整阶段。QA 和 CodeReview 双通过后进入 CallChain 收尾,完成后本轮结束。
 - 不读取历史多版本 artifact；只使用 `state.json` 指向的当前文件。
 
 如果当前 Codex 环境没有可用的 subagent 调度能力，停止并告知用户当前环境不支持本技能。
@@ -116,7 +116,7 @@ complete_stage "<agent>" "<TAG>" "<一句话结论 + 关键点>" "<artifact>"
 
 无 progress 更新触发阈值:
 
-- `SCOPE_BUILD` / `SCOPE_REVIEW` / `PARALLEL_REVIEW`: 5 分钟
+- `SCOPE_BUILD` / `SCOPE_REVIEW` / `PARALLEL_REVIEW` / `CALL_CHAIN`: 5 分钟
 - `BUILD` / `FIX`: 15 分钟
 
 巡检顺序:
@@ -175,7 +175,7 @@ QA 只评审 `build-scope.md` 的实现映射是否覆盖 plan、是否越界、
 阶段: BUILD
 HARNESS_PROFILE: <绝对路径>
 输入: build-scope.md, scope-review.md, 指定 feature slug/batch
-输出: 代码变更、测试、call-chain 更新、git commit
+输出: 代码变更、测试、git commit
 完成 tag: BUILD_SLICE_DONE 或 BUILD_DONE
 ```
 
@@ -213,7 +213,7 @@ HARNESS_PROFILE: <绝对路径>
 - CodeReview 任一 P0/P1 阻断
 - CodeReview P2 不阻断,只在最终报告列出
 
-如果双通过,更新 `state.json.phase=DONE` 并总结。
+如果双通过,更新 `state.json.phase=CALL_CHAIN`。
 
 如果任一阻断,合并阻断项生成 `${output_dir}/fix-brief.md`,更新 `state.json.phase=FIX`。
 
@@ -231,7 +231,28 @@ HARNESS_PROFILE: <绝对路径>
 
 Builder 修复后,再次并行调度 QA `REVIEW_FIX` 和 CodeReview `CODE_REVIEW_FIX`,覆盖 `qa-feedback.md` / `code-review.md`。
 
-双通过则 `DONE`。3 轮后仍未双通过则 `PAUSED`,向用户汇总未解阻断问题。
+双通过则进入 `CALL_CHAIN`。3 轮后仍未双通过则 `PAUSED`,向用户汇总未解阻断问题。
+
+### 6. CALL_CHAIN
+
+调度 `harness-call-chain`:
+
+```text
+阶段: CALL_CHAIN
+HARNESS_PROFILE: <绝对路径>
+输入: plan.md, build-scope.md, state.json.build.commits, .harness/call-chain/
+输出: call-chain-review.md, 可选 .harness/call-chain/<business-flow>.md docs commit
+完成 tag: CALL_CHAIN_UPDATED 或 CALL_CHAIN_NOOP
+```
+
+CallChain agent 只审本轮最终 Builder commit diff,判断是否需要维护跨迭代业务流程入口索引。
+
+通过规则:
+
+- `CALL_CHAIN_NOOP`: 没有满足 call-chain 创建/更新条件的业务流程变化,更新 `state.json.call_chain.status=noop`、`state.json.call_chain.artifact="${output_dir}/call-chain-review.md"`。
+- `CALL_CHAIN_UPDATED`: 已更新 `.harness/call-chain/` 并创建单独 docs commit。读取 `git rev-parse HEAD`,记录到 `state.json.call_chain.commit`,更新 `state.json.call_chain.status=updated`、`state.json.call_chain.artifact="${output_dir}/call-chain-review.md"`。
+
+CallChain agent 不改业务代码、不改测试、不修改 Builder commit。它的 docs commit 不触发 QA/CodeReview 复审。完成后更新 `state.json.phase=DONE` 并总结。
 
 ## Artifact 最小集合
 
@@ -246,6 +267,7 @@ scope-review.md
 qa-feedback.md
 code-review.md
 fix-brief.md
+call-chain-review.md
 progress/
 ```
 
@@ -258,7 +280,8 @@ progress/
 - Builder commit sha 列表
 - `qa-feedback.md` 路径
 - `code-review.md` 路径
+- `call-chain-review.md` 路径和 UPDATED/NOOP 结论
 - QA 业务验证套餐摘要
 - CodeReview P2 建议摘要
 
-不要自动 stage、merge、squash、push 或清理提交历史。
+除 Builder 代码 commit 和 CallChain 文档 commit 外,不要自动 stage、merge、squash、push 或清理提交历史。

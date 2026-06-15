@@ -76,15 +76,15 @@ complete_stage "harness-builder" "<TAG>" "<一句话结论 + 1-3 个关键点>" 
 - none
 ```
 
-### `.harness/call-chain/<slug>.md`
+### `.harness/call-chain/<business-flow>.md`
 
-跨迭代持久业务链路。一个完整业务流程一个文件,只记录入口方法和业务步骤,不展开内部调用链。
+跨迭代持久业务流程入口索引。Builder 在 `SCOPE_BUILD` 中只读取它来理解已有复杂业务流程,不要创建或更新 call-chain 文件。
 
-必须更新:
+call-chain 由 `harness-call-chain` agent 在 QA/CodeReview 双通过后维护。Builder 禁止:
 
-- 业务入口增删改
-- 主流程步骤变化
-- 验证点变化
+- 按 feature slug 创建 `.harness/call-chain/<slug>.md`
+- 为简单查询、单步 CRUD 或内部同步 RPC 调用创建 call-chain
+- 在 BUILD 或 FIX 阶段修改 `.harness/call-chain/`
 
 ## Stage SOP
 
@@ -95,7 +95,7 @@ complete_stage "harness-builder" "<TAG>" "<一句话结论 + 1-3 个关键点>" 
 步骤:
 
 1. 读取 plan 和项目手册。
-2. 复用已有 call-chain slug;新功能分配新 slug。
+2. 读取已有 call-chain 作为复杂业务流程上下文;不要复用 call-chain 文件名作为 feature slug。
 3. 把每个 plan feature 映射到当前项目的入口、模块/文件、数据变更、测试位置和 build slice。
 4. 产出或覆盖 `${output_dir}/build-scope.md`。
 5. 如果 plan 不清楚,在 `Open Questions` 中列出,不要扩写成需求。
@@ -126,10 +126,9 @@ mvn test-compile
 
 若项目不是 Maven,按 `AGENTS.md` 的等价命令执行。
 
-6. 同步更新 `.harness/call-chain/<slug>.md`。
-7. 只 stage 本阶段自己改动的文件,不要 stage 用户无关改动。
-8. 创建 git commit,提交信息使用简短中文命令式摘要。
-9. 如果还有后续 slug,执行 `BUILD_SLICE_DONE`;最后一片执行 `BUILD_DONE`。
+6. 只 stage 本阶段自己改动的代码和测试文件,不要 stage 用户无关改动,不要 stage `.harness/call-chain/`。
+7. 创建 git commit,提交信息使用简短中文命令式摘要。
+8. 如果还有后续 slug,执行 `BUILD_SLICE_DONE`;最后一片执行 `BUILD_DONE`。
 
 ```bash
 complete_stage "harness-builder" "BUILD_DONE" "构建完成,已提交 commit" "${output_dir}/build-scope.md"
@@ -150,10 +149,9 @@ complete_stage "harness-builder" "BUILD_DONE" "构建完成,已提交 commit" "$
 
 1. Read `fix-brief.md`,只修其中阻断项。
 2. 按 P0 -> P1 -> QA 阻断问题顺序修根因。
-3. 涉及业务流程变化时更新 call-chain。
-4. 跑修复涉及测试 + 测试编译。
-5. 只 stage 本轮修复文件,创建 git commit。
-6. 执行:
+3. 跑修复涉及测试 + 测试编译。
+4. 只 stage 本轮修复文件,不要 stage `.harness/call-chain/`,创建 git commit。
+5. 执行:
 
 ```bash
 complete_stage "harness-builder" "FIX_DONE" "阻断问题已修复,已提交 commit" "${output_dir}/fix-brief.md"

@@ -1,196 +1,72 @@
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!--
-  ================================================================================
-  【Lifecycle Template】业务生命周期入口清单（端到端测试数据源）
-  ================================================================================
+# Call-chain 示例: 业务流程入口索引
 
-  用途：
-    本文档作为模板，供开发者/AI 参考后，根据实际项目业务生成对应的
-    lifecycle.md 文件。文件中仅列出触发业务新建、流转的全部入口 Java 类
-    与外部触达方式，不描述方法级调用链。
+`call-chain` 只记录跨迭代有价值的业务流程入口索引。它不是接口清单、不是方法调用链、不是 feature slug 历史。
 
-  生成规则：
-    1. 梳理业务全生命周期，按时间顺序依次排列 step。XML 标签出现的
-       先后顺序即为业务流程的执行顺序，不依赖额外的序号属性。
-    2. 每个 step 用唯一的 id 标识，供 branch 或外部引用。
-    3. 每个 step 标注 entry-type，区分测试脚本可直接触发的类型：
-       - "http"      → 测试脚本可直接发 HTTP/Dubbo 请求触发
-       - "scheduler" → 由定时任务自动调度触发，测试脚本需 sleep/轮询等待
-       - "mq"        → 测试脚本需向指定 Topic 发送 MQ 消息来模拟回调
-    4. 若某一步骤存在分支（如审批通过 vs 拒绝），使用 <branch> 节点包裹
-       不同的 <path>，并在 path 上标注 trigger="触发条件"。branch 通过
-       from-step="某个 step 的 id" 来关联前置步骤。
-    5. path 内部或末尾可包含 <goto ref="某个 step 的 id">，表达流程
-       跳转到先前已出现过的 step（如审批拒绝后回退到重审节点）。
-    6. 主动触发入口保留 <class-path>，供 AI 根据源码分析请求参数、URL、DTO。
-    7. 被动触发（如兜底事件监听）保留 <class-path>，但注明"无需测试脚本主动触发"。
-    8. 如存在统一的定时调度器驱动多个 scheduler 节点，在 <scheduler-note> 中说明。
+## 文件粒度
 
-  文件名命名规范：
-    {业务域}-{业务流程}-lifecycle.md
-    示例：xxx-yyy-lifecycle.md
+一个文件对应一个**业务流程**,不是业务域、接口或 feature。
 
-  ================================================================================
--->
-<lifecycle-template version="1.0">
+业务流程定义:
 
-  <overview>
-    <flow name="【替换为业务流程名称】">
+- 围绕一个明确业务目标从开始推进到终态。
+- 由一个或多个外部可触发入口驱动。
+- 文件名使用 `<业务域>-<业务流程>.md`,例如 `order-purchase.md`、`order-refund.md`、`settlement-payout.md`。
 
-      <!-- ========================================================== -->
-      <!-- step：业务流程中的单个阶段                                   -->
-      <!-- 属性说明：                                                   -->
-      <!--   id         → 唯一标识，供 branch 或 goto 引用               -->
-      <!--   name       → 步骤标识名，英文蛇形命名                       -->
-      <!--   entry-type → 触发类型（http / scheduler / mq）              -->
-      <!-- ========================================================== -->
-      <step id="submit" name="submit" entry-type="http">
-        <description>
-          【替换】描述该步骤的业务行为
-        </description>
-        <class-path>
-          【替换】触发该步骤的 Java 全限定类名
-        </class-path>
-      </step>
+## 创建或更新条件
 
-      <step id="scheduler-step" name="scheduler-step" entry-type="scheduler">
-        <description>
-          【替换】描述 scheduler 触发的具体业务
-        </description>
-        <class-path>
-          【替换】被调度的 Handler / Executor 全限定类名
-        </class-path>
-      </step>
+默认不创建。只有本轮变更出现业务流程可见变化,才允许创建或更新。
 
-      <step id="action-step" name="action-step" entry-type="http">
-        <description>
-          【替换】描述该 http 调用的行为
-        </description>
-        <class-path>
-          【替换】Facade / Controller 全限定类名
-        </class-path>
-      </step>
+业务流程可见变化包括:
 
-      <step id="mq-step" name="mq-step" entry-type="mq">
-        <description>
-          【替换】描述 MQ 回调的业务含义
-        </description>
-        <class-path>
-          【替换】MQ Listener 全限定类名
-        </class-path>
-      </step>
+- 外部可触发入口新增、删除、重命名或语义变化。
+- MQ、Scheduler、外部 callback、延迟任务等异步推进点新增、删除或语义变化。
+- 已有 call-chain 对应业务对象的生命周期状态或状态流转变化。
 
-      <!-- ========================================================== -->
-      <!-- branch：分支节点                                             -->
-      <!-- 属性说明：                                                   -->
-      <!--   from-step  → 触发分支的前置 step 的 id 属性值              -->
-      <!--   name       → 分支标识名                                    -->
-      <!-- ========================================================== -->
-      <branch from-step="action-step" name="【替换：分支标识名】">
-        <description>
-          【替换】描述分支的判断依据
-        </description>
+创建新 call-chain 必须满足以下任一条件:
 
-        <path name="approved" trigger="【替换：触发条件】">
-          <step id="exec-step" name="exec-step" entry-type="scheduler">
-            <description>
-              【替换】例如：调用外部服务
-            </description>
-            <class-path>
-              【替换】Executor 全限定类名
-            </class-path>
-          </step>
-          <step id="exec-callback" name="exec-callback" entry-type="mq">
-            <description>
-              【替换】例如：等待外部结果 MQ 回调，订单进入终态
-            </description>
-            <class-path>
-              【替换】MQ Listener 全限定类名
-            </class-path>
-          </step>
-        </path>
+- 多入口参与同一业务目标,例如 HTTP 下单 + MQ 支付回调。
+- 存在异步推进边界,例如 MQ、Scheduler、外部 callback、延迟任务继续推进业务。
+- 存在多阶段状态流转,例如 `CREATED -> PAID -> SHIPPED -> DONE`,且不是一次同步调用内全部完成。
 
-        <!-- ======================================================== -->
-        <!-- path + goto：分支结束后跳转到之前已出现的 step             -->
-        <!-- 说明：当流程需要回退或循环时，在 path 末尾添加 <goto ref="..."> -->
-        <!-- ======================================================== -->
-        <path name="rejected" trigger="【替换：触发条件】">
-          <step id="reject-handler" name="reject-handler" entry-type="scheduler">
-            <description>
-              【替换】例如：审批拒绝后回退订单状态，允许重新提交
-            </description>
-            <class-path>
-              【替换】Handler 全限定类名
-            </class-path>
-          </step>
-          <goto ref="action-step"/>
-        </path>
-      </branch>
+更新已有 call-chain 的条件:
 
-      <step id="fallback" name="fallback" entry-type="scheduler">
-        <description>
-          【替换】例如：工作流重试耗尽时的兜底处理
-          （被动事件监听，无需测试脚本主动触发）
-        </description>
-        <class-path>
-          【替换】Event Listener 全限定类名
-        </class-path>
-      </step>
+- 本轮变化属于现有 call-chain 描述的业务流程;并且
+- 入口目录、异步推进步骤、业务流程步骤或多阶段状态流转需要同步修正。
 
-    </flow>
+## 不创建的情况
 
-    <scheduler-note>
-      <description>
-        【替换】描述统一调度器的触发频率和等待策略，例如：
-        以上所有 entry-type="scheduler" 的节点，均由 XxxScheduleJob 定时扫描驱动。
-        默认每 X 秒执行一次（cron = */X * * * * ?）。
-        端到端测试脚本在提交 http 请求后，需 sleep/轮询等待 scheduler 自动推进，
-        或主动触发 XxxScheduleJob 以加速流程。
-      </description>
-      <class-path>
-        【替换】调度器全限定类名
-      </class-path>
-    </scheduler-note>
-  </overview>
+- 简单查询、列表、详情、统计、导出。
+- 单步同步 CRUD。
+- 只有一个 Controller/RPC 入口且同步完成整个业务目标。
+- Service 内部同步调用其他 RPC。
+- DAO / Repository / DTO / Converter / 参数校验变化。
 
-  <!-- ============================================================ -->
-  <!-- 二、标签速查表（集中说明所有合法 XML 标签的含义和约束）          -->
-  <!-- ============================================================ -->
-  <tag-reference>
+不确定是否达到创建标准时,默认不创建。
 
-    <tag name="step" desc="业务流程中的单个阶段，按 XML 出现顺序排列">
-      <attribute name="id" required="true" desc="唯一标识，供 branch 或 goto 引用"/>
-      <attribute name="name" required="true" desc="步骤标识名，英文蛇形命名"/>
-      <attribute name="entry-type" required="true" desc="触发类型，可选值：http/scheduler/mq"/>
-      <child name="description" desc="该步骤的业务行为说明"/>
-      <child name="class-path" desc="触发该步骤的 Java 全限定类名"/>
-    </tag>
+## 文件格式
 
-    <tag name="branch" desc="分支节点，表达流程因条件不同而走不同路径">
-      <attribute name="from-step" required="true" desc="触发分支的前置 step 的 id 属性值"/>
-      <attribute name="name" required="true" desc="分支标识名"/>
-      <child name="description" desc="分支的判断依据"/>
-      <child name="path" required="true" desc="至少包含一条 path，每条 path 代表一个独立分支路径"/>
-    </tag>
+```markdown
+# 用户购买流程
 
-    <tag name="path" desc="分支路径，被 branch 包裹">
-      <attribute name="name" required="true" desc="路径标识名，如 approved/rejected/timeout"/>
-      <attribute name="trigger" required="true" desc="进入该路径的触发条件描述"/>
-      <child name="step" desc="路径内部的步骤"/>
-      <child name="goto" desc="可选，放在路径末尾用于跳转到先前已出现的 step"/>
-    </tag>
+## 业务说明
+用户提交订单后,系统创建订单,后续由支付回调和物流消息推进状态。
 
-    <tag name="goto" desc="流程跳转，通常放在 path 末尾表达回退或循环">
-      <attribute name="ref" required="true" desc="目标 step 的 id，必须是 flow 中已出现的 step"/>
-    </tag>
+## 入口目录
+| 步骤 | 触发类型 | 入口类 | 入口方法 | 说明 |
+|------|----------|--------|----------|------|
+| 下单 | HTTP | OrderController | createOrder | 创建订单 |
+| 支付回调 | MQ | PaymentCallbackListener | onMessage | 支付成功后推进订单状态 |
+| 物流回调 | MQ | ExpressMessageListener | onMessage | 更新物流状态 |
 
-    <tag name="scheduler-note" desc="统一调度器说明，描述驱动多个 scheduler 节点的底层定时调度器">
-      <child name="description" desc="调度频率、等待策略和测试建议"/>
-      <child name="class-path" desc="调度器 Java 全限定类名"/>
-    </tag>
+## 流程
+1. 用户通过 `OrderController#createOrder` 创建订单。
+2. 支付成功后,`PaymentCallbackListener#onMessage` 接收支付回调并更新订单为已支付。
+3. 物流系统发送消息后,`ExpressMessageListener#onMessage` 更新配送状态。
 
-  </tag-reference>
-
-</lifecycle-template>
+## 不记录
+- Service 内部同步调用
+- DAO / Repository 调用链
+- DTO 转换
+- 单纯查询接口
+- 单步同步 CRUD
 ```
