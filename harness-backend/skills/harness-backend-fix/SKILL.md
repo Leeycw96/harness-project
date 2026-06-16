@@ -16,6 +16,7 @@ user-invocable: true
 - 不完全接受用户反馈;必须先对照原始 `plan.md`、`build-scope.md`、代码和评审报告裁决。
 - 不重新生成 plan;新需求或范围变化应返回 `NEEDS_NEW_PLAN`。
 - Builder、QA、CodeReview、CallChain、FeedbackTriage 不互相通信;所有阶段切换都由你完成。
+- 不跨阶段复用 subagent。每个 subagent 完成本阶段、你已读取最终回复并校验 artifact 后,必须立即调用 `close_agent` 关闭该实例。
 
 如果当前 Codex 环境没有可用的 subagent 调度能力,停止并告知用户当前环境不支持本技能。
 
@@ -77,6 +78,14 @@ export HARNESS_PROFILE
 ```
 
 后续所有 subagent prompt 必须包含 `HARNESS_PROFILE` 绝对路径。
+
+## Subagent 生命周期
+
+- 每次阶段调度都启动新的 subagent 实例,不要把上一阶段的 FeedbackTriage / Builder / QA / CodeReview / CallChain 留作后续阶段复用。
+- subagent 到达完成状态后,先读取最终回复、校验 artifact、更新 `state.json`,然后立即调用 `close_agent`。
+- 并行阶段中,哪个 subagent 先完成就先处理并关闭哪个,不要等另一个完成后再统一关闭。
+- 只有同一阶段尚未完成且仍在正常产出 progress 时,才允许继续等待同一个 subagent。
+- 需要替换卡住或失联的 subagent 时,先关闭旧实例,再启动同角色新实例接手。
 
 ## 阶段流程
 

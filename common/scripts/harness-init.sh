@@ -145,6 +145,12 @@ init_harness_run() {
         short_stage_no_progress_seconds: 300,
         long_stage_no_progress_seconds: 900
       },
+      lifecycle: {
+        reuse_subagents_across_stages: false,
+        close_agent_after_stage: true,
+        close_parallel_agent_when_done: true,
+        close_stalled_agent_before_replacement: true
+      },
       limits: {
         scope_attempts: 3,
         fix_rounds: 3,
@@ -242,6 +248,12 @@ init_harness_fast_run() {
       thresholds: {
         short_stage_no_progress_seconds: 300,
         long_stage_no_progress_seconds: 900
+      },
+      lifecycle: {
+        reuse_subagents_across_stages: false,
+        close_agent_after_stage: true,
+        close_parallel_agent_when_done: true,
+        close_stalled_agent_before_replacement: true
       },
       limits: {
         fix_rounds: 3,
@@ -398,6 +410,12 @@ init_harness_fix_run() {
       thresholds: {
         short_stage_no_progress_seconds: 300,
         long_stage_no_progress_seconds: 900
+      },
+      lifecycle: {
+        reuse_subagents_across_stages: false,
+        close_agent_after_stage: true,
+        close_parallel_agent_when_done: true,
+        close_stalled_agent_before_replacement: true
       },
       limits: {
         feedback_clarifications: null,

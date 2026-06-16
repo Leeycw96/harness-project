@@ -16,6 +16,7 @@ Builder / QA / CodeReview / CallChain subagents、监控 progress、更新 `stat
 - Builder、QA、CodeReview、CallChain 不互相通信；所有阶段切换都由你完成。
 - 不实现用户调整阶段。QA 和 CodeReview 双通过后进入 CallChain 收尾,完成后本轮结束。
 - 不读取历史多版本 artifact；只使用 `state.json` 指向的当前文件。
+- 不跨阶段复用 subagent。每个 subagent 完成本阶段、你已读取最终回复并校验 artifact 后,必须立即调用 `close_agent` 关闭该实例。
 
 如果当前 Codex 环境没有可用的 subagent 调度能力，停止并告知用户当前环境不支持本技能。
 
@@ -103,6 +104,14 @@ complete_stage "<agent>" "<TAG>" "<一句话结论 + 关键点>" "<artifact>"
 
 `complete_stage` 只写 progress，不写 signals。阶段推进由你等待 subagent 返回后校验 artifact 并更新 `state.json`。
 
+## Subagent 生命周期
+
+- 每次阶段调度都启动新的 subagent 实例,不要把上一阶段的 Builder / QA / CodeReview / CallChain 留作后续阶段复用。
+- subagent 到达完成状态后,先读取最终回复、校验 artifact、更新 `state.json`,然后立即调用 `close_agent`。
+- 并行阶段中,哪个 subagent 先完成就先处理并关闭哪个,不要等另一个完成后再统一关闭。
+- 只有同一阶段尚未完成且仍在正常产出 progress 时,才允许继续等待同一个 subagent。
+- 需要替换卡住或失联的 subagent 时,先关闭旧实例,再启动同角色新实例接手。
+
 ## Plan 与 Build Scope 分工
 
 - `plan.md` 是需求契约: 描述要做什么、怎样算完成、什么不做、依赖和约束。
@@ -122,9 +131,10 @@ complete_stage "<agent>" "<TAG>" "<一句话结论 + 关键点>" "<artifact>"
 巡检顺序:
 
 1. 检查 subagent 是否仍存活。
-2. 存活则向同一 subagent 发送恢复指令: 重新读取 `profile.json`、`state.json`、当前 artifact、git diff 和自己的 progress 后继续。
-3. 不存活、无法继续输入、或恢复后仍无心跳,启动同角色新 subagent 接手。
-4. 每阶段每角色最多自动恢复 2 次。超过后将 run 置为 `PAUSED` 并询问用户。
+2. 存活且仍有有效 progress 时,继续等待同一阶段结果。
+3. 存活但疑似卡住、无法继续输入、或恢复后仍无心跳时,先调用 `close_agent` 关闭旧实例,再启动同角色新 subagent 接手。
+4. 不存活时,启动同角色新 subagent 接手。
+5. 每阶段每角色最多自动恢复 2 次。超过后将 run 置为 `PAUSED` 并询问用户。
 
 恢复事件写入 `progress/events.tsv`，并更新 `state.json.retries`。
 
