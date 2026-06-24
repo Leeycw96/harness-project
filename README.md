@@ -81,18 +81,26 @@ harness backend /path/to/your/project
 ## 使用
 
 1. 运行 `/harness-plan` 通过对话生成 `.harness/plans/<name>.md` XML plan。
-2. 运行 `/harness-backend <plan-path>`。
-3. 主会话会初始化 run,调度 Builder 生成 scope,调度 QA 审 scope,调度 Builder 构建,再并行调度 QA 和 CodeReview 验收。
-4. 任一阻断问题都会由主会话合并为 `fix-brief.md` 后派 Builder 修复。最多 3 轮。
-5. QA 通过且 CodeReview 无 P0/P1 后,本轮结束。
-
-小改动可由用户显式选择快速路径:
+2. 日常小中型改动优先运行 `/harness-backend-fast <plan-path>`。
+3. 高风险改动再运行 `/harness-backend <plan-path>` 走完整验收。
 
 ```text
 /harness-backend-fast <plan-path>
 ```
 
-fast run 只调度 Builder 和 CodeReview,不运行 QA、Scope Review 或 CallChain。适合小范围 bugfix、局部逻辑调整、简单校验或错误处理;复杂业务流程、数据库迁移、权限审计、事务/并发等高风险改动仍应使用 `/harness-backend`。
+fast run 只调度 Builder 和 CodeReview,不运行 QA、Scope Review 或 CallChain,是默认推荐路径,适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。
+
+```text
+/harness-backend <plan-path>
+```
+
+backend run 会调度 Builder 生成 scope,调度 QA 审 scope,调度 Builder 构建,再并行调度 QA 和 CodeReview 验收,最后维护 CallChain。复杂业务流程、数据库迁移、权限审计、事务/并发、跨模块状态流转等高风险改动使用它。
+
+```text
+/harness-backend-fix <反馈>
+```
+
+`/harness-backend-fix <反馈>` 只用于 `/harness-backend` 完成后处理人工 CR/验收反馈: 它会判断反馈是否属于原 plan 内问题,成立则修复并复审,新需求则提示重新走 `/harness-plan`。fast run 暂不支持 fix。
 
 run 目录最小结构:
 

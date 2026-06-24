@@ -73,6 +73,34 @@ find_latest_done_run() {
   printf '%s\n' "$latest_dir"
 }
 
+find_latest_full_backend_done_run() {
+  local branch_dir="$1"
+  [ -d "$branch_dir" ] || return 1
+
+  local latest=0 latest_dir="" d n state phase mode
+  while IFS= read -r d; do
+    [ -z "$d" ] && continue
+    state="$d/state.json"
+    [ -f "$state" ] || continue
+    phase="$(jq -r '.phase // empty' "$state" 2>/dev/null || true)"
+    [ "$phase" = "DONE" ] || continue
+    mode="$(jq -r '.mode // empty' "$state" 2>/dev/null || true)"
+    case "$mode" in
+      ""|backend|full) ;;
+      *) continue ;;
+    esac
+    n="${d##*/run-}"
+    [[ "$n" =~ ^[0-9]+$ ]] || continue
+    if (( n > latest )); then
+      latest="$n"
+      latest_dir="$d"
+    fi
+  done < <(find "$branch_dir" -mindepth 1 -maxdepth 1 -type d -name 'run-*' 2>/dev/null)
+
+  [ -n "$latest_dir" ] || return 1
+  printf '%s\n' "$latest_dir"
+}
+
 init_harness_run() {
   local output_dir="$1"
   local plan_path="$2"

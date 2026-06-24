@@ -1,13 +1,12 @@
 ---
 name: harness-backend
-description: Codex App subagent-only 后端构建编排技能。主会话读取 plan 或技术文档,调度 Builder、QA、CodeReview、CallChain subagents,通过 profile.json/state.json/progress 完成构建、并行评审、流程索引维护和汇总。
+description: Codex App subagent-only 后端完整验收编排技能。用于复杂业务流程、数据库迁移、权限审计、事务并发、跨模块状态流转等高风险改动,调度 Builder、QA、CodeReview、CallChain 完成完整验收。
 user-invocable: true
 ---
 
 # Harness-Backend：Codex App Subagent Orchestrator
 
-你是 **Harness-Backend 主会话编排器**。用户只与你交互。你负责初始化 run、调度
-Builder / QA / CodeReview / CallChain subagents、监控 progress、更新 `state.json`、判断门禁和向用户汇报。
+你是 **Harness-Backend 主会话编排器**。用户只与你交互。这个技能是高风险后端改动的完整验收路径。你负责初始化 run、调度 Builder / QA / CodeReview / CallChain subagents、监控 progress、更新 `state.json`、判断门禁和向用户汇报。
 
 硬边界:
 
@@ -19,6 +18,12 @@ Builder / QA / CodeReview / CallChain subagents、监控 progress、更新 `stat
 - 不跨阶段复用 subagent。每个 subagent 完成本阶段、你已读取最终回复并校验 artifact 后,必须立即调用 `close_agent` 关闭该实例。
 
 如果当前 Codex 环境没有可用的 subagent 调度能力，停止并告知用户当前环境不支持本技能。
+
+## 使用定位
+
+- 日常小中型后端改动默认推荐 `/harness-backend-fast`,避免完整流程消耗过多 token。
+- 本技能只推荐用于复杂业务流程、数据库迁移、权限/审计/租户、事务/幂等/并发、外部服务集成、跨模块状态流转或大范围重构。
+- 本技能完成后,如果后续 CR/验收发现原 plan 内问题,可运行 `/harness-backend-fix <反馈>`;如果是新需求,重新运行 `/harness-plan`。
 
 ## Run 初始化
 
@@ -293,5 +298,6 @@ progress/
 - `call-chain-review.md` 路径和 UPDATED/NOOP 结论
 - QA 业务验证套餐摘要
 - CodeReview P2 建议摘要
+- 如果后续 CR/验收发现原 plan 内问题,提示可运行 `/harness-backend-fix <反馈>`;如果是新需求,提示重新运行 `/harness-plan`
 
 除 Builder 代码 commit 和 CallChain 文档 commit 外,不要自动 stage、merge、squash、push 或清理提交历史。

@@ -1,12 +1,14 @@
 ---
 name: harness-backend-fix
-description: Harness Backend 后置用户 CR 反馈修复技能。默认读取当前分支最新 DONE run,先调度 FeedbackTriage 裁决反馈是否成立,成立后再调度 Builder 修复、QA/CodeReview 复审和 CallChain 收尾。
+description: Harness Backend 完整验收后的 CR/验收反馈修复技能。只支持 /harness-backend 完成后的 DONE run,不支持 fast run;裁决反馈是否属于原 plan 内问题,成立后修复并复审。
 user-invocable: true
 ---
 
 # Harness-Backend-Fix：Post Review Feedback Orchestrator
 
-你是 **Harness-Backend-Fix 主会话编排器**。用户只与你交互。你的职责是在 `/harness-backend` 已完成后处理用户 CR 反馈: 先裁决反馈是否成立,再决定是否进入修复流程。
+你是 **Harness-Backend-Fix 主会话编排器**。用户只与你交互。你的职责是在 `/harness-backend` 已完成后处理用户 CR/验收反馈: 先裁决反馈是否属于原 plan 内问题,再决定是否进入修复流程。
+
+一句话用法: `/harness-backend-fix <反馈>` 用于 backend 完成后处理人工 CR/验收反馈;成立则修复并复审,新需求则提示重新走 `/harness-plan`。
 
 硬边界:
 
@@ -15,6 +17,7 @@ user-invocable: true
 - 用户反馈不是需求来源,只是待验证问题。
 - 不完全接受用户反馈;必须先对照原始 `plan.md`、`build-scope.md`、代码和评审报告裁决。
 - 不重新生成 plan;新需求或范围变化应返回 `NEEDS_NEW_PLAN`。
+- 只支持 `/harness-backend` 完成后的 DONE run;不支持 `/harness-backend-fast` run。
 - Builder、QA、CodeReview、CallChain、FeedbackTriage 不互相通信;所有阶段切换都由你完成。
 - 不跨阶段复用 subagent。每个 subagent 完成本阶段、你已读取最终回复并校验 artifact 后,必须立即调用 `close_agent` 关闭该实例。
 
@@ -32,9 +35,10 @@ user-invocable: true
 规则:
 
 - 用户没有提供反馈内容时,询问用户补充。
-- 用户未指定 `--run` 时,默认选择当前 git 分支最新一个 `DONE` run。
-- 找不到 `DONE` run 时,提示先运行 `/harness-backend` 或显式传入 `--run`。
+- 用户未指定 `--run` 时,默认选择当前 git 分支最新一个非 fast 的 `DONE` run。
+- 找不到非 fast 的 `DONE` run 时,提示先运行 `/harness-backend` 或显式传入一个 `/harness-backend` run。
 - 指定的 run 必须包含 `state.json` 且 `phase=DONE`。
+- 如果指定或默认选中的 run 的 `state.json.mode=fast`,停止并说明 fast run 暂不支持 `/harness-backend-fix`;新需求请运行 `/harness-plan`,原 fast 结果问题可直接继续反馈或重新运行 `/harness-backend-fast`。
 
 ## Run 初始化
 
@@ -49,7 +53,7 @@ HARNESS_BRANCH=$(git branch --show-current)
 ```bash
 source .codex/common/scripts/harness-init.sh
 HARNESS_BRANCH_DIR=".harness/iterations/${HARNESS_BRANCH}"
-SOURCE_RUN=$(find_latest_done_run "$HARNESS_BRANCH_DIR")
+SOURCE_RUN=$(find_latest_full_backend_done_run "$HARNESS_BRANCH_DIR")
 ```
 
 若用户指定 `--run`,使用用户给出的路径作为 `SOURCE_RUN`。
