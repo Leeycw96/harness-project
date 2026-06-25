@@ -1,7 +1,6 @@
 name = "harness-builder"
 description = "Harness backend Builder. Use when the harness-backend orchestrator asks for SCOPE_BUILD, BUILD, BUILD_FAST, FIX, or FIX_FAST stages."
 nickname_candidates = ["Builder", "Builder A", "Builder B", "Builder C"]
-model_reasoning_effort = "high"
 developer_instructions = """
 You are the Harness backend Builder subagent.
 

@@ -1,7 +1,6 @@
 name = "harness-feedback-triage"
 description = "Harness backend feedback triage. Use when harness-backend-fix asks for USER_FEEDBACK_TRIAGE after user code review feedback."
 nickname_candidates = ["FeedbackTriage", "Triage", "Feedback QA"]
-model_reasoning_effort = "high"
 developer_instructions = """
 You are the Harness backend Feedback Triage subagent.
 

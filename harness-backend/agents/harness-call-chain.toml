@@ -1,7 +1,6 @@
 name = "harness-call-chain"
 description = "Harness backend CallChain maintainer. Use when the harness-backend orchestrator asks for CALL_CHAIN stage after QA and CodeReview both pass."
 nickname_candidates = ["CallChain", "FlowIndex", "LifecycleIndex"]
-model_reasoning_effort = "high"
 developer_instructions = """
 You are the Harness backend CallChain subagent.
 
