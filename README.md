@@ -1,8 +1,13 @@
 # Harness
 
-Harness 是一组面向 Codex App 的 skills + custom agent 手册,用于通过主会话编排 Builder、QA 和 CodeReview subagents 完成长任务后端构建。
+Harness 是一组面向 Codex App 和 Claude Code 的 skills + agent 手册,用于通过主会话编排 Builder、QA、CodeReview、CallChain 等 subagents 完成长任务后端构建。
 
-v2 开始只支持 Codex App subagent 工作流。已移除 Claude Code、Codex CLI tmux、pane/send-keys 和 runtime-specific 源目录。
+当前维护两套 runtime:
+
+- Codex App: 根级 `common/`、`harness-plan/`、`harness-backend/`
+- Claude Code: `claude-code/common/`、`claude-code/harness-plan/`、`claude-code/harness-backend/`
+
+两套 runtime 源码、部署目录和 manifest 相互隔离。
 
 ## 目录结构
 
@@ -10,17 +15,29 @@ v2 开始只支持 Codex App subagent 工作流。已移除 Claude Code、Codex 
 harness-project/
 ├── bin/harness                         # 部署 CLI
 ├── install.sh                          # 把 bin/ 写入 PATH
-├── common/                             # 部署到 .codex/common/
-├── harness-plan/                       # /harness-plan skill
-└── harness-backend/                    # /harness-backend, /harness-backend-fast skill + agents
+├── common/                             # Codex App common,部署到 .codex/common/
+├── harness-plan/                       # Codex App /harness-plan skill
+├── harness-backend/                    # Codex App backend skills + agents
+└── claude-code/                        # Claude Code runtime
+    ├── common/                         # 部署到 .claude/common/
+    ├── harness-plan/                   # Claude Code /harness-plan skill
+    └── harness-backend/                # Claude Code backend skills + agents
 ```
 
-每个模式遵循统一布局:
+Codex App 模式保留现有布局:
 
 ```text
 harness-<mode>/
 ├── skills/harness-<mode>/              # skill
-└── agents/                             # Codex custom agents 和角色/SOP 文档
+└── agents/                             # Codex custom agents、TOML 和角色/SOP 文档
+```
+
+Claude Code 模式使用 Claude 原生布局:
+
+```text
+claude-code/harness-<mode>/
+├── skills/harness-<mode>/              # .claude/skills/<name>/SKILL.md
+└── agents/                             # .claude/agents/<agent>.md
 ```
 
 ## 安装 CLI
@@ -36,14 +53,33 @@ source ~/.zshrc      # 或新开一个终端
 
 ## 部署
 
+必须显式选择 runtime。默认部署到当前目录:
+
 ```bash
 cd /path/to/your/project
-harness backend
-# 或:
-harness backend /path/to/your/project
+harness backend --codex
+harness backend --claude-code
 ```
 
-部署后:
+也可以指定目标目录:
+
+```bash
+harness backend --codex /path/to/your/project
+harness backend --claude-code /path/to/your/project
+```
+
+`harness backend` 会同时部署 `/harness-plan`、`/harness-backend-fast`、`/harness-backend` 和 `/harness-backend-fix`。
+
+旧格式不再支持:
+
+- `harness backend`
+- `harness backend /path/to/project`
+- `harness --codex backend`
+- `harness --claude-code backend`
+- `harness --runtime ...`
+- `harness ... --codex-cli`
+
+## Codex App 部署结果
 
 ```text
 .agents/
@@ -76,7 +112,27 @@ harness backend /path/to/your/project
     └── installed-manifest
 ```
 
-旧参数 `--claude-code`、`--codex-cli`、`--runtime` 已移除。直接使用 `harness <mode> [target-dir]`。
+## Claude Code 部署结果
+
+```text
+.claude/
+├── skills/
+│   ├── harness-plan/
+│   ├── harness-backend/
+│   ├── harness-backend-fast/
+│   └── harness-backend-fix/
+├── common/
+│   ├── refs/
+│   └── scripts/
+├── agents/
+│   ├── harness-builder.md
+│   ├── harness-qa.md
+│   ├── harness-code-review.md
+│   ├── harness-call-chain.md
+│   └── harness-feedback-triage.md
+└── .harness/
+    └── installed-manifest
+```
 
 ## 使用
 
@@ -135,10 +191,11 @@ fast run 最小结构:
 
 ```bash
 bash -n bin/harness
-find common -type f -name '*.sh' -exec bash -n {} \;
+find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;
 tmp=$(mktemp -d)
-bin/harness backend "$tmp"
-find "$tmp/.agents/skills" "$tmp/.codex" -maxdepth 4 -type f | sort
+bin/harness backend --codex "$tmp"
+bin/harness backend --claude-code "$tmp"
+find "$tmp/.agents/skills" "$tmp/.codex" "$tmp/.claude" -maxdepth 4 -type f | sort
 rm -rf "$tmp"
 git status --short
 ```
@@ -147,12 +204,16 @@ git status --short
 
 ## 部署行为
 
-- skills 部署到 `.agents/skills/`
-- agents 部署到 `.codex/agents/`
-- common 部署到 `.codex/common/`
-- manifest 写入 `.codex/.harness/installed-manifest`
+- Codex skills 部署到 `.agents/skills/`
+- Codex agents 部署到 `.codex/agents/`
+- Codex common 部署到 `.codex/common/`
+- Codex manifest 写入 `.codex/.harness/installed-manifest`
+- Claude Code skills 部署到 `.claude/skills/`
+- Claude Code agents 部署到 `.claude/agents/`
+- Claude Code common 部署到 `.claude/common/`
+- Claude Code manifest 写入 `.claude/.harness/installed-manifest`
 - 同名文件直接覆盖
-- 只删除上次由 manifest 记录、但本次源里已不存在的旧文件
+- 只删除当前 runtime 上次由 manifest 记录、但本次源里已不存在的旧文件
 
 ## 安全
 

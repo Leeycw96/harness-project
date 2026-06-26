@@ -1,0 +1,40 @@
+<plan>
+  <context>
+    在此写入项目背景和本次需求动机（1-3 句话）。
+  </context>
+
+  <features>
+    <feature id="1" slug="user-registration">
+      <description>用户注册功能，支持邮箱和手机号注册</description>
+      <acceptance-criteria>
+        <criterion>POST /api/users 传入邮箱+密码，返回 201 + userId</criterion>
+        <criterion>重复邮箱注册返回 409 Conflict</criterion>
+        <criterion>密码加密存储，数据库中不可见明文</criterion>
+      </acceptance-criteria>
+    </feature>
+    <feature id="2" slug="user-login">
+      <description>用户登录功能，返回 JWT token</description>
+      <acceptance-criteria>
+        <criterion>POST /api/auth/login 传入正确邮箱+密码，返回 200 + token</criterion>
+        <criterion>密码错误返回 401 Unauthorized</criterion>
+        <criterion>token 有效期 24 小时</criterion>
+      </acceptance-criteria>
+    </feature>
+  </features>
+
+  <out-of-scope>
+    <item>本次不做第三方 OAuth 登录（Google/GitHub）</item>
+    <item>不做用户头像上传</item>
+  </out-of-scope>
+
+  <constraints>
+    <constraint>使用项目已有的 Spring Boot 3.x 框架</constraint>
+    <constraint>数据库使用项目已有的 MySQL，不引入新数据库</constraint>
+  </constraints>
+
+  <dependencies>
+    <dependency status="ready">Redis 缓存，已部署在 localhost:6379</dependency>
+    <dependency status="not-ready">邮件通知服务，预计下周对接</dependency>
+  </dependencies>
+</plan>
+

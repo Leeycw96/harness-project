@@ -1,6 +1,6 @@
 # Harness 项目协作规范
 
-本文件保留给旧工具读取。当前仓库以 `AGENTS.md` 为主要协作规范,并且只维护 Codex App subagent runtime。
+本文件保留给旧工具读取。当前仓库以 `AGENTS.md` 为主要协作规范,并维护 Codex App 和 Claude Code 两套 subagent runtime。
 
 ## 测试 `bin/harness` 时的清理规则
 
@@ -15,15 +15,17 @@
 
 ```bash
 bash -n bin/harness
-find common -type f -name '*.sh' -exec bash -n {} \;
+find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;
 tmp=$(mktemp -d)
-bin/harness backend "$tmp"
+bin/harness backend --codex "$tmp"
+bin/harness backend --claude-code "$tmp"
 rm -rf "$tmp"
 git status --short
 ```
 
 ## Runtime 边界
 
-- 不再维护 `.claude/` agent runtime。
+- Codex App runtime 源码位于根级 `common/`、`harness-plan/`、`harness-backend/`。
+- Claude Code runtime 源码位于 `claude-code/`。
 - 不再维护 Codex CLI tmux runtime。
-- 新工作应修改根级 `common/`、`harness-plan/`、`harness-backend/`。
+- 修改 runtime 时保持两套源码隔离,不要让 manifest 清理跨 `.codex` 和 `.claude`。

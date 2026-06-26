@@ -2,23 +2,24 @@
 
 ## Project Structure & Module Organization
 
-This repository packages Harness skills, custom agent manuals, and deployment scripts for Codex App. `bin/harness` is the deployment CLI. Root-level `common/`, `harness-plan/`, and `harness-backend/` are the only supported runtime sources. Shared helpers live in `common/scripts/`. Skills live in `harness-<mode>/skills/`, and related custom agents or SOP files live in `harness-<mode>/agents/`.
+This repository packages Harness skills, custom agent manuals, and deployment scripts for Codex App and Claude Code. `bin/harness` is the deployment CLI. Root-level `common/`, `harness-plan/`, and `harness-backend/` are the Codex App runtime sources. `claude-code/common/`, `claude-code/harness-plan/`, and `claude-code/harness-backend/` are the Claude Code runtime sources. Shared helpers live in each runtime's `common/scripts/`. Skills live in `harness-<mode>/skills/`, and related agents live in `harness-<mode>/agents/`.
 
 ## Build, Test, and Development Commands
 
 - `./install.sh`: adds this repo's `bin/` directory to the shell rc file.
-- `bin/harness backend "$tmpdir"`: deploys the Codex App runtime with skills in `.agents/skills/` and custom agents/common state in `.codex/`.
+- `bin/harness backend --codex "$tmpdir"`: deploys the Codex App runtime with skills in `.agents/skills/` and custom agents/common state in `.codex/`.
+- `bin/harness backend --claude-code "$tmpdir"`: deploys the Claude Code runtime with skills, agents, and common state in `.claude/`.
 - `bash -n bin/harness`: checks the deployment CLI syntax.
-- `find common -type f -name '*.sh' -exec bash -n {} \;`: checks shell helper syntax.
+- `find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;`: checks shell helper syntax.
 There is no package-manager build step.
 
 ## Coding Style & Naming Conventions
 
-Use Bash for scripts and keep `set -euo pipefail` on operational CLIs where practical. Quote variables, prefer local variables inside functions, and write clear stderr failures. New modes should follow `harness-<mode>/skills/harness-<mode>/` plus `harness-<mode>/agents/`. Keep Markdown instructions concise and preserve the existing Chinese instructional tone.
+Use Bash for scripts and keep `set -euo pipefail` on operational CLIs where practical. Quote variables, prefer local variables inside functions, and write clear stderr failures. New Codex modes should follow `harness-<mode>/skills/harness-<mode>/` plus `harness-<mode>/agents/`. New Claude Code modes should follow the same layout under `claude-code/`. Keep Markdown instructions concise and preserve the existing Chinese instructional tone.
 
 ## Testing Guidelines
 
-No formal test suite exists. For deployment tests, create a target with `mktemp -d`, run `bin/harness backend "$tmpdir"`, inspect `.codex/.harness/installed-manifest`, `.agents/skills/`, `.codex/agents/`, and `.codex/common/`, then remove the temp directory. Do not run end-to-end tests inside this repository or another long-lived project. Finish with `git status --short`.
+No formal test suite exists. For deployment tests, create a target with `mktemp -d`, run `bin/harness backend --codex "$tmpdir"` and `bin/harness backend --claude-code "$tmpdir"`, inspect `.codex/.harness/installed-manifest`, `.claude/.harness/installed-manifest`, `.agents/skills/`, `.codex/agents/`, `.codex/common/`, `.claude/skills/`, `.claude/agents/`, and `.claude/common/`, then remove the temp directory. Do not run end-to-end tests inside this repository or another long-lived project. Finish with `git status --short`.
 
 ## Commit & Pull Request Guidelines
 
@@ -26,4 +27,4 @@ Recent commits use short, imperative Chinese summaries, often scoped, for exampl
 
 ## Security & Configuration Tips
 
-Deployment overwrites same-name files under `.codex/` or `.agents/skills/`, and removes obsolete files only when tracked in the Harness manifest.
+Deployment overwrites same-name files under the selected runtime target (`.codex/` plus `.agents/skills/`, or `.claude/`), and removes obsolete files only when tracked in that runtime's Harness manifest.

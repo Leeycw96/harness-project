@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Harness deployment CLI.
-# Codex App is the only supported runtime. Source lives at the repository root.
 
 set -euo pipefail
 
@@ -10,21 +9,26 @@ HARNESS_ROOT="$(dirname "$SCRIPT_DIR")"
 usage() {
   cat <<'EOF'
 用法:
-  harness <mode> [target-dir]
+  harness <mode> --codex [target-dir]
+  harness <mode> --claude-code [target-dir]
 
-部署 Harness 模块到 Codex App 项目。
+部署 Harness 模块到指定 AI 工具项目。
 
 参数:
-  mode        模式名,对应源码目录 harness-<mode>/
-  target-dir  目标项目目录,默认当前目录
+  mode          模式名,对应源码目录 harness-<mode>/
+  --codex       部署 Codex App runtime
+  --claude-code 部署 Claude Code runtime
+  target-dir    目标项目目录,默认当前目录
 
 示例:
-  harness backend
-  harness backend /path/to/project
+  harness backend --codex
+  harness backend --claude-code
+  harness backend --codex /path/to/project
+  harness backend --claude-code /path/to/project
 
 说明:
-  Harness v2 只支持 Codex App subagent 工作流。
-  旧参数 --claude-code、--codex-cli、--runtime 已移除。
+  runtime 必须放在 mode 后面显式选择。
+  旧参数 --runtime、--codex-cli 以及 runtime 放在 mode 前面的格式不再支持。
 EOF
 }
 
@@ -39,8 +43,8 @@ if [ $# -lt 1 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
 fi
 
 case "${1:-}" in
-  --claude-code|--codex-cli|--runtime|--codex)
-    fail "Harness v2 只支持 Codex App,不再接受 runtime 参数。请使用: harness <mode> [target-dir]"
+  --codex|--claude-code|--codex-cli|--runtime)
+    fail "runtime 必须放在 mode 后面。请使用: harness <mode> (--codex|--claude-code) [target-dir]"
     ;;
   --*)
     fail "未知参数 '$1'"
@@ -49,6 +53,31 @@ esac
 
 mode="$1"
 shift
+
+if [ $# -lt 1 ]; then
+  fail "必须显式指定 runtime。请使用: harness $mode (--codex|--claude-code) [target-dir]"
+fi
+
+runtime=""
+case "${1:-}" in
+  --codex)
+    runtime="codex"
+    shift
+    ;;
+  --claude-code)
+    runtime="claude-code"
+    shift
+    ;;
+  --runtime|--codex-cli)
+    fail "旧 runtime 参数 '$1' 不再支持。请使用: harness $mode (--codex|--claude-code) [target-dir]"
+    ;;
+  --*)
+    fail "未知参数 '$1'"
+    ;;
+  *)
+    fail "必须在 mode 后指定 runtime。请使用: harness $mode (--codex|--claude-code) [target-dir]"
+    ;;
+esac
 
 target_arg="."
 if [ $# -gt 1 ]; then
@@ -66,21 +95,43 @@ if [ $# -eq 1 ]; then
   esac
 fi
 
-mode_dir="$HARNESS_ROOT/harness-$mode"
+case "$runtime" in
+  codex)
+    source_root="$HARNESS_ROOT"
+    skills_dir=".agents/skills"
+    agents_dir=".codex/agents"
+    common_dir=".codex/common"
+    manifest_dir=".codex/.harness"
+    runtime_label="Codex App"
+    ;;
+  claude-code)
+    source_root="$HARNESS_ROOT/claude-code"
+    skills_dir=".claude/skills"
+    agents_dir=".claude/agents"
+    common_dir=".claude/common"
+    manifest_dir=".claude/.harness"
+    runtime_label="Claude Code"
+    ;;
+  *)
+    fail "未知 runtime: $runtime"
+    ;;
+esac
+
+mode_dir="$source_root/harness-$mode"
 [ -d "$mode_dir" ] || fail "未找到模式 'harness-$mode'(期望路径: $mode_dir)"
-[ -d "$HARNESS_ROOT/common" ] || fail "缺少 common/ 目录"
+[ -d "$source_root/common" ] || fail "缺少 common/ 目录(期望路径: $source_root/common)"
 [ -d "$target_arg" ] || fail "目标目录不存在: $target_arg"
 
 target="$(cd "$target_arg" && pwd)"
 
-skills_dir=".agents/skills"
-agents_dir=".codex/agents"
-common_dir=".codex/common"
-manifest_dir=".codex/.harness"
 manifest_file="$target/$manifest_dir/installed-manifest"
 
-echo "runtime: codex-app"
-echo "部署到: $target/.agents/skills/ 和 $target/.codex/"
+echo "runtime: $runtime"
+if [ "$runtime" = "codex" ]; then
+  echo "部署到: $target/.agents/skills/ 和 $target/.codex/"
+else
+  echo "部署到: $target/.claude/"
+fi
 
 mkdir -p "$target/$skills_dir" "$target/$agents_dir" "$target/$common_dir" "$target/$manifest_dir"
 
@@ -97,10 +148,10 @@ collect_files() {
 }
 
 {
-  collect_files "$HARNESS_ROOT/common" "$common_dir"
-  if [ -d "$HARNESS_ROOT/harness-plan" ]; then
-    collect_files "$HARNESS_ROOT/harness-plan/skills" "$skills_dir"
-    collect_files "$HARNESS_ROOT/harness-plan/agents" "$agents_dir"
+  collect_files "$source_root/common" "$common_dir"
+  if [ -d "$source_root/harness-plan" ]; then
+    collect_files "$source_root/harness-plan/skills" "$skills_dir"
+    collect_files "$source_root/harness-plan/agents" "$agents_dir"
   fi
   collect_files "$mode_dir/skills" "$skills_dir"
   collect_files "$mode_dir/agents" "$agents_dir"
@@ -144,9 +195,9 @@ deploy_module() {
   deploy_tree "$src/agents" "$agents_dir" "$label agents"
 }
 
-deploy_tree "$HARNESS_ROOT/common" "$common_dir" "common"
-if [ -d "$HARNESS_ROOT/harness-plan" ]; then
-  deploy_module "$HARNESS_ROOT/harness-plan" "harness-plan"
+deploy_tree "$source_root/common" "$common_dir" "common"
+if [ -d "$source_root/harness-plan" ]; then
+  deploy_module "$source_root/harness-plan" "harness-plan"
 fi
 deploy_module "$mode_dir" "harness-$mode"
 
@@ -156,7 +207,7 @@ trap - EXIT
 count="$(wc -l < "$manifest_file" | tr -d ' ')"
 echo ""
 echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
-echo "在目标项目的 Codex App 中可使用:"
+echo "在目标项目的 ${runtime_label} 中可使用:"
 echo "  /harness-plan       生成 XML plan 文件"
 if [ "$mode" = "backend" ]; then
   echo "  /harness-backend-fast 默认推荐路径,小中型改动只运行 Builder 和 CodeReview"
