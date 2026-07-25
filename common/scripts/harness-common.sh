@@ -29,6 +29,31 @@ harness_output_dir() {
   _harness_profile_value '.output_dir'
 }
 
+harness_state_file() {
+  local output_dir
+  output_dir="$(harness_output_dir)" || return 1
+  [ -n "$output_dir" ] || return 1
+  printf '%s/state.json\n' "$output_dir"
+}
+
+_harness_state_jq() {
+  local state_file tmp
+  state_file="$(harness_state_file)" || return 1
+  [ -f "$state_file" ] || {
+    echo "错误: state.json 不存在: $state_file" >&2
+    return 1
+  }
+  tmp="$(mktemp)"
+  if ! jq "$@" "$state_file" > "$tmp"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  if ! mv "$tmp" "$state_file"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+}
+
 harness_progress_dir() {
   local output_dir
   output_dir="$(harness_output_dir)" || return 1
@@ -98,4 +123,62 @@ complete_stage() {
   printf '%s | %s' "$tag" "$message"
   [ -n "$artifact" ] && printf ' | artifact: %s' "$artifact"
   printf '\n'
+}
+
+record_call_chain_prefilter() {
+  local decision="$1" reason="$2" ts
+  case "$decision" in
+    noop|run) ;;
+    *)
+      echo "错误: CallChain prefilter decision 必须是 noop 或 run" >&2
+      return 2
+      ;;
+  esac
+  [ -n "$reason" ] || {
+    echo "错误: CallChain prefilter reason 不能为空" >&2
+    return 2
+  }
+  ts="$(date +%FT%T%z)"
+  _harness_state_jq \
+    --arg decision "$decision" \
+    --arg reason "$reason" \
+    --arg ts "$ts" \
+    '.call_chain.prefilter = {
+      mode: "shadow",
+      decision: $decision,
+      reason: $reason,
+      agent_decision: null,
+      agreement: null,
+      safe: null,
+      evaluated_at: $ts,
+      compared_at: null
+    }'
+}
+
+record_call_chain_shadow_result() {
+  local agent_decision="$1" ts
+  case "$agent_decision" in
+    noop|updated) ;;
+    *)
+      echo "错误: CallChain agent decision 必须是 noop 或 updated" >&2
+      return 2
+      ;;
+  esac
+  ts="$(date +%FT%T%z)"
+  _harness_state_jq \
+    --arg agent_decision "$agent_decision" \
+    --arg ts "$ts" \
+    'if (.call_chain.prefilter.decision // "") == "" then
+      error("CallChain prefilter decision 尚未记录")
+    else
+      .call_chain.prefilter.agent_decision = $agent_decision
+      | .call_chain.prefilter.agreement = (
+          (.call_chain.prefilter.decision == "noop" and $agent_decision == "noop")
+          or (.call_chain.prefilter.decision == "run" and $agent_decision == "updated")
+        )
+      | .call_chain.prefilter.safe = (
+          .call_chain.prefilter.decision != "noop" or $agent_decision == "noop"
+        )
+      | .call_chain.prefilter.compared_at = $ts
+    end'
 }

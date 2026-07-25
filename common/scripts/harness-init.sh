@@ -144,7 +144,17 @@ init_harness_run() {
         status: "pending",
         artifact: null,
         action: null,
-        commit: null
+        commit: null,
+        prefilter: {
+          mode: "shadow",
+          decision: null,
+          reason: null,
+          agent_decision: null,
+          agreement: null,
+          safe: null,
+          evaluated_at: null,
+          compared_at: null
+        }
       },
       fix_round: 0,
       retries: {},

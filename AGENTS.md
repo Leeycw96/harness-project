@@ -14,6 +14,7 @@ This repository packages Harness skills, custom agent manuals, and deployment sc
 - `scripts/check-runtime-parity.sh`: checks normalized Skill, shared-contract, coding-rule, and Agent semantics across runtimes.
 - `scripts/harness-metrics.sh`: reports current instruction and runtime size against `evals/harness/baseline-2.1.0.tsv`.
 - `scripts/check-slimming-targets.sh`: enforces the approved Skill and Agent instruction-reduction targets.
+- `scripts/summarize-call-chain-shadow.sh`: reports CallChain prefilter shadow results and checks the phase-two activation gate.
 There is no package-manager build step.
 
 ## Coding Style & Naming Conventions

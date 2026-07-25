@@ -23,3 +23,21 @@ scripts/check-slimming-targets.sh
 ```
 
 静态体量只衡量上下文成本，不能替代行为 eval。
+
+## CallChain Shadow
+
+第二期 shadow 模式会在 full run 的 `state.json.call_chain.prefilter` 中记录主会话预判和独立 CallChain Agent 结论。汇总：
+
+```bash
+scripts/summarize-call-chain-shadow.sh /path/to/.harness/iterations
+scripts/summarize-call-chain-shadow.sh --check-ready /path/to/.harness/iterations
+```
+
+真实跳过 CallChain 的最低准入条件：
+
+- 至少 10 个已完成 shadow 样本。
+- 至少 5 个主会话 `noop` 样本。
+- 至少 3 个 Agent `UPDATED` 正样本。
+- 不得出现主会话 `noop`、Agent `UPDATED` 的漏判。
+
+`run`/`NOOP` 属于安全的保守误报，只影响节省比例，不影响准入安全性。

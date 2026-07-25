@@ -10,6 +10,7 @@
 - 预埋 P0/P1 的召回率不低于 baseline。
 - QA 和 CodeReview 只审 Builder commit diff。
 - CallChain 正负样本判定不低于 baseline。
+- CallChain shadow 不得出现 `prefilter=noop`、Agent `UPDATED` 的漏判。
 - 中断后可恢复，超过重试上限可暂停并报告原因。
 
 ## 评分项
@@ -36,5 +37,6 @@ candidate 每个 case 的平均总分不得低于 baseline，且 hard gates 必�
 - Agent 调用次数
 - 完成时间
 - artifact 数量和状态写入次数
+- CallChain shadow 的 noop 样本数、UPDATED 正样本数和 unsafe 漏判数
 
 第一期目标：Plan/full/fast Skill 输入合计至少减少 40%，每个 Agent 必读指令至少减少 30%。

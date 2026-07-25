@@ -23,6 +23,8 @@ normalize() {
       gsub(/\.agents\/skills\//, ".runtime/skills/")
       gsub(/\.codex\//, ".runtime/")
       gsub(/\.claude\//, ".runtime/")
+      gsub(/Codex App/, "Harness Runtime")
+      gsub(/Claude Code/, "Harness Runtime")
       print
     }
   ' "$source_file" > "$output_file"
@@ -53,6 +55,9 @@ compare_pair "orchestration" \
 compare_pair "coding-rules" \
   "common/refs/harness-backend-coding-rules.md" \
   "claude-code/common/refs/harness-backend-coding-rules.md"
+compare_pair "common-helper" \
+  "common/scripts/harness-common.sh" \
+  "claude-code/common/scripts/harness-common.sh"
 
 for agent in builder qa code-review call-chain; do
   compare_pair "$agent" \
