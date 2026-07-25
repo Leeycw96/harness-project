@@ -11,6 +11,9 @@ This repository packages Harness skills, custom agent manuals, and deployment sc
 - `bin/harness backend --claude-code "$tmpdir"`: deploys the Claude Code runtime with skills, agents, and common state in `.claude/`.
 - `bash -n bin/harness`: checks the deployment CLI syntax.
 - `find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;`: checks shell helper syntax.
+- `scripts/check-runtime-parity.sh`: checks normalized Skill, shared-contract, coding-rule, and Agent semantics across runtimes.
+- `scripts/harness-metrics.sh`: reports current instruction and runtime size against `evals/harness/baseline-2.1.0.tsv`.
+- `scripts/check-slimming-targets.sh`: enforces the approved Skill and Agent instruction-reduction targets.
 There is no package-manager build step.
 
 ## Coding Style & Naming Conventions
@@ -19,7 +22,7 @@ Use Bash for scripts and keep `set -euo pipefail` on operational CLIs where prac
 
 ## Testing Guidelines
 
-No formal test suite exists. For deployment tests, create a target with `mktemp -d`, run `bin/harness backend --codex "$tmpdir"` and `bin/harness backend --claude-code "$tmpdir"`, inspect `.codex/.harness/installed-manifest`, `.claude/.harness/installed-manifest`, `.agents/skills/`, `.codex/agents/`, `.codex/common/`, `.claude/skills/`, `.claude/agents/`, and `.claude/common/`, then remove the temp directory. Do not run end-to-end tests inside this repository or another long-lived project. Finish with `git status --short`.
+Behavior eval cases and hard gates live in `evals/harness/`. For deployment tests, create a target with `mktemp -d`, run `bin/harness backend --codex "$tmpdir"` and `bin/harness backend --claude-code "$tmpdir"`, inspect `.codex/.harness/installed-manifest`, `.claude/.harness/installed-manifest`, `.agents/skills/`, `.codex/agents/`, `.codex/common/`, `.claude/skills/`, `.claude/agents/`, and `.claude/common/`, then remove the temp directory. Do not run end-to-end tests inside this repository or another long-lived project. Finish with `git status --short`.
 
 ## Commit & Pull Request Guidelines
 

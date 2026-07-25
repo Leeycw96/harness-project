@@ -68,7 +68,7 @@ harness backend --codex /path/to/your/project
 harness backend --claude-code /path/to/your/project
 ```
 
-`harness backend` 会同时部署 `/harness-plan`、`/harness-backend-fast`、`/harness-backend` 和 `/harness-backend-fix`。
+`harness backend` 会同时部署 `/harness-plan`、`/harness-backend-fast` 和 `/harness-backend`。
 
 旧格式不再支持:
 
@@ -86,28 +86,20 @@ harness backend --claude-code /path/to/your/project
 └── skills/
     ├── harness-plan/
     ├── harness-backend/
-    ├── harness-backend-fast/
-    └── harness-backend-fix/
+    └── harness-backend-fast/
 .codex/
 ├── common/
 │   ├── refs/
 │   └── scripts/
 ├── agents/
 │   ├── harness-builder.md
-│   ├── harness-builder-AGENTS.md
 │   ├── harness-builder.toml
 │   ├── harness-qa.md
-│   ├── harness-qa-AGENTS.md
 │   ├── harness-qa.toml
 │   ├── harness-code-review.md
-│   ├── harness-code-review-AGENTS.md
 │   ├── harness-code-review.toml
 │   ├── harness-call-chain.md
-│   ├── harness-call-chain-AGENTS.md
-│   ├── harness-call-chain.toml
-│   ├── harness-feedback-triage.md
-│   ├── harness-feedback-triage-AGENTS.md
-│   └── harness-feedback-triage.toml
+│   └── harness-call-chain.toml
 └── .harness/
     └── installed-manifest
 ```
@@ -119,8 +111,7 @@ harness backend --claude-code /path/to/your/project
 ├── skills/
 │   ├── harness-plan/
 │   ├── harness-backend/
-│   ├── harness-backend-fast/
-│   └── harness-backend-fix/
+│   └── harness-backend-fast/
 ├── common/
 │   ├── refs/
 │   └── scripts/
@@ -128,8 +119,7 @@ harness backend --claude-code /path/to/your/project
 │   ├── harness-builder.md
 │   ├── harness-qa.md
 │   ├── harness-code-review.md
-│   ├── harness-call-chain.md
-│   └── harness-feedback-triage.md
+│   └── harness-call-chain.md
 └── .harness/
     └── installed-manifest
 ```
@@ -152,11 +142,7 @@ fast run 只调度 Builder 和 CodeReview,不运行 QA、Scope Review 或 CallCh
 
 backend run 会调度 Builder 生成 scope,调度 QA 审 scope,调度 Builder 构建,再并行调度 QA 和 CodeReview 验收,最后维护 CallChain。复杂业务流程、数据库迁移、权限审计、事务/并发、跨模块状态流转等高风险改动使用它。
 
-```text
-/harness-backend-fix <反馈>
-```
-
-`/harness-backend-fix <反馈>` 只用于 `/harness-backend` 完成后处理人工 CR/验收反馈: 它会判断反馈是否属于原 plan 内问题,成立则修复并复审,新需求则提示重新走 `/harness-plan`。fast run 暂不支持 fix。
+full 和 fast 都会在本轮评审发现阻断问题时自动进入内部修复循环。run 完成后的新反馈使用新的 plan/backend run；范围变化重新运行 `/harness-plan`。
 
 run 目录最小结构:
 
@@ -170,6 +156,7 @@ run 目录最小结构:
   qa-feedback.md
   code-review.md
   fix-brief.md
+  call-chain-review.md
   progress/
 ```
 
@@ -192,6 +179,9 @@ fast run 最小结构:
 ```bash
 bash -n bin/harness
 find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;
+scripts/check-runtime-parity.sh
+scripts/harness-metrics.sh
+scripts/check-slimming-targets.sh
 tmp=$(mktemp -d)
 bin/harness backend --codex "$tmp"
 bin/harness backend --claude-code "$tmp"

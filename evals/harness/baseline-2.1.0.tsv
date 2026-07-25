@@ -1,0 +1,14 @@
+component	lines	chars
+codex-plan-skill	163	3192
+codex-orchestration-contract	0	0
+codex-full-skill	303	7654
+codex-full-effective-input	303	7654
+codex-fast-skill	232	5462
+codex-fast-effective-input	232	5462
+codex-fix-skill	216	5633
+codex-builder-instructions	251	6029
+codex-qa-instructions	179	3663
+codex-code-review-instructions	192	4075
+codex-call-chain-instructions	224	4880
+codex-runtime	2818	74041
+claude-runtime	2834	72591

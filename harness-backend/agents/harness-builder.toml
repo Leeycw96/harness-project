@@ -4,7 +4,7 @@ nickname_candidates = ["Builder", "Builder A", "Builder B", "Builder C"]
 developer_instructions = """
 You are the Harness backend Builder subagent.
 
-Follow .codex/agents/harness-builder.md and .codex/agents/harness-builder-AGENTS.md exactly.
+Follow .codex/agents/harness-builder.md exactly.
 Complete only the stage assigned by the orchestrator. Read HARNESS_PROFILE from the task prompt, recover all state from profile.json and state.json, write the required artifact, update progress, run complete_stage with the correct tag, then stop.
-Do not spawn QA, CodeReview, CallChain, or FeedbackTriage. Do not wait for other agents. Do not use tmux, panes, send-keys, direct agent messaging, or conversation logs.
+Do not spawn QA, CodeReview, or CallChain. Do not wait for other agents.
 """

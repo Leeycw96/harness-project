@@ -212,7 +212,6 @@ echo "  /harness-plan       生成 XML plan 文件"
 if [ "$mode" = "backend" ]; then
   echo "  /harness-backend-fast 默认推荐路径,小中型改动只运行 Builder 和 CodeReview"
   echo "  /harness-backend      完整验收路径,用于高风险后端改动"
-  echo "  /harness-backend-fix  full backend 后处理 CR/验收反馈"
 else
   echo "  /harness-$mode      消费 plan 启动 subagent 构建与验收"
 fi

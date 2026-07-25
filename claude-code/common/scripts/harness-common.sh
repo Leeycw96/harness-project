@@ -29,45 +29,11 @@ harness_output_dir() {
   _harness_profile_value '.output_dir'
 }
 
-harness_state_file() {
-  local output_dir
-  output_dir="$(harness_output_dir)" || return 1
-  [ -n "$output_dir" ] || return 1
-  printf '%s/state.json\n' "$output_dir"
-}
-
 harness_progress_dir() {
   local output_dir
   output_dir="$(harness_output_dir)" || return 1
   [ -n "$output_dir" ] || return 1
   printf '%s/progress\n' "$output_dir"
-}
-
-harness_artifact_path() {
-  local key="$1"
-  _harness_profile_value ".artifacts.${key}"
-}
-
-harness_state_jq() {
-  local state_file tmp
-  state_file="$(harness_state_file)" || return 1
-  [ -f "$state_file" ] || {
-    echo "错误: state.json 不存在: $state_file" >&2
-    return 1
-  }
-  tmp="$(mktemp)"
-  jq "$@" "$state_file" > "$tmp"
-  mv "$tmp" "$state_file"
-}
-
-harness_set_phase() {
-  local phase="$1" next_action="${2:-}"
-  if [ -n "$next_action" ]; then
-    harness_state_jq --arg phase "$phase" --arg next "$next_action" \
-      '.phase = $phase | .next_action = $next'
-  else
-    harness_state_jq --arg phase "$phase" '.phase = $phase'
-  fi
 }
 
 append_progress_event() {
@@ -100,7 +66,6 @@ update_progress() {
     harness-qa|qa) progress_file="$progress_dir/qa.md"; display_agent="harness-qa" ;;
     harness-code-review|code-review|code_review) progress_file="$progress_dir/code-review.md"; display_agent="harness-code-review" ;;
     harness-call-chain|call-chain|call_chain) progress_file="$progress_dir/call-chain.md"; display_agent="harness-call-chain" ;;
-    harness-feedback-triage|feedback-triage|feedback_triage|triage) progress_file="$progress_dir/feedback-triage.md"; display_agent="harness-feedback-triage" ;;
     *) progress_file="$progress_dir/${agent}.md"; display_agent="$agent" ;;
   esac
 
@@ -133,17 +98,4 @@ complete_stage() {
   printf '%s | %s' "$tag" "$message"
   [ -n "$artifact" ] && printf ' | artifact: %s' "$artifact"
   printf '\n'
-}
-
-validate_artifact() {
-  local artifact="$1" pattern="${2:-}"
-  if [ -z "$artifact" ] || [ ! -f "$artifact" ]; then
-    echo "INVALID_ARTIFACT: 文件不存在: ${artifact:-<empty>}" >&2
-    return 1
-  fi
-  if [ -n "$pattern" ] && ! grep -Eq "$pattern" "$artifact"; then
-    echo "INVALID_ARTIFACT: $artifact 未匹配期望模式: $pattern" >&2
-    return 1
-  fi
-  printf 'VALID_ARTIFACT: %s\n' "$artifact"
 }

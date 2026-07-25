@@ -16,6 +16,8 @@
 ```bash
 bash -n bin/harness
 find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;
+scripts/check-runtime-parity.sh
+scripts/check-slimming-targets.sh
 tmp=$(mktemp -d)
 bin/harness backend --codex "$tmp"
 bin/harness backend --claude-code "$tmp"
