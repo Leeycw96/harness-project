@@ -52,7 +52,7 @@ init_harness_run() {
 
   output_dir="$(_abs_path "$output_dir")"
   plan_path="$(_abs_path "$plan_path")"
-  mkdir -p "$output_dir/progress"
+  mkdir -p "$output_dir"
 
   local state_file="$output_dir/state.json"
 
@@ -73,14 +73,6 @@ init_harness_run() {
         code_review: ($output_dir + "/code-review.md"),
         fix_brief: ($output_dir + "/fix-brief.md"),
         call_chain_review: ($output_dir + "/call-chain-review.md")
-      },
-      progress: {
-        dir: ($output_dir + "/progress"),
-        builder: ($output_dir + "/progress/builder.md"),
-        qa: ($output_dir + "/progress/qa.md"),
-        code_review: ($output_dir + "/progress/code-review.md"),
-        call_chain: ($output_dir + "/progress/call-chain.md"),
-        events: ($output_dir + "/progress/events.tsv")
       },
       thresholds: {
         short_stage_no_progress_seconds: 300,
@@ -126,7 +118,7 @@ init_harness_run() {
       retries: {}
     }' > "$state_file"
 
-  : > "$output_dir/progress/events.tsv"
+  : > "$output_dir/progress.tsv"
   export HARNESS_PROFILE="$state_file"
   printf '%s\n' "$state_file"
 }
@@ -141,7 +133,7 @@ init_harness_fast_run() {
 
   output_dir="$(_abs_path "$output_dir")"
   plan_path="$(_abs_path "$plan_path")"
-  mkdir -p "$output_dir/progress"
+  mkdir -p "$output_dir"
 
   local state_file="$output_dir/state.json"
 
@@ -158,12 +150,6 @@ init_harness_fast_run() {
       artifacts: {
         code_review: ($output_dir + "/code-review.md"),
         fix_brief: ($output_dir + "/fix-brief.md")
-      },
-      progress: {
-        dir: ($output_dir + "/progress"),
-        builder: ($output_dir + "/progress/builder.md"),
-        code_review: ($output_dir + "/progress/code-review.md"),
-        events: ($output_dir + "/progress/events.tsv")
       },
       thresholds: {
         short_stage_no_progress_seconds: 300,
@@ -193,7 +179,7 @@ init_harness_fast_run() {
       retries: {}
     }' > "$state_file"
 
-  : > "$output_dir/progress/events.tsv"
+  : > "$output_dir/progress.tsv"
   export HARNESS_PROFILE="$state_file"
   printf '%s\n' "$state_file"
 }

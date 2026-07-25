@@ -40,7 +40,7 @@ mvn test-compile -q
 
 ## 进度与恢复
 
-读取 `progress/<agent>.md` 和 `events.tsv` 向用户报告状态。审查类阶段 5 分钟、构建/修复阶段 15 分钟无有效进度时检查 Agent；卡住或失联则结束旧执行并从磁盘状态启动新执行。每阶段每角色最多恢复 2 次，超过后置为 `PAUSED`。
+读取追加式 `progress.tsv` 的最新记录向用户报告状态；旧 run 读取 state/profile 中配置的 `progress.events`。审查类阶段 5 分钟、构建/修复阶段 15 分钟无有效进度时检查 Agent；卡住或失联则结束旧执行并从磁盘状态启动新执行。每阶段每角色最多恢复 2 次，超过后置为 `PAUSED`。
 
 ## 门禁
 

@@ -158,7 +158,7 @@ run 目录最小结构:
   code-review.md
   fix-brief.md
   call-chain-review.md
-  progress/
+  progress.tsv
 ```
 
 fast run 最小结构:
@@ -169,10 +169,10 @@ fast run 最小结构:
   state.json
   code-review.md
   fix-brief.md
-  progress/
+  progress.tsv
 ```
 
-新 run 的静态契约和运行状态统一保存在 `state.json`；`HARNESS_PROFILE` 仅作为兼容变量名保留。升级前已经开始的 `profile.json + state.json` run 仍可恢复。
+新 run 的静态契约和运行状态统一保存在 `state.json`，所有 Agent 心跳追加到 `progress.tsv`；`HARNESS_PROFILE` 仅作为兼容变量名保留。升级前已经开始的 `profile.json + state.json + progress/` run 仍可恢复。
 
 ## 开发与验证
 
