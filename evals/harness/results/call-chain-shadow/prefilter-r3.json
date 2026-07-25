@@ -1,0 +1,56 @@
+{
+  "evaluator": "prefilter",
+  "round": 3,
+  "cases": [
+    {
+      "id": "CASE-01",
+      "decision": "noop",
+      "reason": "仅增加展示对象字段，未出现外部入口、异步推进点或状态流转变化"
+    },
+    {
+      "id": "CASE-02",
+      "decision": "noop",
+      "reason": "仅调整同步内部计价逻辑，未涉及外部入口、异步或生命周期变化"
+    },
+    {
+      "id": "CASE-03",
+      "decision": "noop",
+      "reason": "仅改变仓储查询排序，未涉及入口、异步推进或状态流转"
+    },
+    {
+      "id": "CASE-04",
+      "decision": "noop",
+      "reason": "仅新增单元测试，生产调用链与生命周期均未变化"
+    },
+    {
+      "id": "CASE-05",
+      "decision": "run",
+      "reason": "请求命令新增校验约束，可能改变外部 HTTP 入口的请求接收行为"
+    },
+    {
+      "id": "CASE-06",
+      "decision": "run",
+      "reason": "新增 POST HTTP 入口，即使为单步同步 CRUD 也命中入口变化"
+    },
+    {
+      "id": "CASE-07",
+      "decision": "run",
+      "reason": "新增 Kafka 消费入口及订单创建后的异步履约推进点"
+    },
+    {
+      "id": "CASE-08",
+      "decision": "run",
+      "reason": "新增 Scheduler 入口并引入 PENDING 到 EXPIRED 状态流转"
+    },
+    {
+      "id": "CASE-09",
+      "decision": "run",
+      "reason": "新增物流 HTTP 回调入口并由回调推进至 DELIVERED 终态"
+    },
+    {
+      "id": "CASE-10",
+      "decision": "run",
+      "reason": "新增 MQ 消费入口、风控异步阶段及多分支状态流转"
+    }
+  ]
+}

@@ -58,7 +58,7 @@ Preflight 通过后进入 `SCOPE_BUILD`。
 
 双通过进入 `CALL_CHAIN`；3 轮后仍阻断则 `PAUSED`。
 
-### CALL_CHAIN_PREFILTER（shadow）
+### CALL_CHAIN_PREFILTER
 
 主会话先独立审查 Builder diff：
 
@@ -69,17 +69,20 @@ Preflight 通过后进入 `SCOPE_BUILD`。
 record_call_chain_prefilter "<noop|run>" "<判定证据>"
 ```
 
-shadow 期间无论预判为何都继续调度 CallChain，且不把预判告诉 Agent，避免影响独立结论。
+- `noop`：执行 `record_call_chain_skip`，不调度 Agent，直接进入 `DONE`。
+- `run`：进入 `CALL_CHAIN`。
+
+恢复旧 `mode=shadow` run 时仍始终调度 Agent，且不把预判告诉 Agent；完成后使用 `record_call_chain_shadow_result`。
 
 ### CALL_CHAIN
 
-调度 `harness-call-chain`，只审本轮 Builder commits 和已有 `.harness/call-chain/`，输出 `call-chain-review.md`：
+仅在 prefilter 为 `run` 或恢复旧 shadow run 时调度 `harness-call-chain`。Agent 只审本轮 Builder commits 和已有 `.harness/call-chain/`，输出 `call-chain-review.md`：
 
-- `CALL_CHAIN_NOOP`：记录 noop，并执行 `record_call_chain_shadow_result noop`。
-- `CALL_CHAIN_UPDATED`：只更新 call-chain 文件并创建独立 docs commit，再执行 `record_call_chain_shadow_result updated`。
+- `CALL_CHAIN_NOOP`：执行 `record_call_chain_result noop`。
+- `CALL_CHAIN_UPDATED`：只更新 call-chain 文件并创建独立 docs commit，再执行 `record_call_chain_result updated "<commit-sha>"`。
 
-shadow 不改变交付门禁；即使预判与 Agent 不一致也完成本轮，但必须在汇总中报告并保留样本。随后置为 `DONE`。
+旧 shadow run 使用对应 shadow helper。随后置为 `DONE`。
 
 ## 完成
 
-报告 Builder commits、QA 验证摘要、CodeReview P2、CallChain 结论、shadow 是否安全一致及 artifact 路径。DONE 后的新反馈通过新的 plan/backend run 处理；范围变化重新运行 `/harness-plan`。
+报告 Builder commits、QA 验证摘要、CodeReview P2、CallChain 跳过/NOOP/UPDATED 结论及 artifact 路径。DONE 后的新反馈通过新的 plan/backend run 处理；范围变化重新运行 `/harness-plan`。

@@ -142,7 +142,7 @@ fast run 只调度 Builder 和 CodeReview,不运行 QA、Scope Review 或 CallCh
 
 backend run 会调度 Builder 生成 scope,调度 QA 审 scope,调度 Builder 构建,再并行调度 QA 和 CodeReview 验收,最后维护 CallChain。复杂业务流程、数据库迁移、权限审计、事务/并发、跨模块状态流转等高风险改动使用它。
 
-当前 CallChain 按需调度处于 shadow 阶段：主会话先记录 `noop/run` 预判，但仍始终运行独立 CallChain Agent。可用 `scripts/summarize-call-chain-shadow.sh` 汇总样本；达到 eval 准入条件前不会真实跳过。
+CallChain 已启用按需调度：主会话明确判断没有外部入口、异步推进点或多阶段生命周期变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 CallChain 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
 
 full 和 fast 都会在本轮评审发现阻断问题时自动进入内部修复循环。run 完成后的新反馈使用新的 plan/backend run；范围变化重新运行 `/harness-plan`。
 
@@ -184,6 +184,7 @@ find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;
 scripts/check-runtime-parity.sh
 scripts/harness-metrics.sh
 scripts/check-slimming-targets.sh
+scripts/check-call-chain-controlled-eval.sh
 scripts/summarize-call-chain-shadow.sh --help
 tmp=$(mktemp -d)
 bin/harness backend --codex "$tmp"

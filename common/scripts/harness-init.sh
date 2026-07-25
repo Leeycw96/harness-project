@@ -146,7 +146,7 @@ init_harness_run() {
         action: null,
         commit: null,
         prefilter: {
-          mode: "shadow",
+          mode: "on-demand",
           decision: null,
           reason: null,
           agent_decision: null,

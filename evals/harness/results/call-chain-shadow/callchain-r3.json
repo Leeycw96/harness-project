@@ -1,0 +1,56 @@
+{
+  "evaluator": "callchain",
+  "round": 3,
+  "cases": [
+    {
+      "id": "CASE-01",
+      "decision": "NOOP",
+      "reason": "仅 DTO 展示字段变化，明确不记录 DTO。"
+    },
+    {
+      "id": "CASE-02",
+      "decision": "NOOP",
+      "reason": "仅内部 Service 同步计价逻辑变化，无外部入口或生命周期变化。"
+    },
+    {
+      "id": "CASE-03",
+      "decision": "NOOP",
+      "reason": "仅 DAO 查询排序变化，查询与 DAO 明确为 NOOP。"
+    },
+    {
+      "id": "CASE-04",
+      "decision": "NOOP",
+      "reason": "仅新增测试，未产生业务流程可见变化。"
+    },
+    {
+      "id": "CASE-05",
+      "decision": "NOOP",
+      "reason": "仅命令 DTO 参数校验变化，参数校验明确为 NOOP。"
+    },
+    {
+      "id": "CASE-06",
+      "decision": "NOOP",
+      "reason": "虽新增 HTTP 入口，但属于单步同步 CRUD，明确为 NOOP。"
+    },
+    {
+      "id": "CASE-07",
+      "decision": "UPDATED",
+      "reason": "新增订单创建后的 MQ 消费推进点，满足初始请求后异步推进的新建门禁。"
+    },
+    {
+      "id": "CASE-08",
+      "decision": "UPDATED",
+      "reason": "新增 Scheduler 推进点及 PENDING 到 EXPIRED 的跨阶段状态流转。"
+    },
+    {
+      "id": "CASE-09",
+      "decision": "UPDATED",
+      "reason": "新增外部物流回调入口，并由回调推进 IN_TRANSIT 到 DELIVERED 终态。"
+    },
+    {
+      "id": "CASE-10",
+      "decision": "UPDATED",
+      "reason": "新增 MQ 异步风控阶段，改变既有订单流程的生命周期与状态流转。"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "evaluator": "callchain",
+  "round": 1,
+  "cases": [
+    {
+      "id": "CASE-01",
+      "decision": "NOOP",
+      "reason": "仅 DTO 展示字段变化，明确不记录 DTO。"
+    },
+    {
+      "id": "CASE-02",
+      "decision": "NOOP",
+      "reason": "仅内部 Service 同步计价逻辑变化，无外部入口或流程推进点变化。"
+    },
+    {
+      "id": "CASE-03",
+      "decision": "NOOP",
+      "reason": "仅 DAO 查询排序变化，明确不记录查询和 DAO。"
+    },
+    {
+      "id": "CASE-04",
+      "decision": "NOOP",
+      "reason": "仅新增测试，未产生业务流程可见变化。"
+    },
+    {
+      "id": "CASE-05",
+      "decision": "NOOP",
+      "reason": "仅 DTO 参数校验变化，明确不记录参数校验和 DTO。"
+    },
+    {
+      "id": "CASE-06",
+      "decision": "NOOP",
+      "reason": "虽新增 HTTP 入口，但属于单步同步 CRUD，明确排除。"
+    },
+    {
+      "id": "CASE-07",
+      "decision": "UPDATED",
+      "reason": "订单初始请求后新增 MQ 消费者推进异步履约，满足新建门禁。"
+    },
+    {
+      "id": "CASE-08",
+      "decision": "UPDATED",
+      "reason": "新增 Scheduler 推进超时关闭，并引入 PENDING 到 EXPIRED 的跨阶段状态流转。"
+    },
+    {
+      "id": "CASE-09",
+      "decision": "UPDATED",
+      "reason": "新增外部物流 callback 入口并推进 DELIVERED 终态，满足回调后续推进门禁。"
+    },
+    {
+      "id": "CASE-10",
+      "decision": "UPDATED",
+      "reason": "新增 MQ 风控阶段，将 CREATED 到 PAID 改为 RISK_PENDING 后异步流转至终态。"
+    }
+  ]
+}

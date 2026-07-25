@@ -1,0 +1,56 @@
+{
+  "evaluator": "callchain",
+  "round": 2,
+  "cases": [
+    {
+      "id": "CASE-01",
+      "decision": "NOOP",
+      "reason": "仅新增 DTO 展示字段，无业务流程入口、异步推进或状态流转变化。"
+    },
+    {
+      "id": "CASE-02",
+      "decision": "NOOP",
+      "reason": "仅修改内部同步 Service 的计价逻辑，未改变外部入口或复杂流程生命周期。"
+    },
+    {
+      "id": "CASE-03",
+      "decision": "NOOP",
+      "reason": "仅调整 DAO 查询排序，查询与 DAO 变更不纳入业务流程索引。"
+    },
+    {
+      "id": "CASE-04",
+      "decision": "NOOP",
+      "reason": "仅新增内部计价测试，不产生业务流程可见变化。"
+    },
+    {
+      "id": "CASE-05",
+      "decision": "NOOP",
+      "reason": "仅增加参数校验约束，参数校验明确属于 NOOP。"
+    },
+    {
+      "id": "CASE-06",
+      "decision": "NOOP",
+      "reason": "虽新增 HTTP 入口，但它是单步同步 CRUD，明确排除且不满足新建门禁。"
+    },
+    {
+      "id": "CASE-07",
+      "decision": "UPDATED",
+      "reason": "订单初始请求后新增 Kafka 消费者继续推进履约，命中异步推进点与新建门禁。"
+    },
+    {
+      "id": "CASE-08",
+      "decision": "UPDATED",
+      "reason": "新增超时 Scheduler，并将支付单从 PENDING 推进到 EXPIRED，命中异步推进与生命周期门禁。"
+    },
+    {
+      "id": "CASE-09",
+      "decision": "UPDATED",
+      "reason": "新增外部物流 callback 入口并推进 IN_TRANSIT 到 DELIVERED 终态，命中回调与状态流转门禁。"
+    },
+    {
+      "id": "CASE-10",
+      "decision": "UPDATED",
+      "reason": "在下单与支付回调间新增风控 MQ 阶段及 RISK_PENDING 分支状态流转，属于复杂流程语义变化。"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "evaluator": "prefilter",
+  "round": 1,
+  "cases": [
+    {
+      "id": "CASE-01",
+      "decision": "noop",
+      "reason": "仅给视图对象增加展示字段，未见入口、异步推进点或状态流转变化"
+    },
+    {
+      "id": "CASE-02",
+      "decision": "noop",
+      "reason": "仅调整同步服务内部的计价计算步骤，未引入外部入口、异步或生命周期变化"
+    },
+    {
+      "id": "CASE-03",
+      "decision": "noop",
+      "reason": "仅给已有仓储查询增加排序，未改变入口、异步推进点或状态流转"
+    },
+    {
+      "id": "CASE-04",
+      "decision": "noop",
+      "reason": "仅新增测试用例，不改变生产入口、异步推进点或生命周期"
+    },
+    {
+      "id": "CASE-05",
+      "decision": "noop",
+      "reason": "仅给已有命令字段增加长度校验，未新增入口、异步推进点或状态流转"
+    },
+    {
+      "id": "CASE-06",
+      "decision": "run",
+      "reason": "新增商品备注 POST HTTP 入口，命中外部入口变化"
+    },
+    {
+      "id": "CASE-07",
+      "decision": "run",
+      "reason": "新增 Kafka 消费入口并异步推进库存预留与订单标记"
+    },
+    {
+      "id": "CASE-08",
+      "decision": "run",
+      "reason": "新增定时调度入口，并增加 PENDING 到 EXPIRED 的状态流转"
+    },
+    {
+      "id": "CASE-09",
+      "decision": "run",
+      "reason": "新增物流 HTTP 回调入口，并由回调推进 IN_TRANSIT 到 DELIVERED"
+    },
+    {
+      "id": "CASE-10",
+      "decision": "run",
+      "reason": "新增 MQ 异步风控阶段及 RISK_PENDING 中间状态和分支终态"
+    }
+  ]
+}

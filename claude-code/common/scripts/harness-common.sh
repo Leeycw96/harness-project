@@ -144,7 +144,7 @@ record_call_chain_prefilter() {
     --arg reason "$reason" \
     --arg ts "$ts" \
     '.call_chain.prefilter = {
-      mode: "shadow",
+      mode: (.call_chain.prefilter.mode // "on-demand"),
       decision: $decision,
       reason: $reason,
       agent_decision: null,
@@ -153,6 +153,67 @@ record_call_chain_prefilter() {
       evaluated_at: $ts,
       compared_at: null
     }'
+}
+
+record_call_chain_skip() {
+  local ts
+  ts="$(date +%FT%T%z)"
+  _harness_state_jq \
+    --arg ts "$ts" \
+    'if (.call_chain.prefilter.mode // "") != "on-demand" then
+      error("只有 on-demand 模式可以跳过 CallChain")
+    elif (.call_chain.prefilter.decision // "") != "noop" then
+      error("只有 prefilter=noop 才能跳过 CallChain")
+    else
+      .call_chain.status = "skipped"
+      | .call_chain.action = "noop"
+      | .call_chain.artifact = null
+      | .call_chain.commit = null
+      | .call_chain.prefilter.agent_decision = "skipped"
+      | .call_chain.prefilter.agreement = null
+      | .call_chain.prefilter.safe = null
+      | .call_chain.prefilter.compared_at = $ts
+      | .phase = "DONE"
+      | .next_action = null
+    end'
+}
+
+record_call_chain_result() {
+  local agent_decision="$1" commit="${2:-}" artifact ts
+  case "$agent_decision" in
+    noop|updated) ;;
+    *)
+      echo "错误: CallChain agent decision 必须是 noop 或 updated" >&2
+      return 2
+      ;;
+  esac
+  if [ "$agent_decision" = "updated" ] && [[ ! "$commit" =~ ^[0-9a-f]{7,64}$ ]]; then
+    echo "错误: CallChain UPDATED 必须记录 commit sha" >&2
+    return 2
+  fi
+  artifact="$(_harness_profile_value '.artifacts.call_chain_review')" || return 1
+  ts="$(date +%FT%T%z)"
+  _harness_state_jq \
+    --arg agent_decision "$agent_decision" \
+    --arg artifact "$artifact" \
+    --arg commit "$commit" \
+    --arg ts "$ts" \
+    'if (.call_chain.prefilter.mode // "") != "on-demand" then
+      error("on-demand CallChain 结果不能写入其他模式")
+    elif (.call_chain.prefilter.decision // "") != "run" then
+      error("只有 prefilter=run 才能记录 CallChain Agent 结果")
+    else
+      .call_chain.status = "completed"
+      | .call_chain.action = $agent_decision
+      | .call_chain.artifact = $artifact
+      | .call_chain.commit = (if $commit == "" then null else $commit end)
+      | .call_chain.prefilter.agent_decision = $agent_decision
+      | .call_chain.prefilter.agreement = ($agent_decision == "updated")
+      | .call_chain.prefilter.safe = true
+      | .call_chain.prefilter.compared_at = $ts
+      | .phase = "DONE"
+      | .next_action = null
+    end'
 }
 
 record_call_chain_shadow_result() {
