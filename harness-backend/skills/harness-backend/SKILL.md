@@ -19,6 +19,8 @@ HARNESS_PROFILE=$(init_harness_run "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/pl
 export HARNESS_PROFILE
 ```
 
+`HARNESS_PROFILE` 是兼容变量名，新 run 指向唯一的 `state.json`。
+
 Preflight 通过后进入 `SCOPE_BUILD`。
 
 ## 状态机

@@ -18,7 +18,7 @@ mkdir -p "$HARNESS_OUTPUT_DIR"
 ```
 
 2. 从用户输入、路径或 `.harness/plans/` 取得 plan，复制到 `${HARNESS_OUTPUT_DIR}/plan.md`。
-3. 调用当前模式的初始化函数并导出 `HARNESS_PROFILE`。
+3. 调用当前模式的初始化函数，返回唯一 `state.json` 路径并导出兼容变量 `HARNESS_PROFILE`。
 4. 读取项目根 `AGENTS.md`，不存在时读 `CLAUDE.md`。
 
 ## Preflight
@@ -34,7 +34,7 @@ mvn test-compile -q
 
 ## 调度
 
-每个 Agent prompt 只需给出：`HARNESS_PROFILE` 绝对路径、阶段、输入、输出、完成 tag。Agent 必须重新读取 profile/state 和指定 artifact，写 progress，完成一个阶段后返回，不与其他 Agent 通信。
+每个 Agent prompt 只需给出：`HARNESS_PROFILE` 绝对路径、阶段、输入、输出、完成 tag。新 run 直接从该 `state.json` 恢复；旧 run 若路径为 `profile.json`，再读取同目录 `state.json`。Agent 写 progress，完成一个阶段后返回，不与其他 Agent 通信。
 
 主会话收到结果后依次校验完成 tag、artifact 和 git commit，再更新 `state.json`。每个阶段使用新 Agent 执行；完成后结束当前执行。并行阶段哪个先完成就先校验。
 

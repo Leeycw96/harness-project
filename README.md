@@ -151,7 +151,6 @@ run 目录最小结构:
 ```text
 .harness/iterations/<branch>/run-N/
   plan.md
-  profile.json
   state.json
   build-scope.md
   scope-review.md
@@ -167,12 +166,13 @@ fast run 最小结构:
 ```text
 .harness/iterations/<branch>/run-N/
   plan.md
-  profile.json
   state.json
   code-review.md
   fix-brief.md
   progress/
 ```
+
+新 run 的静态契约和运行状态统一保存在 `state.json`；`HARNESS_PROFILE` 仅作为兼容变量名保留。升级前已经开始的 `profile.json + state.json` run 仍可恢复。
 
 ## 开发与验证
 

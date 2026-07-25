@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Harness Claude Code common helpers.
-# Disk contract: profile.json + state.json + progress/. No tmux, signals, or conversation logs.
+# Disk contract: state.json + progress/. HARNESS_PROFILE is the compatible state path variable.
 
 SCRIPT_PATH="${BASH_SOURCE[0]-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 PROJECT_DIR="${PROJECT_DIR:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
 
-HARNESS_PROFILE="${HARNESS_PROFILE:-$PROJECT_DIR/.harness/profile.json}"
+HARNESS_PROFILE="${HARNESS_PROFILE:-$PROJECT_DIR/.harness/state.json}"
 
 _harness_require_jq() {
   if ! command -v jq >/dev/null 2>&1; then
@@ -31,6 +31,12 @@ harness_output_dir() {
 
 harness_state_file() {
   local output_dir
+  case "$HARNESS_PROFILE" in
+    state.json|*/state.json)
+      printf '%s\n' "$HARNESS_PROFILE"
+      return
+      ;;
+  esac
   output_dir="$(harness_output_dir)" || return 1
   [ -n "$output_dir" ] || return 1
   printf '%s/state.json\n' "$output_dir"
@@ -174,7 +180,7 @@ record_call_chain_skip() {
       | .call_chain.prefilter.safe = null
       | .call_chain.prefilter.compared_at = $ts
       | .phase = "DONE"
-      | .next_action = null
+      | del(.next_action)
     end'
 }
 
@@ -212,7 +218,7 @@ record_call_chain_result() {
       | .call_chain.prefilter.safe = true
       | .call_chain.prefilter.compared_at = $ts
       | .phase = "DONE"
-      | .next_action = null
+      | del(.next_action)
     end'
 }
 

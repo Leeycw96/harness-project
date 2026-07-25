@@ -54,7 +54,6 @@ init_harness_run() {
   plan_path="$(_abs_path "$plan_path")"
   mkdir -p "$output_dir/progress"
 
-  local profile_file="$output_dir/profile.json"
   local state_file="$output_dir/state.json"
 
   jq -n \
@@ -63,6 +62,7 @@ init_harness_run() {
     --arg plan_path "$plan_path" \
     '{
       runtime: "codex-app",
+      mode: "full",
       project_dir: $project_dir,
       output_dir: $output_dir,
       plan_path: $plan_path,
@@ -82,50 +82,16 @@ init_harness_run() {
         call_chain: ($output_dir + "/progress/call-chain.md"),
         events: ($output_dir + "/progress/events.tsv")
       },
-      agents: {
-        "harness-builder": {
-          config: ".codex/agents/harness-builder.toml",
-          role_doc: ".codex/agents/harness-builder.md"
-        },
-        "harness-qa": {
-          config: ".codex/agents/harness-qa.toml",
-          role_doc: ".codex/agents/harness-qa.md"
-        },
-        "harness-code-review": {
-          config: ".codex/agents/harness-code-review.toml",
-          role_doc: ".codex/agents/harness-code-review.md"
-        },
-        "harness-call-chain": {
-          config: ".codex/agents/harness-call-chain.toml",
-          role_doc: ".codex/agents/harness-call-chain.md"
-        }
-      },
       thresholds: {
         short_stage_no_progress_seconds: 300,
         long_stage_no_progress_seconds: 900
-      },
-      lifecycle: {
-        reuse_subagents_across_stages: false,
-        close_agent_after_stage: true,
-        close_parallel_agent_when_done: true,
-        close_stalled_agent_before_replacement: true
       },
       limits: {
         scope_attempts: 3,
         fix_rounds: 3,
         stage_recoveries: 2
-      }
-    }' > "$profile_file"
-
-  jq -n \
-    --arg profile_path "$profile_file" \
-    --arg output_dir "$output_dir" \
-    --arg plan_path "$plan_path" \
-    '{
+      },
       phase: "INIT",
-      profile_path: $profile_path,
-      output_dir: $output_dir,
-      plan_path: $plan_path,
       preflight: {
         main_compile: { status: "pending", summary: [] },
         test_compile: { status: "pending", summary: [], user_decision: null }
@@ -157,14 +123,12 @@ init_harness_run() {
         }
       },
       fix_round: 0,
-      retries: {},
-      events: [],
-      next_action: "PREFLIGHT"
+      retries: {}
     }' > "$state_file"
 
   : > "$output_dir/progress/events.tsv"
-  export HARNESS_PROFILE="$profile_file"
-  printf '%s\n' "$profile_file"
+  export HARNESS_PROFILE="$state_file"
+  printf '%s\n' "$state_file"
 }
 
 init_harness_fast_run() {
@@ -179,7 +143,6 @@ init_harness_fast_run() {
   plan_path="$(_abs_path "$plan_path")"
   mkdir -p "$output_dir/progress"
 
-  local profile_file="$output_dir/profile.json"
   local state_file="$output_dir/state.json"
 
   jq -n \
@@ -202,42 +165,15 @@ init_harness_fast_run() {
         code_review: ($output_dir + "/progress/code-review.md"),
         events: ($output_dir + "/progress/events.tsv")
       },
-      agents: {
-        "harness-builder": {
-          config: ".codex/agents/harness-builder.toml",
-          role_doc: ".codex/agents/harness-builder.md"
-        },
-        "harness-code-review": {
-          config: ".codex/agents/harness-code-review.toml",
-          role_doc: ".codex/agents/harness-code-review.md"
-        }
-      },
       thresholds: {
         short_stage_no_progress_seconds: 300,
         long_stage_no_progress_seconds: 900
       },
-      lifecycle: {
-        reuse_subagents_across_stages: false,
-        close_agent_after_stage: true,
-        close_parallel_agent_when_done: true,
-        close_stalled_agent_before_replacement: true
-      },
       limits: {
         fix_rounds: 3,
         stage_recoveries: 2
-      }
-    }' > "$profile_file"
-
-  jq -n \
-    --arg profile_path "$profile_file" \
-    --arg output_dir "$output_dir" \
-    --arg plan_path "$plan_path" \
-    '{
+      },
       phase: "INIT",
-      mode: "fast",
-      profile_path: $profile_path,
-      output_dir: $output_dir,
-      plan_path: $plan_path,
       preflight: {
         main_compile: { status: "pending", summary: [] },
         test_compile: { status: "pending", summary: [], user_decision: null }
@@ -254,14 +190,12 @@ init_harness_fast_run() {
         skipped: ["qa", "scope-review", "call-chain"]
       },
       fix_round: 0,
-      retries: {},
-      events: [],
-      next_action: "PREFLIGHT"
+      retries: {}
     }' > "$state_file"
 
   : > "$output_dir/progress/events.tsv"
-  export HARNESS_PROFILE="$profile_file"
-  printf '%s\n' "$profile_file"
+  export HARNESS_PROFILE="$state_file"
+  printf '%s\n' "$state_file"
 }
 
 source "$SCRIPT_DIR/harness-common.sh"

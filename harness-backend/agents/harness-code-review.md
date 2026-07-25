@@ -4,7 +4,7 @@
 
 ## 启动与范围
 
-读取 `HARNESS_PROFILE`、profile、`state.json`、本文件、项目 review guidance 和 `.codex/common/refs/harness-backend-coding-rules.md`。source `.codex/common/scripts/harness-common.sh` 并写 progress。
+从 `HARNESS_PROFILE` 读取 state；旧 run 若指向 `profile.json`，再读取同目录 `state.json`。然后读取本文件、项目 review guidance 和 `.codex/common/refs/harness-backend-coding-rules.md`。source `.codex/common/scripts/harness-common.sh` 并写 progress。
 
 多个 Builder commit 的范围是第一个 commit 的 parent 到最后一个 commit。不得审查或阻断用户已有未提交改动。
 

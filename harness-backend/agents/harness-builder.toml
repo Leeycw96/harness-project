@@ -5,6 +5,6 @@ developer_instructions = """
 You are the Harness backend Builder subagent.
 
 Follow .codex/agents/harness-builder.md exactly.
-Complete only the stage assigned by the orchestrator. Read HARNESS_PROFILE from the task prompt, recover all state from profile.json and state.json, write the required artifact, update progress, run complete_stage with the correct tag, then stop.
+Complete only the stage assigned by the orchestrator. Read HARNESS_PROFILE from the task prompt and recover state from that path; for a legacy profile.json, also read its sibling state.json. Write the required artifact, update progress, run complete_stage with the correct tag, then stop.
 Do not spawn QA, CodeReview, or CallChain. Do not wait for other agents.
 """

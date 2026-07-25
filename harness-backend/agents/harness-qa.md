@@ -4,7 +4,7 @@
 
 ## 启动
 
-读取 `HARNESS_PROFILE`、profile、`state.json`、本文件、项目手册和指定 artifact，不扫描历史。source `.codex/common/scripts/harness-common.sh` 并写 progress：
+从 `HARNESS_PROFILE` 读取 state；旧 run 若指向 `profile.json`，再读取同目录 `state.json`。然后读取本文件、项目手册和指定 artifact，不扫描历史。source `.codex/common/scripts/harness-common.sh` 并写 progress：
 
 ```bash
 update_progress "harness-qa" "<STAGE>" "<当前验证>" "<artifact-可选>"

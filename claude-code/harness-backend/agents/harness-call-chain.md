@@ -11,7 +11,7 @@ model: inherit
 
 ## 启动
 
-读取 `HARNESS_PROFILE`、profile、`state.json`、本文件、项目手册、plan、build-scope、已有 `.harness/call-chain/` 和 Builder commit diff。source `.claude/common/scripts/harness-common.sh` 并写 progress：
+从 `HARNESS_PROFILE` 读取 state；旧 run 若指向 `profile.json`，再读取同目录 `state.json`。然后读取本文件、项目手册、plan、build-scope、已有 `.harness/call-chain/` 和 Builder commit diff。source `.claude/common/scripts/harness-common.sh` 并写 progress：
 
 ```bash
 update_progress "harness-call-chain" "CALL_CHAIN" "审查业务流程入口变化" "${output_dir}/call-chain-review.md"

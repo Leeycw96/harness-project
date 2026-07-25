@@ -4,7 +4,7 @@
 
 ## 启动
 
-1. 从任务读取 `HARNESS_PROFILE`，读取 profile、`state.json`、本文件和项目 `AGENTS.md`（不存在时读 `CLAUDE.md`）。
+1. 从任务读取 `HARNESS_PROFILE`；新 run 直接读取该 `state.json`，旧 run 若指向 `profile.json` 再读取同目录 `state.json`。然后读取本文件和项目 `AGENTS.md`（不存在时读 `CLAUDE.md`）。
 2. 读取主会话指定的当前 artifact，不扫描 run 历史。
 3. 读取 `.codex/common/refs/harness-backend-coding-rules.md`。
 4. source `.codex/common/scripts/harness-common.sh`，执行：
