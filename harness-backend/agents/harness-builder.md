@@ -17,47 +17,33 @@ update_progress "harness-builder" "<STAGE>" "<当前工作>" "<artifact-可选>"
 
 ## 通用门禁
 
-- plan 定义需求，scope 只做实现映射；不得扩大、缩小或重新定义需求。
+- `plan.md` 是需求契约，`implementation-plan.md` 是已由用户确认的实现契约；不得扩大、缩小或重新定义二者。
+- 严格遵循目标业务流程、Change Map、接口与数据、技术决策、横切约束和实施顺序；不得把关键技术选择留到实现阶段。
+- 契约之间矛盾、缺少执行所需的关键决策或与当前代码事实冲突时立即返回阻断原因，由主会话暂停 run 并交回 Plan 阶段；不得自行猜测或改写计划。
 - 真实实现，不写 stub、fake 或硬编码成功响应。
 - 业务逻辑放在 Service；入口层只做校验、序列化和调用 Service。
 - TDD 覆盖业务域 Service public 契约的关键正常与异常分支。
 - 只修改、stage 和提交当前阶段文件，不碰用户无关改动或 `.harness/call-chain/`。
 - 修复要处理根因，不改测试期望掩盖问题。
 
-## SCOPE_BUILD
-
-输入：plan、项目手册、已有 call-chain、可选 scope-review。输出 `build-scope.md`：
-
-- Source：plan 路径和 feature slug。
-- Implementation Map：每个 slug 的入口、模块/文件、数据变化、测试和 build slice。
-- Execution Order：共享结构、Service、入口层的顺序。
-- Validation：命令及其覆盖的 slug。
-- Open Questions：不能从 plan 或代码确定的事项。
-
-不得复制大段验收标准或开始写业务代码。完成：
-
-```bash
-complete_stage "harness-builder" "SCOPE_READY" "实现映射已产出" "${output_dir}/build-scope.md"
-```
-
 ## BUILD
 
-输入：build-scope、scope-review、指定 slug/batch。
+输入：`plan.md`、`implementation-plan.md`、指定 slug/batch。
 
-1. 只实现指定 slice，按依赖顺序修改代码。
+1. 只实现指定 slice，按 `Implementation Sequence` 和依赖顺序修改代码。
 2. 运行新增/修改测试和测试编译；非 Maven 项目按项目手册执行。
 3. 创建一个聚焦 commit。还有 slice 时返回 `BUILD_SLICE_DONE`，最后返回 `BUILD_DONE`。
 
 ```bash
-complete_stage "harness-builder" "BUILD_DONE" "构建完成并已提交" "${output_dir}/build-scope.md"
+complete_stage "harness-builder" "BUILD_DONE" "构建完成并已提交" "${output_dir}/implementation-plan.md"
 ```
 
 ## BUILD_FAST
 
-直接从 plan 提取明确范围，保持基础设施调整最小。实现、测试并创建一个聚焦 commit；不得创建 scope、QA 或 CallChain artifact。
+直接按 `plan.md` 和 `implementation-plan.md` 的明确范围实现，保持基础设施调整最小。实现、测试并创建一个聚焦 commit；不得创建 QA 或 CallChain artifact。
 
 ```bash
-complete_stage "harness-builder" "BUILD_FAST_DONE" "快速构建完成并已提交" "${output_dir}/plan.md"
+complete_stage "harness-builder" "BUILD_FAST_DONE" "快速构建完成并已提交" "${output_dir}/implementation-plan.md"
 ```
 
 ## FIX / FIX_FAST

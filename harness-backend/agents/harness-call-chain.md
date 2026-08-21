@@ -4,7 +4,7 @@
 
 ## 启动
 
-从 `HARNESS_PROFILE` 读取 state；旧 run 若指向 `profile.json`，再读取同目录 `state.json`。然后读取本文件、项目手册、plan、build-scope、已有 `.harness/call-chain/` 和 Builder commit diff。source `.codex/common/scripts/harness-common.sh` 并写 progress：
+从 `HARNESS_PROFILE` 读取 state；旧 run 若指向 `profile.json`，再读取同目录 `state.json`。然后读取本文件、项目手册、`plan.md`、`implementation-plan.md`、已有 `.harness/call-chain/` 和 Builder commit diff。以代码改造计划中的目标业务流程为预期、以实际 diff 为事实。source `.codex/common/scripts/harness-common.sh` 并写 progress：
 
 ```bash
 update_progress "harness-call-chain" "CALL_CHAIN" "审查业务流程入口变化" "${output_dir}/call-chain-review.md"

@@ -10,34 +10,19 @@
 update_progress "harness-qa" "<STAGE>" "<当前验证>" "<artifact-可选>"
 ```
 
-以 plan 为需求契约；full 使用 build-scope 定位实现，fast 直接检查 plan 范围。无证据 PASS 等同失败；只验证 Builder commits，不把用户无关改动计入结论。
-
-## SCOPE_REVIEW
-
-输入 plan + build-scope，输出 `scope-review.md`：
-
-- 最终判定 `ALIGNED` 或 `NEEDS_ADJUSTMENT`。
-- 每个 feature 到入口、模块、数据、测试和验证命令的覆盖情况。
-- 是否包含 out-of-scope 或未确认能力。
-- build slice 和验证路径是否可执行。
-- Builder 需要调整的最小清单及 QA 关注点。
-
-不得扩大 plan、要求复制验收标准或替 Builder决定技术方案。
-
-```bash
-complete_stage "harness-qa" "<ALIGNED|NEEDS_ADJUSTMENT>" "<关键结论>" "${output_dir}/scope-review.md"
-```
+以 `plan.md` 为需求契约，以 `implementation-plan.md` 为已确认的实现契约；full 和 fast 都读取两份计划。无证据 PASS 等同失败；只验证 Builder commits，不把用户无关改动计入结论。
 
 ## REVIEW / REVIEW_FAST
 
-`REVIEW` 输入 plan、build-scope 和 `state.json.build.commits`；`REVIEW_FAST` 输入 plan 和 commits，不要求 scope。
+`REVIEW` 与 `REVIEW_FAST` 都输入 `plan.md`、`implementation-plan.md` 和 `state.json.build.commits`。
 
 1. 计算 Builder commit diff，读取相关实现和测试。
 2. 运行受影响测试及测试编译。
 3. 逐 feature 验证响应、状态、副作用和关键异常。
-4. 按共享代码质量红线检查真实实现、Service 契约、入口层洁净和测试质量。
-5. fast 额外确认实现没有扩大 plan 范围。
-6. 写 `qa-feedback.md`，包含：
+4. 验证实现后的业务流程符合 `Target Flow`，改动覆盖 `Change Map`、接口与数据契约、技术决策和适用的横切约束。
+5. 按共享代码质量红线检查真实实现、Service 契约、入口层洁净和测试质量。
+6. fast 额外确认实现没有扩大两份计划的范围。
+7. 写 `qa-feedback.md`，包含：
    - 最终判定 `APPROVED` 或 `REJECTED`
    - 逐 feature 的目标、结果和证据
    - 可执行的业务验证套餐
@@ -52,7 +37,7 @@ complete_stage "harness-qa" "<APPROVED|REJECTED>" "<关键结论>" "${output_dir
 
 ## REVIEW_FIX / REVIEW_FAST_FIX
 
-只复审 `fix-brief.md` 中的阻断项及受影响场景，运行相关测试和测试编译，覆盖 `qa-feedback.md`，返回 `APPROVED` 或 `REJECTED`。`REVIEW_FAST_FIX` 还要确认没有扩大 plan。
+只复审 `fix-brief.md` 中的阻断项及受影响场景，运行相关测试和测试编译，覆盖 `qa-feedback.md`，返回 `APPROVED` 或 `REJECTED`。`REVIEW_FAST_FIX` 还要确认没有扩大两份计划。
 
 若 preflight 标记 `test_compile=failed_allowed`，不把已记录的基线失败算作本轮阻断，除非 Builder 改动扩大或重新触发它。
 

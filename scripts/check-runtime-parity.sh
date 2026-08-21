@@ -40,9 +40,6 @@ compare_pair() {
   fi
 }
 
-compare_pair "plan" \
-  "harness-plan/skills/harness-plan/SKILL.md" \
-  "claude-code/harness-plan/skills/harness-plan/SKILL.md"
 compare_pair "coding-rules" \
   "common/refs/harness-backend-coding-rules.md" \
   "claude-code/common/refs/harness-backend-coding-rules.md" \
@@ -69,6 +66,26 @@ for retained in \
   fi
 done
 
+if [ ! -f "$repo_root/harness-plan/skills/harness-plan/assets/implementation-plan-template.md" ]; then
+  echo "Codex App 代码改造计划模板缺失" >&2
+  exit 1
+fi
+if [ -e "$repo_root/claude-code/harness-plan/skills/harness-plan/assets/implementation-plan-template.md" ]; then
+  echo "Claude Code runtime 不应包含 Codex App 代码改造计划模板" >&2
+  exit 1
+fi
+
+if rg -n -i \
+  'build-scope|scope.review|scope_review|build_scope|SCOPE_BUILD|SCOPE_REVIEW|scope_attempt' \
+  "$repo_root/harness-plan" "$repo_root/harness-backend" "$repo_root/common"; then
+  echo "Codex App runtime 仍含 build-scope 活跃引用" >&2
+  exit 1
+fi
+if ! rg -q 'SCOPE_BUILD|build-scope' "$repo_root/claude-code/harness-backend"; then
+  echo "Claude Code runtime 的 build-scope 流程被意外移除" >&2
+  exit 1
+fi
+
 if rg -n \
   'harness-code-review|code-review\.md|review\.code_review|CODE_REVIEW' \
   "$repo_root/harness-backend" "$repo_root/common" \
@@ -77,31 +94,32 @@ if rg -n \
   exit 1
 fi
 
-if ! rg -q '恢复旧 CodeReview run' \
-  "$repo_root/common/refs/harness-backend-orchestration.md"; then
-  echo "Codex App 缺少旧 CodeReview run 恢复说明" >&2
-  exit 1
-fi
-
 runtime_dir="$work_dir/runtime"
 mkdir -p "$runtime_dir"
-touch "$runtime_dir/plan.md"
+touch "$runtime_dir/plan.md" "$runtime_dir/implementation-plan.md"
 (
   export PROJECT_DIR="$runtime_dir"
   source "$repo_root/common/scripts/harness-init.sh"
-  full_state="$(init_harness_run "$runtime_dir/full" "$runtime_dir/plan.md")"
-  fast_state="$(init_harness_fast_run "$runtime_dir/fast" "$runtime_dir/plan.md")"
+  full_state="$(init_harness_run "$runtime_dir/full" "$runtime_dir/plan.md" "$runtime_dir/implementation-plan.md")"
+  fast_state="$(init_harness_fast_run "$runtime_dir/fast" "$runtime_dir/plan.md" "$runtime_dir/implementation-plan.md")"
   jq -e '
     .artifacts.code_review == null
+    and .artifacts.build_scope == null
+    and .artifacts.scope_review == null
     and .artifacts.qa_feedback != null
+    and .implementation_plan_path != null
+    and .scope_attempt == null
+    and .limits.scope_attempts == null
     and (.review | keys == ["qa"])
   ' "$full_state" >/dev/null
   jq -e '
     .artifacts.code_review == null
     and .artifacts.qa_feedback != null
+    and .implementation_plan_path != null
     and (.review | keys == ["qa"])
     and (.fast.skipped | index("qa") | not)
+    and (.fast.skipped | index("scope-review") | not)
   ' "$fast_state" >/dev/null
 )
 
-echo "共享语义及 Codex/Claude CodeReview 有意分叉检查通过。"
+echo "共享编码规则及 Codex/Claude 计划、build-scope、CodeReview 有意分叉检查通过。"

@@ -37,8 +37,6 @@ check_reduction() {
   echo "$component: ${actual_percent}% reduction"
 }
 
-check_reduction "codex-plan-skill" \
-  "$(file_chars "$repo_root/harness-plan/skills/harness-plan/SKILL.md")" 40
 check_reduction "codex-full-effective-input" \
   "$(sum_chars \
     "$repo_root/harness-backend/skills/harness-backend/SKILL.md" \

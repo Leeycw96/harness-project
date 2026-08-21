@@ -208,7 +208,11 @@ count="$(wc -l < "$manifest_file" | tr -d ' ')"
 echo ""
 echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
 echo "在目标项目的 ${runtime_label} 中可使用:"
-echo "  /harness-plan       生成 XML plan 文件"
+if [ "$runtime" = "codex" ]; then
+  echo "  /harness-plan       生成 XML 需求计划和 Markdown 代码改造计划"
+else
+  echo "  /harness-plan       生成 XML plan 文件"
+fi
 if [ "$mode" = "backend" ]; then
   if [ "$runtime" = "codex" ]; then
     echo "  /harness-backend-fast 默认推荐路径,小中型改动只运行 Builder 和 QA"

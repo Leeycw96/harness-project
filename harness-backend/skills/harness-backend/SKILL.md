@@ -12,42 +12,28 @@ user-invocable: true
 
 ## 初始化
 
-按共享契约创建 run，将输入保存为 `plan.md`，调用：
+按共享契约读取需求计划中声明的代码改造计划，将两份输入分别保存为 `plan.md` 和 `implementation-plan.md`，调用：
 
 ```bash
-HARNESS_PROFILE=$(init_harness_run "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/plan.md")
+HARNESS_PROFILE=$(init_harness_run "$HARNESS_OUTPUT_DIR" "$HARNESS_OUTPUT_DIR/plan.md" "$HARNESS_OUTPUT_DIR/implementation-plan.md")
 export HARNESS_PROFILE
 ```
 
 `HARNESS_PROFILE` 是兼容变量名，新 run 指向唯一的 `state.json`。
 
-Preflight 通过后进入 `SCOPE_BUILD`。
+两份计划均存在、没有待确认事项且 Preflight 通过后，直接进入 `BUILD`。缺少代码改造计划时停止，并要求重新运行 `/harness-plan`。
 
 ## 状态机
 
-### SCOPE_BUILD
-
-调度 `harness-builder`，输入 plan、项目手册和已有 call-chain，输出 `build-scope.md`，tag `SCOPE_READY`。scope 必须把每个 feature 映射到入口、模块/文件、数据、测试、slice 和验证命令；不得复制或改写需求。
-
-校验通过后进入 `SCOPE_REVIEW`。
-
-### SCOPE_REVIEW
-
-调度 `harness-qa`，输入 plan + build-scope，输出 `scope-review.md`，tag `ALIGNED` 或 `NEEDS_ADJUSTMENT`。
-
-- `ALIGNED`：进入 `BUILD`。
-- `NEEDS_ADJUSTMENT`：把最小问题清单交回新 Builder 覆盖 scope。
-- 最多 3 次，仍不对齐则 `PAUSED`。
-
 ### BUILD
 
-按 scope 将小需求一次完成，大需求按一个或少量强相关 slug 切片。每片调度新 `harness-builder`，输入 scope、最新 scope-review 和指定 slug，tag `BUILD_SLICE_DONE` 或 `BUILD_DONE`。
+按已确认的代码改造计划，将小需求一次完成，大需求依据 `Implementation Sequence` 按一个或少量强相关 slug 切片。每片调度新 `harness-builder`，输入需求计划、代码改造计划和指定 slug，tag `BUILD_SLICE_DONE` 或 `BUILD_DONE`。Builder 不得重新选择技术方案或改变目标业务流程；发现契约矛盾、遗漏关键决策或按现状无法执行时，停止并将 run 置为 `PAUSED`，交回 Plan 阶段确认。
 
 每片返回后只记录新增 commit。最后一片必须完成相关测试和测试编译；全部完成后进入 `REVIEW`。
 
 ### REVIEW
 
-调度 `harness-qa`，按 plan、scope 和共享代码质量红线验证 Builder commits，运行相关测试，输出 `qa-feedback.md`，tag `APPROVED` 或 `REJECTED`。
+调度 `harness-qa`，按需求计划、代码改造计划和共享代码质量红线验证 Builder commits，运行相关测试，输出 `qa-feedback.md`，tag `APPROVED` 或 `REJECTED`。
 
 通过则进入 `CALL_CHAIN_PREFILTER`；阻断项写入 `fix-brief.md`，进入 `FIX`。
 
@@ -75,7 +61,7 @@ record_call_chain_prefilter "<noop|run>" "<判定证据>"
 
 ### CALL_CHAIN
 
-仅在 prefilter 为 `run` 或恢复旧 shadow run 时调度 `harness-call-chain`。Agent 只审本轮 Builder commits 和已有 `.harness/call-chain/`，输出 `call-chain-review.md`：
+仅在 prefilter 为 `run` 或恢复旧 shadow run 时调度 `harness-call-chain`。Agent 依据代码改造计划，只审本轮 Builder commits 和已有 `.harness/call-chain/`，输出 `call-chain-review.md`：
 
 - `CALL_CHAIN_NOOP`：执行 `record_call_chain_result noop`。
 - `CALL_CHAIN_UPDATED`：只更新 call-chain 文件并创建独立 docs commit，再执行 `record_call_chain_result updated "<commit-sha>"`。

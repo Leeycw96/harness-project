@@ -124,7 +124,7 @@ harness backend --claude-code /path/to/your/project
 
 ## 使用
 
-1. 运行 `/harness-plan` 通过对话生成 `.harness/plans/<name>.md` XML plan。
+1. 在 Codex App 运行 `/harness-plan`，通过对话生成相互关联的 `.harness/plans/<name>.md` XML 需求计划和 `.harness/plans/<name>-implementation.md` Markdown 代码改造计划。
 2. 日常小中型改动优先运行 `/harness-backend-fast <plan-path>`。
 3. 高风险改动再运行 `/harness-backend <plan-path>` 走完整验收。
 
@@ -132,13 +132,15 @@ harness backend --claude-code /path/to/your/project
 /harness-backend-fast <plan-path>
 ```
 
-Codex App 的 fast run 只调度 Builder 和 QA，不运行 Scope Review 或 CallChain，是默认推荐路径，适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。QA 按 plan、Builder commits 和共享代码质量红线验收。
+Codex App 的 Plan 阶段会先读取相关 CallChain 和实际代码，确认当前流程、目标流程、修改地图与关键技术决策。项目内部调研始终执行；只有在缺少既定方案且技术选型会显著影响实现时，才先征得用户同意后进行外部调研。选型未确认时暂停，不把决策留给 Builder。
+
+Codex App 的 fast run 只调度 Builder 和 QA，不运行 CallChain，是默认推荐路径，适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。Builder 与 QA 均消费两份已确认计划，QA 同时验证目标业务流程、修改边界和共享代码质量红线。
 
 ```text
 /harness-backend <plan-path>
 ```
 
-Codex App 的 backend run 会调度 Builder 生成 scope、由 QA 审 scope、由 Builder 构建，再由 QA 验收，最后维护 CallChain。复杂业务流程、数据库迁移、权限审计、事务/并发、跨模块状态流转等高风险改动使用它。
+Codex App 的 backend run 在 Preflight 后直接由 Builder 按代码改造计划构建，再由 QA 验收，最后按需维护 CallChain。复杂业务流程、数据库迁移、权限审计、事务/并发、跨模块状态流转等高风险改动使用它。Codex App 不再生成或审查 build-scope；方案和边界必须在 Plan 阶段完成确认。
 
 Claude Code runtime 保持原流程：fast 使用 Builder + CodeReview，full 使用 QA + CodeReview 双门禁。
 
@@ -151,9 +153,8 @@ run 目录最小结构:
 ```text
 .harness/iterations/<branch>/run-N/
   plan.md
+  implementation-plan.md
   state.json
-  build-scope.md
-  scope-review.md
   qa-feedback.md
   fix-brief.md
   call-chain-review.md
@@ -165,13 +166,14 @@ fast run 最小结构:
 ```text
 .harness/iterations/<branch>/run-N/
   plan.md
+  implementation-plan.md
   state.json
   qa-feedback.md
   fix-brief.md
   progress.tsv
 ```
 
-新 run 的静态契约和运行状态统一保存在 `state.json`，所有 Agent 心跳追加到 `progress.tsv`；`HARNESS_PROFILE` 仅作为兼容变量名保留。Codex App 升级前已进入 CodeReview 阶段的 run 会映射到对应 QA 阶段恢复，旧 `code-review.md` 不再参与门禁。
+新 run 的静态契约和运行状态统一保存在 `state.json`，其中同时记录 `plan_path` 和 `implementation_plan_path`；所有 Agent 心跳追加到 `progress.tsv`。缺少代码改造计划的旧 run 不兼容本流程，需要重新运行 `/harness-plan`。
 
 ## 开发与验证
 
@@ -181,6 +183,7 @@ fast run 最小结构:
 bash -n bin/harness
 find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;
 scripts/check-runtime-parity.sh
+scripts/check-planning-contract.sh
 scripts/harness-metrics.sh
 scripts/check-slimming-targets.sh
 scripts/check-call-chain-controlled-eval.sh

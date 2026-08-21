@@ -33,6 +33,7 @@ measure_sum() {
 
 printf 'component\tlines\tchars\n'
 measure_file "codex-plan-skill" "harness-plan/skills/harness-plan/SKILL.md"
+measure_file "codex-implementation-plan-template" "harness-plan/skills/harness-plan/assets/implementation-plan-template.md"
 measure_file "codex-orchestration-contract" "common/refs/harness-backend-orchestration.md"
 measure_file "codex-full-skill" "harness-backend/skills/harness-backend/SKILL.md"
 measure_sum "codex-full-effective-input" \
