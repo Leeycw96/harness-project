@@ -1,6 +1,6 @@
 # Harness
 
-Harness 是一组面向 Codex App 和 Claude Code 的 skills + agent 手册,用于通过主会话编排 Builder、QA、CodeReview、CallChain 等 subagents 完成长任务后端构建。
+Harness 是一组面向 Codex App 和 Claude Code 的 skills + agent 手册,用于通过主会话编排 Builder、QA、CallChain 等 subagents 完成长任务后端构建。Claude Code runtime 仍保留独立 CodeReview。
 
 当前维护两套 runtime:
 
@@ -96,8 +96,6 @@ harness backend --claude-code /path/to/your/project
 │   ├── harness-builder.toml
 │   ├── harness-qa.md
 │   ├── harness-qa.toml
-│   ├── harness-code-review.md
-│   ├── harness-code-review.toml
 │   ├── harness-call-chain.md
 │   └── harness-call-chain.toml
 └── .harness/
@@ -134,13 +132,15 @@ harness backend --claude-code /path/to/your/project
 /harness-backend-fast <plan-path>
 ```
 
-fast run 只调度 Builder 和 CodeReview,不运行 QA、Scope Review 或 CallChain,是默认推荐路径,适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。
+Codex App 的 fast run 只调度 Builder 和 QA，不运行 Scope Review 或 CallChain，是默认推荐路径，适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。QA 按 plan、Builder commits 和共享代码质量红线验收。
 
 ```text
 /harness-backend <plan-path>
 ```
 
-backend run 会调度 Builder 生成 scope,调度 QA 审 scope,调度 Builder 构建,再并行调度 QA 和 CodeReview 验收,最后维护 CallChain。复杂业务流程、数据库迁移、权限审计、事务/并发、跨模块状态流转等高风险改动使用它。
+Codex App 的 backend run 会调度 Builder 生成 scope、由 QA 审 scope、由 Builder 构建，再由 QA 验收，最后维护 CallChain。复杂业务流程、数据库迁移、权限审计、事务/并发、跨模块状态流转等高风险改动使用它。
+
+Claude Code runtime 保持原流程：fast 使用 Builder + CodeReview，full 使用 QA + CodeReview 双门禁。
 
 CallChain 已启用按需调度：主会话明确判断没有外部入口、异步推进点或多阶段生命周期变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 CallChain 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
 
@@ -155,7 +155,6 @@ run 目录最小结构:
   build-scope.md
   scope-review.md
   qa-feedback.md
-  code-review.md
   fix-brief.md
   call-chain-review.md
   progress.tsv
@@ -167,12 +166,12 @@ fast run 最小结构:
 .harness/iterations/<branch>/run-N/
   plan.md
   state.json
-  code-review.md
+  qa-feedback.md
   fix-brief.md
   progress.tsv
 ```
 
-新 run 的静态契约和运行状态统一保存在 `state.json`，所有 Agent 心跳追加到 `progress.tsv`；`HARNESS_PROFILE` 仅作为兼容变量名保留。升级前已经开始的 `profile.json + state.json + progress/` run 仍可恢复。
+新 run 的静态契约和运行状态统一保存在 `state.json`，所有 Agent 心跳追加到 `progress.tsv`；`HARNESS_PROFILE` 仅作为兼容变量名保留。Codex App 升级前已进入 CodeReview 阶段的 run 会映射到对应 QA 阶段恢复，旧 `code-review.md` 不再参与门禁。
 
 ## 开发与验证
 

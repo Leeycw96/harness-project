@@ -8,7 +8,7 @@
 - 未确认内容不进入本次 feature。
 - Builder 结果可编译，相关测试通过，不存在 stub/fake。
 - 预埋 P0/P1 的召回率不低于 baseline。
-- QA 和 CodeReview 只审 Builder commit diff。
+- QA 只审 Builder commit diff。
 - CallChain 正负样本判定不低于 baseline。
 - CallChain shadow/受控评测不得出现 `prefilter=noop`、Agent `UPDATED` 的漏判。
 - 中断后可恢复，超过重试上限可暂停并报告原因。

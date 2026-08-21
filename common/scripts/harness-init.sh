@@ -70,7 +70,6 @@ init_harness_run() {
         build_scope: ($output_dir + "/build-scope.md"),
         scope_review: ($output_dir + "/scope-review.md"),
         qa_feedback: ($output_dir + "/qa-feedback.md"),
-        code_review: ($output_dir + "/code-review.md"),
         fix_brief: ($output_dir + "/fix-brief.md"),
         call_chain_review: ($output_dir + "/call-chain-review.md")
       },
@@ -95,8 +94,7 @@ init_harness_run() {
         commits: []
       },
       review: {
-        qa: { status: "pending", artifact: null, blocking_count: 0 },
-        code_review: { status: "pending", artifact: null, p0: 0, p1: 0, p2: 0 }
+        qa: { status: "pending", artifact: null, blocking_count: 0 }
       },
       call_chain: {
         status: "pending",
@@ -148,7 +146,7 @@ init_harness_fast_run() {
       output_dir: $output_dir,
       plan_path: $plan_path,
       artifacts: {
-        code_review: ($output_dir + "/code-review.md"),
+        qa_feedback: ($output_dir + "/qa-feedback.md"),
         fix_brief: ($output_dir + "/fix-brief.md")
       },
       thresholds: {
@@ -170,10 +168,10 @@ init_harness_fast_run() {
         commits: []
       },
       review: {
-        code_review: { status: "pending", artifact: null, p0: 0, p1: 0, p2: 0 }
+        qa: { status: "pending", artifact: null, blocking_count: 0 }
       },
       fast: {
-        skipped: ["qa", "scope-review", "call-chain"]
+        skipped: ["scope-review", "call-chain"]
       },
       fix_round: 0,
       retries: {}

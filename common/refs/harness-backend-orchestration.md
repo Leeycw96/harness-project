@@ -36,16 +36,18 @@ mvn test-compile -q
 
 每个 Agent prompt 只需给出：`HARNESS_PROFILE` 绝对路径、阶段、输入、输出、完成 tag。新 run 直接从该 `state.json` 恢复；旧 run 若路径为 `profile.json`，再读取同目录 `state.json`。Agent 写 progress，完成一个阶段后返回，不与其他 Agent 通信。
 
-主会话收到结果后依次校验完成 tag、artifact 和 git commit，再更新 `state.json`。每个阶段使用新 Agent 执行；完成后结束当前执行。并行阶段哪个先完成就先校验。
+主会话收到结果后依次校验完成 tag、artifact 和 git commit，再更新 `state.json`。每个阶段使用新 Agent 执行；完成后结束当前执行。
 
 ## 进度与恢复
 
 读取追加式 `progress.tsv` 的最新记录向用户报告状态；旧 run 读取 state/profile 中配置的 `progress.events`。审查类阶段 5 分钟、构建/修复阶段 15 分钟无有效进度时检查 Agent；卡住或失联则结束旧执行并从磁盘状态启动新执行。每阶段每角色最多恢复 2 次，超过后置为 `PAUSED`。
+
+恢复旧 CodeReview run 时迁移到 QA 门禁：full 的 `PARALLEL_REVIEW` 或 `CODE_REVIEW` 转为 `REVIEW`，`CODE_REVIEW_FIX` 转为 `REVIEW_FIX`；fast 的 `CODE_REVIEW_FAST` 转为 `REVIEW_FAST`，`CODE_REVIEW_FAST_FIX` 转为 `REVIEW_FAST_FIX`。忽略旧 `review.code_review` 和 `code-review.md`；已有 `fix-brief.md` 仍可继续消费。
 
 ## 门禁
 
 - 只消费当前 artifact，不扫描历史版本。
 - artifact 缺失或格式错误时定向重做一次；再次失败计入恢复次数。
 - 只记录 Builder 本轮新 commit，不审查或提交用户无关改动。
-- QA `REJECTED` 或 CodeReview P0/P1 阻断；P2 只汇总。
+- QA `REJECTED` 阻断；非阻断观察只汇总。
 - 除 Builder 代码 commit 和 CallChain 文档 commit 外，不自动 stage、merge、squash、push 或清理历史。

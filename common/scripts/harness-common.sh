@@ -97,7 +97,6 @@ update_progress() {
   case "$agent" in
     harness-builder|builder) display_agent="harness-builder" ;;
     harness-qa|qa) display_agent="harness-qa" ;;
-    harness-code-review|code-review|code_review) display_agent="harness-code-review" ;;
     harness-call-chain|call-chain|call_chain) display_agent="harness-call-chain" ;;
     *) display_agent="$agent" ;;
   esac

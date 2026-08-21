@@ -1,6 +1,6 @@
 ---
 name: harness-backend
-description: 高风险后端改动的完整 subagent 验收流程，调度 Builder、QA、CodeReview 和 CallChain。
+description: 高风险后端改动的完整 subagent 验收流程，调度 Builder、QA 和 CallChain。
 user-invocable: true
 ---
 
@@ -43,22 +43,19 @@ Preflight 通过后进入 `SCOPE_BUILD`。
 
 按 scope 将小需求一次完成，大需求按一个或少量强相关 slug 切片。每片调度新 `harness-builder`，输入 scope、最新 scope-review 和指定 slug，tag `BUILD_SLICE_DONE` 或 `BUILD_DONE`。
 
-每片返回后只记录新增 commit。最后一片必须完成相关测试和测试编译；全部完成后进入 `PARALLEL_REVIEW`。
+每片返回后只记录新增 commit。最后一片必须完成相关测试和测试编译；全部完成后进入 `REVIEW`。
 
-### PARALLEL_REVIEW
+### REVIEW
 
-并行调度：
+调度 `harness-qa`，按 plan、scope 和共享代码质量红线验证 Builder commits，运行相关测试，输出 `qa-feedback.md`，tag `APPROVED` 或 `REJECTED`。
 
-- `harness-qa`：按 plan/scope 验证 Builder commits，输出 `qa-feedback.md`，tag `APPROVED` 或 `REJECTED`。
-- `harness-code-review`：只审 Builder commit diff，输出 `code-review.md`，tag `CODE_REVIEW_APPROVED` 或 `CODE_REVIEW_REJECTED`。
-
-双通过进入 `CALL_CHAIN`；任一阻断则把 QA 阻断项和 CodeReview P0/P1 合并为 `fix-brief.md`，进入 `FIX`。
+通过则进入 `CALL_CHAIN_PREFILTER`；阻断项写入 `fix-brief.md`，进入 `FIX`。
 
 ### FIX
 
-最多 3 轮。调度新 Builder 只修 `fix-brief.md`，运行相关测试并提交，tag `FIX_DONE`；随后并行运行 `REVIEW_FIX` 和 `CODE_REVIEW_FIX`，覆盖评审文件。
+最多 3 轮。调度新 Builder 只修 `fix-brief.md`，运行相关测试并提交，tag `FIX_DONE`；随后运行 QA `REVIEW_FIX`，覆盖 `qa-feedback.md`。
 
-双通过进入 `CALL_CHAIN`；3 轮后仍阻断则 `PAUSED`。
+通过则进入 `CALL_CHAIN_PREFILTER`；3 轮后仍阻断则 `PAUSED`。
 
 ### CALL_CHAIN_PREFILTER
 
@@ -87,4 +84,4 @@ record_call_chain_prefilter "<noop|run>" "<判定证据>"
 
 ## 完成
 
-报告 Builder commits、QA 验证摘要、CodeReview P2、CallChain 跳过/NOOP/UPDATED 结论及 artifact 路径。DONE 后的新反馈通过新的 plan/backend run 处理；范围变化重新运行 `/harness-plan`。
+报告 Builder commits、QA 验证摘要、CallChain 跳过/NOOP/UPDATED 结论及 artifact 路径。DONE 后的新反馈通过新的 plan/backend run 处理；范围变化重新运行 `/harness-plan`。

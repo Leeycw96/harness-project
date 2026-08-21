@@ -44,7 +44,6 @@ measure_sum "codex-fast-effective-input" \
   "common/refs/harness-backend-orchestration.md"
 measure_file "codex-builder-instructions" "harness-backend/agents/harness-builder.md"
 measure_file "codex-qa-instructions" "harness-backend/agents/harness-qa.md"
-measure_file "codex-code-review-instructions" "harness-backend/agents/harness-code-review.md"
 measure_file "codex-call-chain-instructions" "harness-backend/agents/harness-call-chain.md"
 measure_tree "codex-runtime" harness-plan harness-backend common
 measure_tree "claude-runtime" claude-code/harness-plan claude-code/harness-backend claude-code/common

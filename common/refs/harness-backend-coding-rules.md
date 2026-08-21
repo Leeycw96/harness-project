@@ -1,7 +1,7 @@
 ---
 name: harness-backend-coding-rules
-description: harness-backend Builder 写代码与 CodeReview 审查时共用的代码与测试质量红线。
-audience: harness-builder,harness-code-review
+description: harness-backend Builder 写代码与 QA 验收时共用的代码与测试质量红线。
+audience: harness-builder,harness-qa
 ---
 
 # Harness-Backend 代码质量红线

@@ -51,7 +51,5 @@ check_reduction "codex-builder-instructions" \
   "$(file_chars "$repo_root/harness-backend/agents/harness-builder.md")" 30
 check_reduction "codex-qa-instructions" \
   "$(file_chars "$repo_root/harness-backend/agents/harness-qa.md")" 30
-check_reduction "codex-code-review-instructions" \
-  "$(file_chars "$repo_root/harness-backend/agents/harness-code-review.md")" 30
 check_reduction "codex-call-chain-instructions" \
   "$(file_chars "$repo_root/harness-backend/agents/harness-call-chain.md")" 30

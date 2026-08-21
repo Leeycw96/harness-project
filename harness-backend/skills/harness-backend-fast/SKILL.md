@@ -1,6 +1,6 @@
 ---
 name: harness-backend-fast
-description: 日常小中型后端改动的快速 subagent 流程，只调度 Builder 和 CodeReview。
+description: 日常小中型后端改动的快速 subagent 流程，只调度 Builder 和 QA。
 user-invocable: true
 ---
 
@@ -25,14 +25,14 @@ Preflight 通过后进入 `BUILD_FAST`。
 
 ## 状态机
 
-1. `BUILD_FAST`：调度 `harness-builder` 直接按 plan 实现、测试并提交，tag `BUILD_FAST_DONE`；只记录新 commit，进入 `CODE_REVIEW_FAST`。
-2. `CODE_REVIEW_FAST`：调度 `harness-code-review` 只审 plan 和 Builder diff，输出 `code-review.md`。
-   - `CODE_REVIEW_APPROVED`：进入 `DONE`。
-   - `CODE_REVIEW_REJECTED`：P0/P1 写入 `fix-brief.md`，进入 `FIX_FAST`。
-3. `FIX_FAST`：最多 3 轮。新 Builder 只修阻断项、测试并提交，tag `FIX_FAST_DONE`；再调度 `CODE_REVIEW_FAST_FIX` 覆盖 review。通过则 `DONE`，超过上限则 `PAUSED`。
+1. `BUILD_FAST`：调度 `harness-builder` 直接按 plan 实现、测试并提交，tag `BUILD_FAST_DONE`；只记录新 commit，进入 `REVIEW_FAST`。
+2. `REVIEW_FAST`：调度 `harness-qa` 按 plan 和共享代码质量红线验证 Builder commits，运行相关测试，输出 `qa-feedback.md`。
+   - `APPROVED`：进入 `DONE`。
+   - `REJECTED`：阻断项写入 `fix-brief.md`，进入 `FIX_FAST`。
+3. `FIX_FAST`：最多 3 轮。新 Builder 只修阻断项、测试并提交，tag `FIX_FAST_DONE`；再调度 QA `REVIEW_FAST_FIX` 覆盖 `qa-feedback.md`。通过则 `DONE`，超过上限则 `PAUSED`。
 
-fast 不生成 scope、QA 或 CallChain artifact，也不读取 `.harness/call-chain/`。
+fast 不生成 scope 或 CallChain artifact，也不读取 `.harness/call-chain/`。
 
 ## 完成
 
-报告 Builder commits、`code-review.md` 和 P2 摘要，明确本轮未经过 QA、Scope Review 和 CallChain。DONE 后的新反馈通过新的 plan/backend run 处理；范围变化重新运行 `/harness-plan`。
+报告 Builder commits、QA 验证摘要和 artifact 路径，明确本轮未经过 Scope Review 和 CallChain。DONE 后的新反馈通过新的 plan/backend run 处理；范围变化重新运行 `/harness-plan`。

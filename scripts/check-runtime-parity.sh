@@ -43,32 +43,16 @@ compare_pair() {
 compare_pair "plan" \
   "harness-plan/skills/harness-plan/SKILL.md" \
   "claude-code/harness-plan/skills/harness-plan/SKILL.md"
-compare_pair "full" \
-  "harness-backend/skills/harness-backend/SKILL.md" \
-  "claude-code/harness-backend/skills/harness-backend/SKILL.md"
-compare_pair "fast" \
-  "harness-backend/skills/harness-backend-fast/SKILL.md" \
-  "claude-code/harness-backend/skills/harness-backend-fast/SKILL.md"
-compare_pair "orchestration" \
-  "common/refs/harness-backend-orchestration.md" \
-  "claude-code/common/refs/harness-backend-orchestration.md"
 compare_pair "coding-rules" \
   "common/refs/harness-backend-coding-rules.md" \
-  "claude-code/common/refs/harness-backend-coding-rules.md"
-compare_pair "common-helper" \
-  "common/scripts/harness-common.sh" \
-  "claude-code/common/scripts/harness-common.sh"
-
-for agent in builder qa code-review call-chain; do
-  compare_pair "$agent" \
-    "harness-backend/agents/harness-${agent}.md" \
-    "claude-code/harness-backend/agents/harness-${agent}.md" \
-    "true"
-done
+  "claude-code/common/refs/harness-backend-coding-rules.md" \
+  "true"
 
 for removed in \
   "harness-backend/skills/harness-backend-fix/SKILL.md" \
   "harness-backend/agents/harness-feedback-triage.md" \
+  "harness-backend/agents/harness-code-review.md" \
+  "harness-backend/agents/harness-code-review.toml" \
   "claude-code/harness-backend/skills/harness-backend-fix/SKILL.md" \
   "claude-code/harness-backend/agents/harness-feedback-triage.md"; do
   if [ -e "$repo_root/$removed" ]; then
@@ -77,4 +61,47 @@ for removed in \
   fi
 done
 
-echo "Codex App 与 Claude Code runtime 语义检查通过。"
+for retained in \
+  "claude-code/harness-backend/agents/harness-code-review.md"; do
+  if [ ! -f "$repo_root/$retained" ]; then
+    echo "Claude Code 保留能力缺失: $retained" >&2
+    exit 1
+  fi
+done
+
+if rg -n \
+  'harness-code-review|code-review\.md|review\.code_review|CODE_REVIEW' \
+  "$repo_root/harness-backend" "$repo_root/common" \
+  --glob '!**/refs/harness-backend-orchestration.md'; then
+  echo "Codex App runtime 仍含 CodeReview 活跃引用" >&2
+  exit 1
+fi
+
+if ! rg -q '恢复旧 CodeReview run' \
+  "$repo_root/common/refs/harness-backend-orchestration.md"; then
+  echo "Codex App 缺少旧 CodeReview run 恢复说明" >&2
+  exit 1
+fi
+
+runtime_dir="$work_dir/runtime"
+mkdir -p "$runtime_dir"
+touch "$runtime_dir/plan.md"
+(
+  export PROJECT_DIR="$runtime_dir"
+  source "$repo_root/common/scripts/harness-init.sh"
+  full_state="$(init_harness_run "$runtime_dir/full" "$runtime_dir/plan.md")"
+  fast_state="$(init_harness_fast_run "$runtime_dir/fast" "$runtime_dir/plan.md")"
+  jq -e '
+    .artifacts.code_review == null
+    and .artifacts.qa_feedback != null
+    and (.review | keys == ["qa"])
+  ' "$full_state" >/dev/null
+  jq -e '
+    .artifacts.code_review == null
+    and .artifacts.qa_feedback != null
+    and (.review | keys == ["qa"])
+    and (.fast.skipped | index("qa") | not)
+  ' "$fast_state" >/dev/null
+)
+
+echo "共享语义及 Codex/Claude CodeReview 有意分叉检查通过。"

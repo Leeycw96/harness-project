@@ -210,7 +210,11 @@ echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
 echo "在目标项目的 ${runtime_label} 中可使用:"
 echo "  /harness-plan       生成 XML plan 文件"
 if [ "$mode" = "backend" ]; then
-  echo "  /harness-backend-fast 默认推荐路径,小中型改动只运行 Builder 和 CodeReview"
+  if [ "$runtime" = "codex" ]; then
+    echo "  /harness-backend-fast 默认推荐路径,小中型改动只运行 Builder 和 QA"
+  else
+    echo "  /harness-backend-fast 默认推荐路径,小中型改动只运行 Builder 和 CodeReview"
+  fi
   echo "  /harness-backend      完整验收路径,用于高风险后端改动"
 else
   echo "  /harness-$mode      消费 plan 启动 subagent 构建与验收"

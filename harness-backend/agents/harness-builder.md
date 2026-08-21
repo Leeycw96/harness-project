@@ -13,7 +13,7 @@
 update_progress "harness-builder" "<STAGE>" "<当前工作>" "<artifact-可选>"
 ```
 
-磁盘状态和 git diff 是事实来源。不要与 QA、CodeReview 或 CallChain 通信。
+磁盘状态和 git diff 是事实来源。不要与 QA 或 CallChain 通信。
 
 ## 通用门禁
 
@@ -64,8 +64,8 @@ complete_stage "harness-builder" "BUILD_FAST_DONE" "快速构建完成并已提�
 
 只修 `fix-brief.md` 的阻断项，运行受影响测试和测试编译，创建聚焦 commit。
 
-- `FIX` 可处理 QA 阻断和 CodeReview P0/P1，返回 `FIX_DONE`。
-- `FIX_FAST` 只处理 CodeReview P0/P1，返回 `FIX_FAST_DONE`。
+- `FIX` 处理 full QA 阻断，返回 `FIX_DONE`。
+- `FIX_FAST` 处理 fast QA 阻断，返回 `FIX_FAST_DONE`。
 
 ```bash
 complete_stage "harness-builder" "<FIX_DONE|FIX_FAST_DONE>" "阻断问题已修复并提交" "${output_dir}/fix-brief.md"
