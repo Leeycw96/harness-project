@@ -6,7 +6,7 @@ user-invocable: true
 
 # Harness Plan
 
-唯一产物是 `.harness/plans/<name>.md` 和 `.harness/plans/<name>-implementation.md`。不要生成 spec、代码、原型或其他文件。
+机器产物是 `.harness/plans/<name>.md` 和 `.harness/plans/<name>-implementation.md`，用户审阅入口是 `.harness/plans/<name>.html`。不要生成 spec、代码、原型或其他文件。
 
 ## 现状调研
 
@@ -42,10 +42,13 @@ user-invocable: true
 4. 为每个 feature 确认触发动作、预期响应、关键副作用和重要异常分支。
 5. 完成所有技术决策；确认权限、事务、幂等、并发、性能和依赖约束。
 6. 起草 `Current Flow`、`Target Flow` 和 `Change Map`，让用户确认改造后的业务流程和修改边界。
-7. 补齐接口与数据、实施顺序、验证、风险和恢复方案，展示两个完整草稿供最终确认。
-8. 读取两个模板并写入关联文件：
+7. 补齐接口与数据、实施顺序、验证、风险和恢复方案；只在会话中展示简短摘要，不铺开两个完整草稿。
+8. 读取两个内容模板并写入关联的 XML 与 Markdown：
    - `.agents/skills/harness-plan/assets/plan-template.xml`
    - `.agents/skills/harness-plan/assets/implementation-plan-template.md`
+9. 验证两个机器产物后，在项目根运行：
+   `bash .agents/skills/harness-plan/scripts/render-plan-html.sh ".harness/plans/<name>.md" ".harness/plans/<name>-implementation.md" ".harness/plans/<name>.html"`。
+10. 报告简短摘要和 HTML 路径，让用户在两个标签页中完成最终审阅。反馈只修改 XML 或 Markdown，再重新生成 HTML；禁止单独修改 HTML。
 
 ## XML 需求契约
 
@@ -63,6 +66,14 @@ Markdown 必须自包含，固定包含 Purpose、Current Flow、Target Flow、C
 
 细化到仓库相对路径、模块、已有公共类或接口及职责变化，但不规定私有辅助方法、方法体、行级修改或不改变契约的局部重构。设计模式仅在它是技术选型或会改变模块边界、扩展方式、事务语义时写入。每个实施批次必须可独立验证。
 
+## HTML 审阅入口
+
+- HTML 是必需的桌面端用户产物，但 Backend、Builder 和 QA 仍只消费 XML 与 Markdown。
+- 第一次生成 HTML 前，必须已经确认范围、验收标准、目标流程和关键技术决策。
+- HTML 必须由渲染脚本从两个机器产物生成；不得手写、局部修补或把它作为新的事实来源。
+- HTML 生成失败时保留已验证的 XML 与 Markdown，针对失败原因重试一次。再次失败则报告错误并保持 Plan 未完成，不提示进入 Backend。
+- 会话中不粘贴两个完整草稿；用户通过 HTML 的“需求契约”和“实施方案”标签页审阅。
+
 ## 完成
 
-最终确认后写入两个文件，检查路径关联、范围、决策、目标流程、修改地图、验收标准、依赖、约束和必需章节。报告两个路径，并提示选择 `/harness-backend-fast` 或 `/harness-backend`。
+最终确认前检查三个文件存在，并检查路径关联、范围、决策、目标流程、修改地图、验收标准、依赖、约束和必需章节。报告三个路径，并提示选择 `/harness-backend-fast` 或 `/harness-backend`。

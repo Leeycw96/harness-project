@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+  <title>Harness Plan</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --canvas: #0d1117;
+      --surface: #111820;
+      --surface-raised: #161d26;
+      --border: #30363d;
+      --border-muted: #21262d;
+      --text: #e6edf3;
+      --text-strong: #f0f6fc;
+      --muted: #9da7b3;
+      --subtle: #7d8590;
+      --accent: #58a6ff;
+      --accent-muted: #1f6feb;
+      --success: #7ee787;
+      --success-bg: #12261a;
+      --warning: #d29922;
+      --warning-bg: #2b210b;
+      --danger: #ff7b72;
+      --danger-bg: #2d1517;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      min-width: 1024px;
+      background: var(--canvas);
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-width: 1024px;
+      margin: 0;
+      background: var(--canvas);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.6;
+      text-rendering: optimizeLegibility;
+    }
+
+    button, a { font: inherit; }
+
+    a {
+      color: var(--accent);
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+
+    a:hover { color: #79b8ff; }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--border-muted);
+      background: rgba(13, 17, 23, 0.96);
+    }
+
+    .header-inner,
+    .page {
+      width: 1120px;
+      margin: 0 auto;
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 58px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: #b1bac4;
+      font: 650 12px/1 var(--mono);
+      letter-spacing: 0.08em;
+    }
+
+    .brand-mark {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.12);
+    }
+
+    .review-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border: 1px solid #2f6f43;
+      border-radius: 999px;
+      background: var(--success-bg);
+      color: var(--success);
+      font: 650 11px/1.2 var(--mono);
+      letter-spacing: 0.02em;
+    }
+
+    .page { padding: 46px 0 80px; }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--subtle);
+      font: 550 12px/1.4 var(--mono);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin: 0;
+      color: var(--text-strong);
+      font-size: 34px;
+      font-weight: 680;
+      line-height: 1.25;
+      letter-spacing: -0.025em;
+    }
+
+    .lead {
+      max-width: 78ch;
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 26px;
+      margin-top: 38px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      position: relative;
+      appearance: none;
+      margin: 0;
+      padding: 12px 2px 14px;
+      border: 0;
+      background: transparent;
+      color: var(--subtle);
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    .tab:hover { color: var(--text); }
+
+    .tab[aria-selected="true"] { color: var(--text-strong); }
+
+    .tab[aria-selected="true"]::after {
+      position: absolute;
+      right: 0;
+      bottom: -1px;
+      left: 0;
+      height: 2px;
+      border-radius: 2px;
+      background: var(--accent);
+      content: "";
+    }
+
+    .panel { padding-top: 30px; }
+    .panel[hidden] { display: none; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 34px;
+    }
+
+    .stat {
+      padding: 15px 17px;
+      border: 1px solid var(--border-muted);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .stat-label {
+      display: block;
+      color: var(--subtle);
+      font-size: 12px;
+    }
+
+    .stat-value {
+      display: block;
+      margin-top: 3px;
+      color: var(--text);
+      font: 650 20px/1.3 var(--mono);
+    }
+
+    .content-column { max-width: 82ch; }
+
+    .section {
+      margin-top: 36px;
+      scroll-margin-top: 92px;
+    }
+
+    .section:first-child { margin-top: 0; }
+
+    .section h2,
+    .markdown h2 {
+      margin: 0 0 14px;
+      color: var(--text-strong);
+      font-size: 21px;
+      line-height: 1.35;
+      letter-spacing: -0.012em;
+    }
+
+    .section h3,
+    .markdown h3 {
+      margin: 26px 0 10px;
+      color: var(--text);
+      font-size: 17px;
+      line-height: 1.4;
+    }
+
+    .section p,
+    .markdown p {
+      margin: 0 0 14px;
+      color: #b8c1cb;
+    }
+
+    .context {
+      padding-left: 16px;
+      border-left: 2px solid var(--accent-muted);
+    }
+
+    .feature-list {
+      border-top: 1px solid var(--border-muted);
+    }
+
+    .feature {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 10px;
+      padding: 22px 0;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .feature-index {
+      padding-top: 2px;
+      color: var(--accent);
+      font: 650 12px/1.5 var(--mono);
+    }
+
+    .feature-slug {
+      display: inline-block;
+      margin-bottom: 5px;
+      color: var(--text-strong);
+      font: 650 14px/1.5 var(--mono);
+    }
+
+    .criteria,
+    .plain-list,
+    .markdown ul,
+    .markdown ol {
+      margin: 10px 0 0;
+      padding-left: 23px;
+      color: #b8c1cb;
+    }
+
+    li { margin: 7px 0; padding-left: 3px; }
+    li::marker { color: var(--subtle); }
+
+    .dependency {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .badge {
+      display: inline-flex;
+      justify-content: center;
+      padding: 3px 7px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font: 650 11px/1.3 var(--mono);
+    }
+
+    .badge.ready {
+      border-color: #2f6f43;
+      background: var(--success-bg);
+      color: var(--success);
+    }
+
+    .badge.not-ready {
+      border-color: #6e5520;
+      background: var(--warning-bg);
+      color: #e3b341;
+    }
+
+    .markdown > h1 {
+      margin: 0 0 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-muted);
+      color: var(--text-strong);
+      font-size: 25px;
+      line-height: 1.35;
+    }
+
+    .markdown h2 {
+      margin-top: 42px;
+      padding-top: 4px;
+      scroll-margin-top: 92px;
+    }
+
+    .markdown h2:first-of-type { margin-top: 0; }
+
+    .markdown h4 {
+      margin: 22px 0 8px;
+      color: var(--text);
+      font-size: 15px;
+    }
+
+    code {
+      padding: 0.14em 0.35em;
+      border: 1px solid var(--border-muted);
+      border-radius: 4px;
+      background: var(--surface-raised);
+      color: #d2a8ff;
+      font: 0.88em/1.5 var(--mono);
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 18px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--border-muted);
+      border-radius: 8px;
+      background: #090d12;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: #c9d1d9;
+      font-size: 13px;
+    }
+
+    blockquote {
+      margin: 18px 0;
+      padding: 1px 0 1px 16px;
+      border-left: 2px solid var(--border);
+      color: var(--muted);
+    }
+
+    .empty,
+    .error {
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    .error {
+      border-color: #6e3035;
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    .footer {
+      margin-top: 58px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border-muted);
+      color: var(--subtle);
+      font: 12px/1.6 var(--mono);
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span>HARNESS PLAN</div>
+      <div class="review-state">READY FOR REVIEW</div>
+    </div>
+  </header>
+
+  <main class="page">
+    <p class="eyebrow" id="plan-eyebrow">PLAN</p>
+    <h1 id="plan-title">Harness Plan</h1>
+    <p class="lead" id="plan-lead"></p>
+
+    <div class="tabs" role="tablist" aria-label="计划产物">
+      <button class="tab" id="requirements-tab" type="button" role="tab" aria-selected="true" aria-controls="requirements-panel">需求契约</button>
+      <button class="tab" id="implementation-tab" type="button" role="tab" aria-selected="false" aria-controls="implementation-panel" tabindex="-1">实施方案</button>
+    </div>
+
+    <section class="panel" id="requirements-panel" role="tabpanel" aria-labelledby="requirements-tab"></section>
+    <section class="panel" id="implementation-panel" role="tabpanel" aria-labelledby="implementation-tab" hidden></section>
+
+    <footer class="footer">Generated by Harness Plan · XML and Markdown remain the machine-readable sources of truth.</footer>
+  </main>
+
+  <script id="plan-name-source" type="application/octet-stream">
+__HARNESS_PLAN_NAME_BASE64__
+  </script>
+  <script id="plan-xml-source" type="application/octet-stream">
+__HARNESS_PLAN_XML_BASE64__
+  </script>
+  <script id="implementation-markdown-source" type="application/octet-stream">
+__HARNESS_IMPLEMENTATION_MARKDOWN_BASE64__
+  </script>
+  <script>
+    (() => {
+      "use strict";
+
+      const byId = (id) => document.getElementById(id);
+      const make = (tag, className, text) => {
+        const element = document.createElement(tag);
+        if (className) element.className = className;
+        if (text !== undefined) element.textContent = text;
+        return element;
+      };
+      const sourceText = (id) => {
+        const encoded = byId(id).textContent.replace(/\s+/g, "");
+        const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+        return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      };
+      const childText = (node, selector) => {
+        const child = node.querySelector(selector);
+        return child ? child.textContent.trim() : "";
+      };
+
+      const planName = sourceText("plan-name-source");
+      const planXml = sourceText("plan-xml-source");
+      const implementationMarkdown = sourceText("implementation-markdown-source");
+      const implementationTitleMatch = implementationMarkdown.match(/^#\s+(.+)$/m);
+      const implementationTitle = implementationTitleMatch ? implementationTitleMatch[1].trim() : planName;
+
+      document.title = `${planName} · Harness Plan`;
+      byId("plan-eyebrow").textContent = `PLAN / ${planName.toUpperCase()}`;
+      byId("plan-title").textContent = implementationTitle;
+
+      function appendInline(parent, text) {
+        const tokenPattern = /(`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+        let cursor = 0;
+        for (const match of text.matchAll(tokenPattern)) {
+          if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
+          const token = match[0];
+          if (token.startsWith("`")) {
+            parent.append(make("code", "", token.slice(1, -1)));
+          } else {
+            const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+            const label = linkMatch[1];
+            const target = linkMatch[2].trim();
+            const safe = /^(https?:\/\/|#|\.\.?\/|[A-Za-z0-9_.-]+\/)/.test(target);
+            if (safe) {
+              const anchor = make("a", "", label);
+              anchor.href = target;
+              if (/^https?:\/\//.test(target)) {
+                anchor.target = "_blank";
+                anchor.rel = "noopener noreferrer";
+              }
+              parent.append(anchor);
+            } else {
+              parent.append(document.createTextNode(token));
+            }
+          }
+          cursor = match.index + token.length;
+        }
+        if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
+      }
+
+      function appendTextList(parent, items, className = "plain-list") {
+        if (!items.length) {
+          parent.append(make("p", "empty", "无"));
+          return;
+        }
+        const list = make("ul", className);
+        items.forEach((item) => list.append(make("li", "", item)));
+        parent.append(list);
+      }
+
+      function renderRequirements() {
+        const panel = byId("requirements-panel");
+        const xml = new DOMParser().parseFromString(planXml, "application/xml");
+        if (xml.querySelector("parsererror") || !xml.documentElement || xml.documentElement.tagName !== "plan") {
+          throw new Error("需求契约无法解析");
+        }
+
+        const root = xml.documentElement;
+        const context = childText(root, ":scope > context");
+        const featureNodes = Array.from(root.querySelectorAll(":scope > features > feature"));
+        const criteriaCount = featureNodes.reduce((total, feature) => total + feature.querySelectorAll(":scope > acceptance-criteria > criterion").length, 0);
+        const dependencyNodes = Array.from(root.querySelectorAll(":scope > dependencies > dependency"));
+        const readyCount = dependencyNodes.filter((dependency) => dependency.getAttribute("status") === "ready").length;
+
+        byId("plan-lead").textContent = context;
+
+        const stats = make("div", "stats");
+        [["Features", featureNodes.length], ["Criteria", criteriaCount], ["Dependencies", `${readyCount}/${dependencyNodes.length} ready`]].forEach(([label, value]) => {
+          const stat = make("div", "stat");
+          stat.append(make("span", "stat-label", label), make("strong", "stat-value", String(value)));
+          stats.append(stat);
+        });
+        panel.append(stats);
+
+        const column = make("div", "content-column");
+        const contextSection = make("section", "section");
+        contextSection.append(make("h2", "", "背景"), make("p", "context", context || "未提供背景说明"));
+        column.append(contextSection);
+
+        const featureSection = make("section", "section");
+        featureSection.append(make("h2", "", "功能范围"));
+        const featureList = make("div", "feature-list");
+        featureNodes.forEach((feature, index) => {
+          const row = make("article", "feature");
+          row.append(make("div", "feature-index", String(index + 1).padStart(2, "0")));
+          const content = make("div");
+          content.append(make("span", "feature-slug", feature.getAttribute("slug") || `feature-${index + 1}`));
+          content.append(make("p", "", childText(feature, ":scope > description")));
+          const criteria = Array.from(feature.querySelectorAll(":scope > acceptance-criteria > criterion")).map((criterion) => criterion.textContent.trim());
+          appendTextList(content, criteria, "criteria");
+          row.append(content);
+          featureList.append(row);
+        });
+        if (!featureNodes.length) featureList.append(make("p", "empty", "无 feature"));
+        featureSection.append(featureList);
+        column.append(featureSection);
+
+        const outOfScope = make("section", "section");
+        outOfScope.append(make("h2", "", "Out of scope"));
+        appendTextList(outOfScope, Array.from(root.querySelectorAll(":scope > out-of-scope > item")).map((item) => item.textContent.trim()));
+        column.append(outOfScope);
+
+        const constraints = make("section", "section");
+        constraints.append(make("h2", "", "约束"));
+        appendTextList(constraints, Array.from(root.querySelectorAll(":scope > constraints > constraint")).map((item) => item.textContent.trim()));
+        column.append(constraints);
+
+        const dependencies = make("section", "section");
+        dependencies.append(make("h2", "", "依赖"));
+        if (!dependencyNodes.length) {
+          dependencies.append(make("p", "empty", "无"));
+        } else {
+          dependencyNodes.forEach((dependency) => {
+            const status = dependency.getAttribute("status") === "ready" ? "ready" : "not-ready";
+            const row = make("div", "dependency");
+            row.append(make("span", `badge ${status}`, status), make("span", "", dependency.textContent.trim()));
+            dependencies.append(row);
+          });
+        }
+        column.append(dependencies);
+        panel.append(column);
+      }
+
+      function renderMarkdown() {
+        const panel = byId("implementation-panel");
+        const root = make("div", "markdown content-column");
+        const lines = implementationMarkdown.replace(/\r\n?/g, "\n").split("\n");
+        let paragraph = [];
+        let list = null;
+        let listType = "";
+        let inCode = false;
+        let codeLines = [];
+
+        const flushParagraph = () => {
+          if (!paragraph.length) return;
+          const element = make("p");
+          appendInline(element, paragraph.join(" ").trim());
+          root.append(element);
+          paragraph = [];
+        };
+        const flushList = () => {
+          if (list) root.append(list);
+          list = null;
+          listType = "";
+        };
+        const flushCode = () => {
+          const pre = make("pre");
+          pre.append(make("code", "", codeLines.join("\n")));
+          root.append(pre);
+          codeLines = [];
+        };
+
+        lines.forEach((line) => {
+          if (/^```/.test(line)) {
+            flushParagraph();
+            flushList();
+            if (inCode) flushCode();
+            inCode = !inCode;
+            return;
+          }
+          if (inCode) {
+            codeLines.push(line);
+            return;
+          }
+          if (!line.trim()) {
+            flushParagraph();
+            flushList();
+            return;
+          }
+          const heading = line.match(/^(#{1,4})\s+(.+)$/);
+          if (heading) {
+            flushParagraph();
+            flushList();
+            if (heading[1].length === 1) return;
+            const element = make(`h${heading[1].length}`);
+            appendInline(element, heading[2].trim());
+            root.append(element);
+            return;
+          }
+          const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+          const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+          if (unordered || ordered) {
+            flushParagraph();
+            const nextType = ordered ? "ol" : "ul";
+            if (list && listType !== nextType) flushList();
+            if (!list) {
+              listType = nextType;
+              list = make(nextType);
+            }
+            const item = make("li");
+            appendInline(item, (ordered || unordered)[1]);
+            list.append(item);
+            return;
+          }
+          const quote = line.match(/^>\s?(.*)$/);
+          if (quote) {
+            flushParagraph();
+            flushList();
+            const blockquote = make("blockquote");
+            appendInline(blockquote, quote[1]);
+            root.append(blockquote);
+            return;
+          }
+          paragraph.push(line.trim());
+        });
+
+        if (inCode) flushCode();
+        flushParagraph();
+        flushList();
+        panel.append(root);
+      }
+
+      const tabs = [byId("requirements-tab"), byId("implementation-tab")];
+      const panels = [byId("requirements-panel"), byId("implementation-panel")];
+      function activate(index, updateHash = true) {
+        tabs.forEach((tab, tabIndex) => {
+          const active = tabIndex === index;
+          tab.setAttribute("aria-selected", String(active));
+          tab.tabIndex = active ? 0 : -1;
+          panels[tabIndex].hidden = !active;
+        });
+        if (updateHash) history.replaceState(null, "", index === 0 ? "#requirements" : "#implementation");
+      }
+
+      tabs.forEach((tab, index) => {
+        tab.addEventListener("click", () => activate(index));
+        tab.addEventListener("keydown", (event) => {
+          let target = index;
+          if (event.key === "ArrowRight") target = (index + 1) % tabs.length;
+          else if (event.key === "ArrowLeft") target = (index - 1 + tabs.length) % tabs.length;
+          else if (event.key === "Home") target = 0;
+          else if (event.key === "End") target = tabs.length - 1;
+          else return;
+          event.preventDefault();
+          activate(target);
+          tabs[target].focus();
+        });
+      });
+
+      try {
+        renderRequirements();
+        renderMarkdown();
+        activate(location.hash === "#implementation" ? 1 : 0, false);
+      } catch (error) {
+        byId("requirements-panel").replaceChildren(make("p", "error", `计划渲染失败：${error.message}`));
+        byId("implementation-panel").replaceChildren(make("p", "error", "请重新运行 Harness Plan 生成审阅文件。"));
+      }
+    })();
+  </script>
+</body>
+</html>

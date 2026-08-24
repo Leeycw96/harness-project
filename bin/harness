@@ -209,7 +209,7 @@ echo ""
 echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
 echo "在目标项目的 ${runtime_label} 中可使用:"
 if [ "$runtime" = "codex" ]; then
-  echo "  /harness-plan       生成 XML 需求计划和 Markdown 代码改造计划"
+  echo "  /harness-plan       生成 XML、Markdown 计划和 HTML 审阅入口"
 else
   echo "  /harness-plan       生成 XML plan 文件"
 fi

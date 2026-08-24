@@ -66,14 +66,19 @@ for retained in \
   fi
 done
 
-if [ ! -f "$repo_root/harness-plan/skills/harness-plan/assets/implementation-plan-template.md" ]; then
-  echo "Codex App 代码改造计划模板缺失" >&2
-  exit 1
-fi
-if [ -e "$repo_root/claude-code/harness-plan/skills/harness-plan/assets/implementation-plan-template.md" ]; then
-  echo "Claude Code runtime 不应包含 Codex App 代码改造计划模板" >&2
-  exit 1
-fi
+for codex_only_plan_file in \
+  "assets/implementation-plan-template.md" \
+  "assets/plan-view-template.html" \
+  "scripts/render-plan-html.sh"; do
+  if [ ! -f "$repo_root/harness-plan/skills/harness-plan/$codex_only_plan_file" ]; then
+    echo "Codex App Plan 文件缺失: $codex_only_plan_file" >&2
+    exit 1
+  fi
+  if [ -e "$repo_root/claude-code/harness-plan/skills/harness-plan/$codex_only_plan_file" ]; then
+    echo "Claude Code runtime 不应包含 Codex App Plan 文件: $codex_only_plan_file" >&2
+    exit 1
+  fi
+done
 
 if rg -n -i \
   'build-scope|scope.review|scope_review|build_scope|SCOPE_BUILD|SCOPE_REVIEW|scope_attempt' \

@@ -85,6 +85,13 @@ harness backend --claude-code /path/to/your/project
 .agents/
 └── skills/
     ├── harness-plan/
+    │   ├── SKILL.md
+    │   ├── assets/
+    │   │   ├── implementation-plan-template.md
+    │   │   ├── plan-template.xml
+    │   │   └── plan-view-template.html
+    │   └── scripts/
+    │       └── render-plan-html.sh
     ├── harness-backend/
     └── harness-backend-fast/
 .codex/
@@ -124,7 +131,7 @@ harness backend --claude-code /path/to/your/project
 
 ## 使用
 
-1. 在 Codex App 运行 `/harness-plan`，通过对话生成相互关联的 `.harness/plans/<name>.md` XML 需求计划和 `.harness/plans/<name>-implementation.md` Markdown 代码改造计划。
+1. 在 Codex App 运行 `/harness-plan`，通过对话生成相互关联的 `.harness/plans/<name>.md` XML 需求计划、`.harness/plans/<name>-implementation.md` Markdown 代码改造计划和 `.harness/plans/<name>.html` HTML 审阅入口。
 2. 日常小中型改动优先运行 `/harness-backend-fast <plan-path>`。
 3. 高风险改动再运行 `/harness-backend <plan-path>` 走完整验收。
 
@@ -133,6 +140,8 @@ harness backend --claude-code /path/to/your/project
 ```
 
 Codex App 的 Plan 阶段会先读取相关 CallChain 和实际代码，确认当前流程、目标流程、修改地图与关键技术决策。项目内部调研始终执行；只有在缺少既定方案且技术选型会显著影响实现时，才先征得用户同意后进行外部调研。选型未确认时暂停，不把决策留给 Builder。
+
+最终审阅时，会话只报告简短摘要和 HTML 路径。HTML 以“需求契约”和“实施方案”两个标签页友好展示内容；XML 与 Markdown 仍是 Backend、Builder 和 QA 的唯一机器输入。HTML 生成失败时 Plan 不会报告完成。
 
 Codex App 的 fast run 只调度 Builder 和 QA，不运行 CallChain，是默认推荐路径，适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。Builder 与 QA 均消费两份已确认计划，QA 同时验证目标业务流程、修改边界和共享代码质量红线。
 
@@ -182,6 +191,7 @@ fast run 最小结构:
 ```bash
 bash -n bin/harness
 find common claude-code/common -type f -name '*.sh' -exec bash -n {} \;
+bash -n harness-plan/skills/harness-plan/scripts/render-plan-html.sh
 scripts/check-runtime-parity.sh
 scripts/check-planning-contract.sh
 scripts/harness-metrics.sh
