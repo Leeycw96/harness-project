@@ -73,8 +73,12 @@ done
 
 for required_pattern in \
   '\.harness/call-chain/\*\.md' \
-  '询问用户是否进行外部调研' \
-  '用户拒绝且未指定方案时暂停' \
+  '真实用户决策' \
+  '用户输入、代码、CallChain 和项目惯例' \
+  '不得逐项询问用户确认' \
+  '不存在真实用户决策时不发起澄清轮次' \
+  '同步更新所有受影响章节' \
+  '用户明确确认最终 HTML' \
   '\.harness/plans/<name>\.md' \
   '\.harness/plans/<name>-implementation\.md' \
   '\.harness/plans/<name>\.html' \
@@ -82,6 +86,20 @@ for required_pattern in \
   '禁止单独修改 HTML'; do
   if ! rg -q "$required_pattern" "$plan_skill"; then
     echo "Harness Plan Skill 缺少契约: $required_pattern" >&2
+    exit 1
+  fi
+done
+
+for forbidden_pattern in \
+  '询问用户是否进行外部调研' \
+  '用户拒绝且未指定方案时暂停' \
+  '未确认范围、feature' \
+  '让用户确认' \
+  '确认清单' \
+  '为每个 feature 确认' \
+  '第一次生成 HTML 前，必须已经确认范围'; do
+  if rg -q "$forbidden_pattern" "$plan_skill"; then
+    echo "Harness Plan Skill 仍含逐段确认契约: $forbidden_pattern" >&2
     exit 1
   fi
 done
@@ -224,4 +242,4 @@ cp "$work_dir/.harness/plans/example-implementation.md" "$work_dir/run-input/imp
   ' "$fast_state" >/dev/null
 )
 
-echo "Codex App Harness Plan 三产物与 Backend 无 build-scope 契约检查通过。"
+echo "Codex App Harness Plan Draft-first 三产物与 Backend 无 build-scope 契约检查通过。"

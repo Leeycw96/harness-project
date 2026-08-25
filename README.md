@@ -139,9 +139,9 @@ harness backend --claude-code /path/to/your/project
 /harness-backend-fast <plan-path>
 ```
 
-Codex App 的 Plan 阶段会先读取相关 CallChain 和实际代码，确认当前流程、目标流程、修改地图与关键技术决策。项目内部调研始终执行；只有在缺少既定方案且技术选型会显著影响实现时，才先征得用户同意后进行外部调研。选型未确认时暂停，不把决策留给 Builder。
+Codex App 的 Plan 阶段采用 Draft-first 流程：先读取相关 CallChain 和实际代码，只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项。用户完成必要决策后，Plan 自动推导 Current Flow、Target Flow、Out of Scope、feature、验收标准和 Change Map，不再逐项请求确认，直接生成三份产物。
 
-最终审阅时，会话只报告简短摘要和 HTML 路径。HTML 以“需求契约”和“实施方案”两个标签页友好展示内容；XML 与 Markdown 仍是 Backend、Builder 和 QA 的唯一机器输入。HTML 生成失败时 Plan 不会报告完成。
+会话只报告简短摘要和 HTML 路径。HTML 以“需求契约”和“实施方案”两个标签页友好展示内容，是唯一整体确认入口；用户提出修改后，Plan 同步更新关联章节并重新生成页面。XML 与 Markdown 仍是 Backend、Builder 和 QA 的唯一机器输入。用户未确认最终 HTML 或 HTML 生成失败时，Plan 不会报告完成。
 
 Codex App 的 fast run 只调度 Builder 和 QA，不运行 CallChain，是默认推荐路径，适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。Builder 与 QA 均消费两份已确认计划，QA 同时验证目标业务流程、修改边界和共享代码质量红线。
 
