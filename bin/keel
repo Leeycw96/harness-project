@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# Keel deployment CLI.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+KEEL_ROOT="$(dirname "$SCRIPT_DIR")"
+
+usage() {
+  cat <<'EOF'
+用法:
+  keel <mode> --codex [target-dir]
+
+部署 Keel 模块到 Codex App 项目。
+
+参数:
+  mode          模式名,对应源码目录 keel-<mode>/
+  --codex       部署 Codex App runtime
+  target-dir    目标项目目录,默认当前目录
+
+示例:
+  keel dev --codex
+  keel dev --codex /path/to/project
+
+说明:
+  runtime 必须放在 mode 后面显式选择。
+  旧参数 --runtime、--codex-cli 以及 runtime 放在 mode 前面的格式不再支持。
+EOF
+}
+
+fail() {
+  echo "错误: $*" >&2
+  exit 1
+}
+
+if [ $# -lt 1 ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+  usage
+  exit 0
+fi
+
+case "${1:-}" in
+  --codex|--codex-cli|--runtime)
+    fail "runtime 必须放在 mode 后面。请使用: keel <mode> --codex [target-dir]"
+    ;;
+  --*)
+    fail "未知参数 '$1'"
+    ;;
+esac
+
+mode="$1"
+shift
+
+if [ $# -lt 1 ]; then
+  fail "必须显式指定 runtime。请使用: keel $mode --codex [target-dir]"
+fi
+
+case "${1:-}" in
+  --codex)
+    shift
+    ;;
+  --runtime|--codex-cli)
+    fail "旧 runtime 参数 '$1' 不再支持。请使用: keel $mode --codex [target-dir]"
+    ;;
+  --*)
+    fail "未知参数 '$1'"
+    ;;
+  *)
+    fail "必须在 mode 后指定 runtime。请使用: keel $mode --codex [target-dir]"
+    ;;
+esac
+
+target_arg="."
+if [ $# -gt 1 ]; then
+  usage >&2
+  exit 1
+fi
+if [ $# -eq 1 ]; then
+  case "$1" in
+    --*)
+      fail "未知参数 '$1'"
+      ;;
+    *)
+      target_arg="$1"
+      ;;
+  esac
+fi
+
+source_root="$KEEL_ROOT"
+skills_dir=".agents/skills"
+agents_dir=".codex/agents"
+common_dir=".codex/common"
+manifest_dir=".codex/.keel"
+
+mode_dir="$source_root/keel-$mode"
+[ -d "$mode_dir" ] || fail "未找到模式 'keel-$mode'(期望路径: $mode_dir)"
+[ -d "$source_root/common" ] || fail "缺少 common/ 目录(期望路径: $source_root/common)"
+[ -d "$target_arg" ] || fail "目标目录不存在: $target_arg"
+
+target="$(cd "$target_arg" && pwd)"
+
+manifest_file="$target/$manifest_dir/installed-manifest"
+
+echo "部署到: $target/.agents/skills/ 和 $target/.codex/"
+
+mkdir -p "$target/$skills_dir" "$target/$agents_dir" "$target/$common_dir" "$target/$manifest_dir"
+
+new_manifest="$(mktemp)"
+trap 'rm -f "$new_manifest"' EXIT
+
+collect_files() {
+  local src="$1" prefix="$2"
+  [ -d "$src" ] || return 0
+  find "$src" -type f 2>/dev/null | while IFS= read -r f; do
+    local rel="${f#$src/}"
+    echo "${prefix}/${rel}"
+  done
+}
+
+{
+  collect_files "$source_root/common" "$common_dir"
+  if [ -d "$source_root/keel-plan" ]; then
+    collect_files "$source_root/keel-plan/skills" "$skills_dir"
+    collect_files "$source_root/keel-plan/agents" "$agents_dir"
+  fi
+  collect_files "$mode_dir/skills" "$skills_dir"
+  collect_files "$mode_dir/agents" "$agents_dir"
+} | sort -u > "$new_manifest"
+
+if [ -f "$manifest_file" ]; then
+  obsolete="$(comm -23 <(sort -u "$manifest_file") "$new_manifest" || true)"
+  if [ -n "$obsolete" ]; then
+    echo "[清理] 已废弃文件:"
+    while IFS= read -r rel; do
+      [ -z "$rel" ] && continue
+      full="$target/$rel"
+      if [ -e "$full" ]; then
+        rm -f "$full"
+        echo "  - $rel"
+      fi
+    done <<< "$obsolete"
+    while IFS= read -r rel; do
+      [ -z "$rel" ] && continue
+      dir="$(dirname "$target/$rel")"
+      while [ "$dir" != "$target" ] && [ "$dir" != "/" ]; do
+        rmdir "$dir" 2>/dev/null || break
+        dir="$(dirname "$dir")"
+      done
+    done <<< "$obsolete"
+  fi
+fi
+
+deploy_tree() {
+  local src="$1" dest="$2" label="$3"
+  [ -d "$src" ] || return 0
+  if [ -n "$(find "$src" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+    echo "  [$label] $src -> $dest/"
+    cp -R "$src/." "$target/$dest/"
+  fi
+}
+
+deploy_module() {
+  local src="$1" label="$2"
+  deploy_tree "$src/skills" "$skills_dir" "$label skills"
+  deploy_tree "$src/agents" "$agents_dir" "$label agents"
+}
+
+deploy_tree "$source_root/common" "$common_dir" "common"
+if [ -d "$source_root/keel-plan" ]; then
+  deploy_module "$source_root/keel-plan" "keel-plan"
+fi
+deploy_module "$mode_dir" "keel-$mode"
+
+mv "$new_manifest" "$manifest_file"
+trap - EXIT
+
+count="$(wc -l < "$manifest_file" | tr -d ' ')"
+echo ""
+echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
+echo "在目标项目的 Codex App 中可使用:"
+echo "  /keel-plan       生成 Markdown 开发计划和 HTML 审阅入口"
+if [ "$mode" = "dev" ]; then
+  echo "  /keel-dev-fast   默认推荐路径,小中型改动只运行 Builder 和 QA"
+  echo "  /keel-dev        完整验收路径,用于高风险改动"
+else
+  echo "  /keel-$mode      消费 plan 启动 subagent 构建与验收"
+fi

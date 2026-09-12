@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-baseline_file="$repo_root/evals/harness/baseline-2.1.0.tsv"
+baseline_file="$repo_root/evals/keel/baseline-2.1.0.tsv"
 
 baseline_chars() {
   local component="$1"
@@ -39,15 +39,15 @@ check_reduction() {
 
 check_reduction "codex-full-effective-input" \
   "$(sum_chars \
-    "$repo_root/harness-backend/skills/harness-backend/SKILL.md" \
-    "$repo_root/common/refs/harness-backend-orchestration.md")" 40
+    "$repo_root/keel-dev/skills/keel-dev/SKILL.md" \
+    "$repo_root/common/refs/keel-dev-orchestration.md")" 40
 check_reduction "codex-fast-effective-input" \
   "$(sum_chars \
-    "$repo_root/harness-backend/skills/harness-backend-fast/SKILL.md" \
-    "$repo_root/common/refs/harness-backend-orchestration.md")" 40
+    "$repo_root/keel-dev/skills/keel-dev-fast/SKILL.md" \
+    "$repo_root/common/refs/keel-dev-orchestration.md")" 40
 check_reduction "codex-builder-instructions" \
-  "$(file_chars "$repo_root/harness-backend/agents/harness-builder.md")" 30
+  "$(file_chars "$repo_root/keel-dev/agents/keel-builder.md")" 30
 check_reduction "codex-qa-instructions" \
-  "$(file_chars "$repo_root/harness-backend/agents/harness-qa.md")" 30
+  "$(file_chars "$repo_root/keel-dev/agents/keel-qa.md")" 30
 check_reduction "codex-call-chain-instructions" \
-  "$(file_chars "$repo_root/harness-backend/agents/harness-call-chain.md")" 30
+  "$(file_chars "$repo_root/keel-dev/agents/keel-call-chain.md")" 30

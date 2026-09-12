@@ -2,7 +2,7 @@
 set -euo pipefail
 
 check_ready=false
-root=".harness/iterations"
+root=".keel/iterations"
 
 while [ $# -gt 0 ]; do
   case "$1" in

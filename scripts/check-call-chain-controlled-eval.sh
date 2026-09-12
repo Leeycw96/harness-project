@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-results_dir="${1:-evals/harness/results/call-chain-shadow}"
+results_dir="${1:-evals/keel/results/call-chain-shadow}"
 completed=0
 prefilter_noop=0
 agent_updated=0

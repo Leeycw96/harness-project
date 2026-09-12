@@ -1,23 +1,26 @@
-# Harness Plan 重计划工作流设计
+# Keel Plan 重计划工作流设计
+
+> 历史设计记录：当前仅维护 Codex App runtime，部署和验证方式以根目录 README.md 为准。
+
 
 ## 背景与目标
 
-当前 Codex App runtime 将需求范围和验收标准放在 Harness Plan，再由 Harness Backend 的 Builder 生成 `build-scope.md` 并由 QA 执行 `SCOPE_REVIEW`。这让“scope”同时出现在需求确认和实现准备阶段，用户无法在实现前完整确认改造后的业务流程和代码方案。
+当前 Codex App runtime 将需求范围和验收标准放在 Keel Plan，再由 Keel Dev 的 Builder 生成 `build-scope.md` 并由 QA 执行 `SCOPE_REVIEW`。这让“scope”同时出现在需求确认和实现准备阶段，用户无法在实现前完整确认改造后的业务流程和代码方案。
 
-本次只修改 Codex App runtime。目标是把方案决策前移到 Harness Plan：Plan 阶段完成现状理解、必要的技术调研、目标流程、代码修改地图和用户确认；Backend 删除 build-scope 阶段，只负责 Builder 实现和 QA 验收。Claude Code runtime 保持原样，不考虑旧 Codex run 兼容。
+本次只修改 Codex App runtime。目标是把方案决策前移到 Keel Plan：Plan 阶段完成现状理解、必要的技术调研、目标流程、代码修改地图和用户确认；Dev 删除 build-scope 阶段，只负责 Builder 实现和 QA 验收。Claude Code runtime 保持原样，不考虑旧 Codex run 兼容。
 
 ## 设计依据
 
 OpenAI 的 [ExecPlan 指南](https://developers.openai.com/cookbook/articles/codex_exec_plans)要求执行计划自包含，明确代码位置、接口依赖、实施步骤、验证命令和可观察结果。MADR 的[决策模板](https://github.com/adr/madr/blob/develop/template/adr-template.md)使用决策驱动因素、候选方案、选择理由、后果和确认方式记录技术选型。
 
-Harness 不直接复制完整 ExecPlan。执行进度已由 Backend `state.json` 管理，因此新增修改方案是用户批准的稳定实现契约，不包含 `Progress`、`Surprises` 或运行日志，也不由 Backend 在实现过程中自行改写。
+Keel 不直接复制完整 ExecPlan。执行进度已由 Dev `state.json` 管理，因此新增修改方案是用户批准的稳定实现契约，不包含 `Progress`、`Surprises` 或运行日志，也不由 Dev 在实现过程中自行改写。
 
 ## Plan 产物
 
-Harness Plan 固定产出两个关联文件：
+Keel Plan 固定产出两个关联文件：
 
-1. `.harness/plans/<name>.md`：XML 需求契约，保留 context、features、acceptance criteria、out-of-scope、constraints 和 dependencies，并新增 `<implementation-plan path=".harness/plans/<name>-implementation.md" />`。
-2. `.harness/plans/<name>-implementation.md`：面向用户、Builder 和 QA 的 Markdown 修改方案。
+1. `.keel/plans/<name>.md`：XML 需求契约，保留 context、features、acceptance criteria、out-of-scope、constraints 和 dependencies，并新增 `<implementation-plan path=".keel/plans/<name>-implementation.md" />`。
+2. `.keel/plans/<name>-implementation.md`：面向用户、Builder 和 QA 的 Markdown 修改方案。
 
 XML 模板不得预设 JWT、Session 或其他具体技术选择，避免示例替用户做决定。
 
@@ -38,7 +41,7 @@ XML 模板不得预设 JWT、Session 或其他具体技术选择，避免示例�
 
 ## CallChain 与现状理解
 
-Harness Plan 必须读取与需求相关的 `.harness/call-chain/*.md`，用它定位现有外部入口、异步推进点和生命周期状态，再检查对应代码、数据模型和测试。CallChain 是流程索引而非唯一事实来源；缺失、过期或与代码不一致时，以代码为准，并在 `Current Flow` 中记录依据。Plan 阶段不修改 CallChain。
+Keel Plan 必须读取与需求相关的 `.keel/call-chain/*.md`，用它定位现有外部入口、异步推进点和生命周期状态，再检查对应代码、数据模型和测试。CallChain 是流程索引而非唯一事实来源；缺失、过期或与代码不一致时，以代码为准，并在 `Current Flow` 中记录依据。Plan 阶段不修改 CallChain。
 
 ## Plan 交互与调研
 
@@ -55,11 +58,11 @@ Harness Plan 必须读取与需求相关的 `.harness/call-chain/*.md`，用它�
 
 项目内调研始终执行，不额外询问。外部调研只在项目没有既定方案、且选择会影响安全、数据、接口、事务、部署或长期维护时提出，并必须先获得用户同意。
 
-用户同意调研后，Harness Plan 使用官方或一手来源比较 2–3 个适合当前项目的方案，至少覆盖项目适配性、安全、运维、迁移和测试，并给出推荐供用户选择。用户拒绝调研且没有指定方案时必须暂停，直到用户明确选择或明确授权 Harness 代选。即使获得代选授权，推荐与理由仍须由用户确认。
+用户同意调研后，Keel Plan 使用官方或一手来源比较 2–3 个适合当前项目的方案，至少覆盖项目适配性、安全、运维、迁移和测试，并给出推荐供用户选择。用户拒绝调研且没有指定方案时必须暂停，直到用户明确选择或明确授权 Keel 代选。即使获得代选授权，推荐与理由仍须由用户确认。
 
 最终产物不得包含 `TBD`、未决选型或“Builder 自行决定”的关键决策。一次只询问一个会改变方案的问题；项目已有明确惯例时说明并沿用，不制造无意义选择。
 
-## Backend 状态机
+## Dev 状态机
 
 Codex full 流程改为：
 
@@ -71,9 +74,9 @@ Preflight -> BUILD -> REVIEW(QA)
 
 Codex fast 保持 Builder + QA 的现有结构，但同样消费两个 Plan 产物。
 
-Backend 启动时读取 XML 中的 implementation plan 路径，确认两个文件存在且不含未决项，再分别复制为 run 内的 `plan.md` 和 `implementation-plan.md`。初始化函数记录两个路径并直接进入 `BUILD` 或 `BUILD_FAST`。
+Dev 启动时读取 XML 中的 implementation plan 路径，确认两个文件存在且不含未决项，再分别复制为 run 内的 `plan.md` 和 `implementation-plan.md`。初始化函数记录两个路径并直接进入 `BUILD` 或 `BUILD_FAST`。
 
-`SCOPE_BUILD`、`SCOPE_REVIEW`、`build-scope.md`、`scope-review.md`、scope attempts 及相关 Agent tag 从 Codex runtime 完整删除。缺少 implementation plan 时停止并要求重新运行 Harness Plan，不做旧 run 迁移。
+`SCOPE_BUILD`、`SCOPE_REVIEW`、`build-scope.md`、`scope-review.md`、scope attempts 及相关 Agent tag 从 Codex runtime 完整删除。缺少 implementation plan 时停止并要求重新运行 Keel Plan，不做旧 run 迁移。
 
 ## Agent 职责
 
@@ -102,7 +105,7 @@ Plan eval 新增：
 - Target Flow、Change Map、接口/数据、横切约束和验证方案完整。
 - 最终两个文件互相引用且没有未决项。
 
-Backend eval 删除 scope 映射和 Scope Review 要求，改为验证 Builder 严格消费 implementation plan、QA 同时检查需求和修改方案。
+Dev eval 删除 scope 映射和 Scope Review 要求，改为验证 Builder 严格消费 implementation plan、QA 同时检查需求和修改方案。
 
 Plan Skill 将因“重计划”目标增长，因此移除旧的 Plan 字符数 slimming 硬门槛，继续通过 metrics 观察规模。新增静态 planning-contract 检查，验证模板章节、XML 引用、新状态 JSON，以及 Codex 活跃 runtime 不再包含 build-scope 概念。runtime 分叉检查明确断言 Codex 已移除 build-scope，而 Claude Code 仍保留原流程。
 
