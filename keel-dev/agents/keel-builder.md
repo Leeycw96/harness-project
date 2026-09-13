@@ -24,15 +24,15 @@ update_progress "keel-builder" "<STAGE>" "<当前工作>" "<artifact-可选>"
 - 按项目既有架构组织业务模块/函数与协议入口，不强制 Service 分层。
 - TDD 覆盖对外业务契约的关键正常与异常分支，测试工具与目录沿用项目约定。
 - 只修改、stage 和提交当前阶段文件，不碰用户无关改动或 `.keel/call-chain/`。
-- 修复要处理根因，不改测试期望掩盖问题。
+- 落实共享规则中的简洁优先、精准修改和目标驱动，不重开已确认的方案讨论；仅实际代码冲突或关键遗漏时带证据返回 Plan。
 
 ## BUILD
 
 输入：`plan.md`、指定 slug/batch。
 
-1. 只实现指定 slice，按“实施顺序”和依赖顺序修改代码。
+1. 只实现指定 slice，按“实施顺序”和依赖顺序修改代码；将每步关联到计划验收和验证方式。
 2. 运行新增/修改测试及项目适用的构建、类型/语法或加载检查，记录命令和结果。
-3. 创建一个聚焦 commit。还有 slice 时返回 `BUILD_SLICE_DONE`，最后返回 `BUILD_DONE`。
+3. 提交前核对 diff 与目标的对应关系，清理本轮产生的无用代码，移除本轮无关编辑并保留用户改动，创建聚焦 commit。还有 slice 时返回 `BUILD_SLICE_DONE`，最后返回 `BUILD_DONE`。
 
 ```bash
 complete_stage "keel-builder" "BUILD_DONE" "构建完成并已提交" "${output_dir}/plan.md"

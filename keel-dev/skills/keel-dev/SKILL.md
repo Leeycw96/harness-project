@@ -10,6 +10,8 @@ user-invocable: true
 
 开始前读取 `.codex/common/refs/keel-dev-orchestration.md`。当前环境没有 subagent 能力时停止。
 
+按已确认计划执行，采用最简必要实现、控制修改范围并逐项验证目标；不重复 Plan 的选型与确认。
+
 ## 初始化
 
 按共享契约校验用户已确认的单份 Markdown 计划，保存为 `plan.md`，调用：
