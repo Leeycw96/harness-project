@@ -23,10 +23,11 @@ EXAMPLE = TEMPLATE.read_text()
 
 
 def plain_plan():
-    source = re.sub(r"```plantuml\n.*?\n```", "本节无业务状态机。", EXAMPLE, flags=re.S)
-    start, end = source.index("## 功能时序图"), source.index("## 状态机调整")
-    source = source[:start] + "## 功能时序图\n\n用户选择不生成时序图。\n\n" + source[end:]
-    return source.replace("- 时序图：生成", "- 时序图：不生成").split("## 风险与恢复")[0]
+    source = re.sub(r"## 状态机\n.*?(?=## 功能时序图)", "", EXAMPLE, flags=re.S)
+    start, end = source.index("## 功能时序图"), source.index("## 接口设计")
+    source = source[:start] + "## 功能时序图\n\n- cancel-order：不生成\n- confirm-refund：不生成\n\n" + source[end:]
+    return source.split("## 风险与恢复")[0]
+
 
 
 class MarkdownPlanTests(unittest.TestCase):
@@ -51,7 +52,7 @@ class MarkdownPlanTests(unittest.TestCase):
     def test_example_contract(self):
         _, parts, _, choices = plan_module.validate(TEMPLATE)
         self.assertEqual(choices, {"cancel-order": "生成", "confirm-refund": "不生成"})
-        self.assertEqual(sum(lang == "plantuml" for lang, _ in parts), 4)
+        self.assertEqual(sum(lang == "plantuml" for lang, _ in parts), 2)
 
     def test_plain_offline_html_and_exact_source(self):
         source = plain_plan() + '\n<script>alert("x")</script> **重点** `x < y` [来源](https://example.com)\n'
@@ -68,13 +69,74 @@ class MarkdownPlanTests(unittest.TestCase):
         self.assertEqual(base64.b64decode(encoded).decode(), source)
         self.assertNotIn("__KEEL_", page)
 
+    def test_core_content_visible_details_collapsed(self):
+        from html.parser import HTMLParser
+
+        class Visibility(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.depth = 0
+                self.hidden = []
+                self.visible = []
+                self.closed_ids = []
+
+            def handle_starttag(self, tag, attrs):
+                if tag == "details":
+                    self.depth += 1
+                    attrs = dict(attrs)
+                    if attrs.get("class") == "plan-detail":
+                        self.closed_ids.append(attrs.get("id"))
+                        assert "open" not in attrs
+
+            def handle_endtag(self, tag):
+                if tag == "details":
+                    self.depth -= 1
+
+            def handle_data(self, data):
+                (self.hidden if self.depth else self.visible).append(data)
+
+        source = re.sub(r"## 接口设计\n.*?(?=## 代码改造点)", "", plain_plan(), flags=re.S)
+        self.plan.write_text(source)
+        plan_module.render(self.plan, self.output, HTML_TEMPLATE)
+        page = self.output.read_text()
+        reader = Visibility()
+        reader.feed(page)
+        visible, hidden = "".join(reader.visible), "".join(reader.hidden)
+        self.assertIn("已支付订单发起退款", visible)
+        self.assertIn("事务写入待退款和退款任务", visible)
+        self.assertNotIn("mvn -Dtest", visible)
+        self.assertIn("mvn -Dtest", hidden)
+        self.assertNotIn("状态机", visible)
+        self.assertNotIn("功能时序图", visible)
+        self.assertNotIn("接口设计", visible)
+        self.assertNotIn("cancel-order：不生成", visible)
+        self.assertEqual(len(reader.closed_ids), 3)
+        for anchor in re.findall(r'href="#([^"]+)"', page):
+            self.assertIn(f'id="{anchor}"', page)
+        self.assertEqual(reader.depth, 0)
+
+    def test_single_field_rpc_change_without_table(self):
+        start, end = plain_plan().index("## 接口设计"), plain_plan().index("## 代码改造点")
+        rpc = '## 接口设计\n\n### cancel-order — 发起取消\n\nRPC `OrderService.cancel(CancelRequest)`\n\n入参新增 reason，String，选填。出参不变。\n\n请求 JSON（局部）：\n\n```json\n{"reason":"用户取消"}\n```\n\n'
+        self.plan.write_text(plain_plan()[:start] + rpc + plain_plan()[end:])
+        plan_module.render(self.plan, self.output, HTML_TEMPLATE)
+        page = self.output.read_text()
+        interface = page[page.index("<h2>接口设计</h2>"):page.index("<h2>代码改造点</h2>")]
+        self.assertIn("String", interface)
+        self.assertIn("reason", interface)
+        self.assertNotIn("<table>", interface)
+
     def test_reject_incomplete_or_old_plans_without_overwrite(self):
         invalid = [
             "", "<plan><features /></plan>",
             plain_plan().replace("## 验证方案", "## 其他"),
             plain_plan().replace("- 验收标准：", "- 观察：", 1),
-            plain_plan().replace("- 时序图：不生成", "- 时序图：生成", 1),
+            plain_plan().replace("- cancel-order：不生成", "- cancel-order：生成", 1),
             plain_plan().replace("### confirm-refund", "### cancel-order"),
+            plain_plan().replace("- cancel-order：不生成", "- unknown：不生成"),
+            plain_plan().replace("- cancel-order：不生成", "- confirm-refund：不生成"),
+            plain_plan().replace("- cancel-order：不生成", ""),
+            plain_plan().replace("- 目标：", "- 目标流程：多余流程\n- 目标：", 1),
             plain_plan() + "\n```java\nunfinished",
             plain_plan() + "\nTBD\n",
             plain_plan().replace("## 验证方案", "```\n## 验证方案\n```"),
@@ -140,13 +202,14 @@ if init_keel_run "$PROJECT_DIR/invalid" "$PROJECT_DIR/.keel/plans/example.md" ex
         self.run_render()
         page = self.output.read_text()
         images = re.findall(r'<img src="data:image/svg\+xml;base64,([^\"]+)"', page)
-        self.assertEqual(len(images), 4)
+        self.assertEqual(len(images), 2)
         decoded = [base64.b64decode(data).decode() for data in images]
         self.assertTrue(all("<svg" in svg for svg in decoded))
         self.assertIn("REFUND_PENDING", "\n".join(decoded))
-        for color in ("#DCFCE7", "#FEF3C7", "#FEE2E2"):
-            self.assertIn(color, decoded[-1])
-        self.assertNotIn("CANCELLING", decoded[2])
+        for color in ("#DCFCE7", "#DBEAFE", "#FEE2E2"):
+            self.assertIn(color, decoded[0])
+        self.assertIn("CANCELLING", decoded[0])
+        self.assertIn("本期删除", decoded[0])
         self.plan.write_text(EXAMPLE.replace("actor 用户", "this is not valid PlantUML syntax !!!!"))
         self.run_render(success=False)
         self.assertEqual(self.output.read_text(), page)

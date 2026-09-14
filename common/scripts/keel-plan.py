@@ -13,9 +13,11 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 SECTIONS = (
-    "背景与范围", "现有业务流程与状态机", "本次功能目标", "功能时序图", "状态机调整",
+    "背景与范围", "本次功能目标", "状态机", "功能时序图",
     "接口设计", "代码改造点", "技术决策与约束", "实施顺序", "验证方案",
 )
+OPTIONAL_SECTIONS = {"状态机", "接口设计"}
+FOLDED_SECTIONS = {"技术决策与约束", "实施顺序", "验证方案"}
 SLUG = r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
 
 
@@ -47,6 +49,30 @@ def blocks(source):
     return result
 
 
+def section_blocks(parts):
+    """Group complete prose and code blocks under their real level-two heading."""
+    sections = {}
+    active = None
+    for lang, body in parts:
+        if lang is not None:
+            if active is not None:
+                sections[active].append((lang, body))
+            continue
+        chunk = []
+        for line in body.splitlines():
+            if line.startswith("## "):
+                if active is not None:
+                    sections[active].append((None, "\n".join(chunk)))
+                active = line[3:]
+                sections[active] = []
+                chunk = []
+            else:
+                chunk.append(line)
+        if active is not None:
+            sections[active].append((None, "\n".join(chunk)))
+    return sections
+
+
 def validate(path):
     if path.suffix != ".md" or not path.is_file():
         raise ValueError(f"需要存在的 Markdown 计划: {path}")
@@ -61,30 +87,13 @@ def validate(path):
     if re.search(r"\b(?:TBD|TODO|FIXME)\b|^\s*- 决策：(?:待确认|待选择|待定)\s*$", prose, re.I | re.M):
         raise ValueError("计划仍含未决标记，请完成决策后再进入审阅/开发")
     headings = re.findall(r"^## (.+)$", prose, re.M)
-    if headings not in [list(SECTIONS), [*SECTIONS, "风险与恢复"]]:
-        raise ValueError("计划章节缺失、重复或顺序错误；必须依次包含：" + "、".join(SECTIONS) + "；风险与恢复可选")
-
-    sections = {}
-    active = None
+    expected = [name for name in SECTIONS if name not in OPTIONAL_SECTIONS or name in headings]
+    if headings not in [expected, [*expected, "风险与恢复"]]:
+        raise ValueError("计划章节缺失、重复或顺序错误；顺序：" + "、".join(SECTIONS) + "；状态机、接口设计、风险与恢复按需保留")
+    sections = section_blocks(parts)
     for lang, body in parts:
-        if lang is not None:
-            if active is not None:
-                sections[active].append((lang, body))
-            if lang.lower() == "plantuml":
-                validate_diagram(body)
-            continue
-        chunk = []
-        for line in body.splitlines():
-            if line.startswith("## "):
-                if active is not None:
-                    sections[active].append((None, "\n".join(chunk)))
-                active = line[3:]
-                sections[active] = []
-                chunk = []
-            else:
-                chunk.append(line)
-        if active is not None:
-            sections[active].append((None, "\n".join(chunk)))
+        if lang is not None and lang.lower() == "plantuml":
+            validate_diagram(body)
     for name, content in sections.items():
         if not any(body.strip() for _, body in content):
             raise ValueError(f"计划章节为空: {name}")
@@ -93,18 +102,29 @@ def validate(path):
     entries = re.split(r"^### (.+)$", goals, flags=re.M)
     if len(entries) < 3:
         raise ValueError("本次功能目标必须包含 ### slug — 功能名")
-    choices = {}
+    features = set()
     for title, body in zip(entries[1::2], entries[2::2]):
         match = re.fullmatch(f"({SLUG}) — (.+)", title)
-        if not match or match[1] in choices:
+        if not match or match[1] in features:
             raise ValueError(f"功能标题或 slug 重复/不合法: {title}")
-        choice = re.findall(r"^- 时序图：(生成|不生成)\s*$", body, re.M)
-        if len(choice) != 1:
-            raise ValueError(f"功能 {match[1]} 必须明确唯一时序图选择")
-        for label in ("目标", "目标流程", "验收标准"):
-            if not re.search(r"^- " + label + r"：\S.+", body, re.M):
+        for label in ("目标", "验收标准"):
+            if not re.search(r"^- " + label + r"：\S.*", body, re.M):
                 raise ValueError(f"功能 {match[1]} 缺少{label}")
-        choices[match[1]] = choice[0]
+        if re.search(r"^- (?:时序图|目标流程)：", body, re.M):
+            raise ValueError("功能目标只保留目标与验收；时序图选择移至功能时序图章节")
+        features.add(match[1])
+
+    choices = {}
+    for lang, body in sections["功能时序图"]:
+        if lang is None:
+            for slug, choice in re.findall(rf"^- ({SLUG})：(生成|不生成)\s*$", body, re.M):
+                if slug not in features or slug in choices:
+                    raise ValueError(f"时序图选择必须对应唯一功能: {slug}")
+                choices[slug] = choice
+    if set(choices) != features:
+        raise ValueError("每项功能必须在功能时序图章节记录唯一选择")
+    if "状态机" in sections and not any(lang == "plantuml" for lang, _ in sections["状态机"]):
+        raise ValueError("状态机章节必须有新状态图；无调整请省略章节")
 
     selected = {slug for slug, choice in choices.items() if choice == "生成"}
     diagrams = {}
@@ -256,24 +276,34 @@ def render(plan, output, template):
     if output != plan.with_suffix(".html"):
         raise ValueError("HTML 必须与 Markdown 位于同目录且同名")
     sections, rendered, diagram_count = [], [], 0
-    for lang, body in parts:
-        if lang is None:
-            rendered.append(prose_html(body, sections))
-        elif lang.lower() == "plantuml":
-            diagram_count += 1
-            src = diagram_svg(body)
-            rendered.append(f'<figure><div class="diagram"><img src="{src}" alt="业务图 {diagram_count}" /></div>'
-                            f'<figcaption>业务图 {diagram_count} · PlantUML</figcaption><details><summary>查看图表源码</summary>'
-                            f'<pre><code>{html.escape(body)}</code></pre></details></figure>')
+    for name, content in section_blocks(parts).items():
+        if name == "功能时序图" and "生成" not in choices.values():
+            continue
+        sections.append(name)
+        anchor = f'section-{len(sections)}'
+        folded = name in FOLDED_SECTIONS
+        if folded:
+            rendered.append(f'<details class="plan-detail" id="{anchor}"><summary>{html.escape(name)}</summary>')
         else:
-            rendered.append("<pre><code>" + html.escape(body) + "</code></pre>")
+            rendered.append(f'<section id="{anchor}"><h2>{html.escape(name)}</h2>')
+        for lang, body in content:
+            if lang is None:
+                if name == "功能时序图":
+                    body = re.sub(rf"^- ({SLUG})：(生成|不生成)\s*$", "", body, flags=re.M)
+                rendered.append(prose_html(body, []))
+            elif lang.lower() == "plantuml":
+                diagram_count += 1
+                src = diagram_svg(body)
+                rendered.append(f'<figure><div class="diagram"><img src="{src}" alt="{html.escape(name)} {diagram_count}" /></div>'
+                                f'<details><summary>查看图表源码</summary>'
+                                f'<pre><code>{html.escape(body)}</code></pre></details></figure>')
+            else:
+                rendered.append("<pre><code>" + html.escape(body) + "</code></pre>")
+        rendered.append("</details>" if folded else "</section>")
     replacements = {
         "TITLE": html.escape(title),
         "NAV": "\n".join(f'<a href="#section-{index}">{html.escape(name)}</a>' for index, name in enumerate(sections, 1)),
         "CONTENT": "\n".join(rendered),
-        "FEATURE_COUNT": str(len(choices)),
-        "SELECTED_COUNT": str(sum(choice == "生成" for choice in choices.values())),
-        "DIAGRAM_COUNT": str(diagram_count),
         "SOURCE": html.escape(source),
         "SOURCE_BASE64": base64.b64encode(source.encode("utf-8")).decode("ascii"),
         "FILE_NAME": html.escape(plan.name, quote=True),
