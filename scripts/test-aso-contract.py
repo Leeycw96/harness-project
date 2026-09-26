@@ -14,6 +14,8 @@ AGENTS = ROOT / 'keel-dev/agents'
 REFS = ROOT / 'common/refs'
 ROLE_TASKS = {'builder': '实现任务', 'qa': '验收任务', 'call-chain': '流程维护任务'}
 ROLE_SPECS = {'builder': 'keel-dev-spec.md', 'qa': 'keel-qa-spec.md', 'call-chain': 'keel-call-chain-spec.md'}
+AGENT_DIRS = {role: AGENTS for role in ROLE_TASKS} | {'planner': ROOT / 'keel-plan/agents'}
+SPEC_FILES = {*ROLE_SPECS.values(), 'keel-plan-spec.md', 'keel-business-flow-spec.md'}
 TAGS = {
     'BUILD_SLICE_DONE': ('builder', 'BUILD', 'plan.md'),
     'BUILD_DONE': ('builder', 'BUILD', 'plan.md'),
@@ -65,11 +67,11 @@ class AsoContractTests(unittest.TestCase):
     def test_role_definitions_do_not_import_spec_or_workflow(self):
         # Stable professional methods such as TDD belong to A; concrete runtime dependencies do not.
         forbidden = r'KEEL_PROFILE|state\.json|profile\.json|\.keel/|\.codex/common|plan\.md|fix-brief|qa-feedback|call-chain-review|complete_stage|update_progress|\b(?:BUILD|REVIEW|FIX|CALL_CHAIN|PREFLIGHT|APPROVED|REJECTED|NOOP|UPDATED|PAUSED)(?:_[A-Z]+)*\b|\b(?:full|fast)\b'
-        for role in ROLE_TASKS:
+        for role, directory in AGENT_DIRS.items():
             with self.subTest(role=role):
-                source = (AGENTS / f'keel-{role}.md').read_text()
+                source = (directory / f'keel-{role}.md').read_text()
                 self.assertNotRegex(source, forbidden)
-                config = tomllib.loads((AGENTS / f'keel-{role}.toml').read_text())
+                config = tomllib.loads((directory / f'keel-{role}.toml').read_text())
                 self.assertNotRegex(config['developer_instructions'], forbidden)
                 self.assertNotRegex(config['description'], forbidden)
                 paths = re.findall(r'\.codex/[\w/.-]+\.md', config['developer_instructions'])
@@ -90,14 +92,13 @@ class AsoContractTests(unittest.TestCase):
         return text
 
     def test_spec_has_no_agent_registration_or_orchestration_dependencies(self):
-        for name in ROLE_SPECS.values():
+        for name in SPEC_FILES:
             with self.subTest(spec=name):
                 text = (REFS / name).read_text()
                 self.assertNotRegex(text, r'keel-builder|keel-qa\.md|keel-call-chain\.md|\.codex/agents/|KEEL_PROFILE|state\.json|complete_stage|update_progress|\b(?:BUILD|REVIEW|FIX|PAUSED|PREFLIGHT|NOOP|UPDATED)(?:_[A-Z]+)*\b')
 
-    def test_deployed_orchestration_resource_graph_is_complete(self):
-        roots = ['.agents/skills/keel-dev/SKILL.md', '.agents/skills/keel-dev-fast/SKILL.md',
-                 '.agents/skills/keel-fix/SKILL.md']
+    def reachable_references(self, roots):
+        roots = list(roots)
         seen = set()
         while roots:
             reference = roots.pop()
@@ -105,19 +106,46 @@ class AsoContractTests(unittest.TestCase):
                 continue
             seen.add(reference)
             text = self.read_reference(reference)
-            for linked in re.findall(r'\.(?:codex|agents)/[\w/.-]+\.(?:md|sh|py)(?:#[\w-]+)?', text):
-                roots.append(linked)
+            roots.extend(re.findall(r'\.(?:codex|agents)/[\w/.-]+\.(?:md|sh|py)(?:#[\w-]+)?', text))
+        return seen
+
+    def test_deployed_orchestration_resource_graph_is_complete(self):
+        roots = ['.agents/skills/keel-dev/SKILL.md', '.agents/skills/keel-dev-fast/SKILL.md',
+                 '.agents/skills/keel-fix/SKILL.md', '.agents/skills/keel-plan/SKILL.md']
+        seen = self.reachable_references(roots)
+        for entry in ('.agents/skills/keel-plan/SKILL.md', '.agents/skills/keel-dev/SKILL.md'):
+            self.assertIn('.codex/common/refs/keel-business-flow-spec.md', self.reachable_references([entry]))
         for task in ROLE_TASKS.values():
             self.assertIn('.codex/common/refs/keel-dev-orchestration.md#' + task, seen)
         self.assertIn('.codex/common/refs/keel-dev-orchestration.md#通用任务要求', seen)
-        for name in ROLE_SPECS.values():
+        for name in SPEC_FILES:
             self.assertIn('.codex/common/refs/' + name, seen)
         self.assertIn('.codex/common/refs/keel-dev-spec.md#代码与测试标准', seen)
         self.assertIn('.codex/common/refs/keel-dev-spec.md#问题定位', seen)
         self.assertIn('.agents/skills/keel-fix/SKILL.md#定位任务', seen)
         self.assertIn('.agents/skills/keel-fix/scripts/keel-fix.py', seen)
         self.assertIn('.agents/skills/keel-fix/assets/bug-template.md', seen)
-        self.assertEqual({p.name for p in self.refs.iterdir()}, {*ROLE_SPECS.values(), 'keel-dev-orchestration.md'})
+        self.assertIn('.agents/skills/keel-plan/SKILL.md#调研任务', seen)
+        self.assertIn('.agents/skills/keel-plan/SKILL.md#起草与修订任务', seen)
+        self.assertIn('.agents/skills/keel-plan/assets/incremental-example.md', seen)
+        self.assertEqual({p.name for p in self.refs.iterdir()}, {*SPEC_FILES, 'keel-dev-orchestration.md'})
+
+    def test_planner_is_deployed_with_its_role_and_spec_in_both_modes(self):
+        for mode in ('plan', 'dev'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory(prefix='keel-planner-') as work:
+                project = Path(work)
+                result = subprocess.run([str(ROOT / 'bin/keel'), mode, '--codex', str(project)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                manifest = (project / '.codex/.keel/installed-manifest').read_text().splitlines()
+                config = tomllib.loads((project / '.codex/agents/keel-planner.toml').read_text())
+                self.assertEqual(config['name'], 'keel-planner')
+                for relative, original in (
+                    ('.codex/agents/keel-planner.md', 'keel-plan/agents/keel-planner.md'),
+                    ('.codex/agents/keel-planner.toml', 'keel-plan/agents/keel-planner.toml'),
+                    ('.codex/common/refs/keel-plan-spec.md', 'common/refs/keel-plan-spec.md'),
+                ):
+                    self.assertIn(relative, manifest)
+                    self.assertEqual((project / relative).read_bytes(), (ROOT / original).read_bytes())
 
     def test_default_bindings_route_each_role_to_spec_and_task(self):
         main = self.read_reference('.codex/common/refs/keel-dev-orchestration.md#主会话编排')
@@ -160,7 +188,7 @@ class AsoContractTests(unittest.TestCase):
             for entry in entries:
                 self.assertFalse((project / entry).exists())
                 self.assertNotIn(entry, manifest.read_text().splitlines())
-            for name in (*ROLE_SPECS.values(), 'keel-dev-orchestration.md'):
+            for name in (*SPEC_FILES, 'keel-dev-orchestration.md'):
                 self.assertEqual((project / '.codex/common/refs' / name).read_bytes(), (REFS / name).read_bytes())
                 self.assertIn('.codex/common/refs/' + name, manifest.read_text().splitlines())
             self.assertEqual(user_file.read_text(), 'project-owned instructions')

@@ -1,0 +1,6 @@
+name = "keel-planner"
+description = "理解需求与现有实现，设计简明、可执行的改动方案。"
+nickname_candidates = ["Planner", "Planner A", "Planner B"]
+developer_instructions = """
+读取 .codex/agents/keel-planner.md 作为角色定义，依据本次任务提供的目标、规范和交付要求开展工作。
+"""

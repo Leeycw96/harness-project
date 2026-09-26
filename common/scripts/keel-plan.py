@@ -18,6 +18,9 @@ import zipfile
 SECTIONS = ("数据模型", "功能时序图", "接口设计", "代码改造点")
 REVIEW_SECTIONS = ("背景", "业务流程总览", "状态机")
 SLUG = r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
+NO_MODEL_CHANGE = "本期不涉及数据模型变更，沿用现有实现。"
+NO_INTERFACE_CHANGE = "本期不涉及接口变更，沿用现有实现。"
+NO_INTERFACE_CHANGE_MARKERS = {NO_INTERFACE_CHANGE, "本功能无接口变更。"}
 
 
 def blocks(source):
@@ -211,8 +214,17 @@ def validate(path):
                         raise ValueError(f"{slug} 的{section}引用无效")
                     refs.append(match[1])
             references[section] = refs
-        if not interfaces and not references["接口设计"] and prose(detail["接口设计"]).strip() != "本功能无接口变更。":
+        interface_text = prose(detail["接口设计"]).strip()
+        no_interface_change = any(line.strip() in NO_INTERFACE_CHANGE_MARKERS for line in interface_text.splitlines())
+        if no_interface_change and (interfaces or references["接口设计"] or
+                                    any(lang is not None for lang, _ in detail["接口设计"]) or
+                                    interface_text not in NO_INTERFACE_CHANGE_MARKERS):
+            raise ValueError("接口不涉及变更的标记不能与接口定义、引用或变更说明混用")
+        if not interfaces and not references["接口设计"] and interface_text not in NO_INTERFACE_CHANGE_MARKERS:
             raise ValueError("接口设计须以 HTTP 方法与路径或 RPC 签名为三级标题；无变更时明确说明")
+        if any(line.strip() == NO_MODEL_CHANGE for line in prose(detail["数据模型"]).splitlines()) and (
+                one_field(detail["数据模型"], "结构变更") != "无" or references["数据模型"]):
+            raise ValueError("模型不涉及变更的标记不能与实际变更或共享设计引用混用")
         if not re.search(r"^- .*`[^`]+`.*[：:].+", prose(detail["代码改造点"]), re.M):
             raise ValueError(f"功能 {slug} 的改造点须定位代码并简述改动")
         if re.search(r"^### ", prose(detail["代码改造点"]), re.M):
@@ -280,9 +292,19 @@ def snapshot(plan, output):
 
 def review_sections(plan, bundle):
     """Aggregate feature documents without exposing routing or duplicating contracts."""
-    _, _, review_title, review = read_document(plan.with_suffix(".review.md"), REVIEW_SECTIONS, {"状态机"})
+    _, review_parts, review_title, review = read_document(plan.with_suffix(".review.md"), REVIEW_SECTIONS, {"业务流程总览", "状态机"})
     if review_title != bundle["title"]:
         raise ValueError("审阅素材与执行计划标题必须一致")
+    header = re.split(r"^## ", prose(review_parts), maxsplit=1, flags=re.M)[0]
+    changes = re.findall(r"^- 业务流程变化：(.*)$", header, re.M)
+    reasons = re.findall(r"^- 判定依据：(.*)$", header, re.M)
+    if changes or reasons:
+        if len(changes) != 1 or changes[0].strip() not in {"有", "无"} or len(reasons) != 1 or not reasons[0].strip():
+            raise ValueError("审阅素材须记录唯一的业务流程变化判定（有/无）及非空判定依据")
+        if changes[0].strip() == "有" and "业务流程总览" not in review:
+            raise ValueError("业务流程有变化时必须提供业务流程总览")
+    elif "业务流程总览" not in review:
+        raise ValueError("省略业务流程总览前须明确记录业务流程无变化及判定依据")
     stories = [line.strip() for line in prose(review["背景"]).splitlines() if line.strip()]
     if (not stories or any(lang is not None for lang, _ in review["背景"])
             or any(not re.fullmatch(r"- User Story：\S.+", line) for line in stories)):
@@ -302,7 +324,9 @@ def review_sections(plan, bundle):
         for api_heading, api_content in item["interfaces"].values():
             interfaces.extend([(None, "### " + api_heading), *api_content])
         changes.extend([heading, *detail["代码改造点"]])
-    result = {"背景": review["背景"], "功能目标": goals, "业务流程总览": review["业务流程总览"]}
+    result = {"背景": review["背景"], "功能目标": goals}
+    if "业务流程总览" in review:
+        result["业务流程总览"] = review["业务流程总览"]
     if "状态机" in review:
         result["状态机"] = review["状态机"]
     for name, content in (("数据模型设计", models), ("功能时序图", sequences), ("接口设计", interfaces), ("代码改造点", changes)):

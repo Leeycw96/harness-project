@@ -19,7 +19,7 @@ KEEL_PROFILE=$(init_keel_run "$KEEL_OUTPUT_DIR" "$KEEL_PLAN_PATH")
 export KEEL_PROFILE
 ```
 
-保存有效 A/S 绑定。计划完整、无未决问题且 Preflight 通过后进入 BUILD；缺失或旧格式返回 Plan。
+保存有效 A/S 绑定，call_chain.spec_refs 加 `.codex/common/refs/keel-business-flow-spec.md`。计划完整、无未决问题且 Preflight 通过后进入 BUILD；缺失或旧格式返回 Plan。
 
 ## 状态机
 

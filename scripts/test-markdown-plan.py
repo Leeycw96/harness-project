@@ -189,6 +189,110 @@ class MarkdownPlanTests(unittest.TestCase):
         self.assertEqual(reader.headings, ["背景", "功能目标", "业务流程总览", "代码改造点"])
         self.assertEqual(count, 1)
 
+    def test_no_change_markers_keep_md_explicit_and_hide_optional_html_sections(self):
+        self.make_plain()
+        for slug in FEATURES:
+            source = self.feature(slug).read_text()
+            source = replace_section(source, "数据模型", "- 结构变更：无\n\n" + plan_module.NO_MODEL_CHANGE)
+            source = replace_section(source, "接口设计", plan_module.NO_INTERFACE_CHANGE)
+            self.feature(slug).write_text(source)
+        page, _ = self.render()
+        reader = ContentReader()
+        reader.feed(page)
+        self.assertNotIn("数据模型设计", reader.headings)
+        self.assertNotIn("接口设计", reader.headings)
+        self.assertNotIn("本期不涉及", page.split('<article id="plan-content">')[1].split('</article>')[0])
+        encoded = re.search(r'data:application/zip;base64,([^\"]+)', page)[1]
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded))) as archive:
+            feature = archive.read('example.features/cancel-order.md').decode()
+            self.assertIn(plan_module.NO_MODEL_CHANGE, feature)
+            self.assertIn(plan_module.NO_INTERFACE_CHANGE, feature)
+
+    def test_unchanged_flow_can_omit_overview_and_render_without_diagram_tools(self):
+        self.make_plain()
+        source = re.sub(r'^## 业务流程总览\n.*?(?=^## |\Z)', '', self.review.read_text(), flags=re.M | re.S)
+        self.review.write_text(source.replace('业务流程变化：有', '业务流程变化：无'))
+        with patch.dict(os.environ, {}, clear=True), patch.object(plan_module.shutil, 'which', return_value=None):
+            plan_module.render(self.plan, self.output, HTML_TEMPLATE)
+        page = self.output.read_text()
+        reader = ContentReader()
+        reader.feed(page)
+        self.assertEqual(reader.headings, ['背景', '功能目标', '代码改造点'])
+        self.assertNotIn('业务流程变化：', page)
+        self.assertNotIn('判定依据：', page)
+        self.assertNotIn('section-4', page)
+
+    def test_omitting_overview_requires_a_complete_unchanged_flow_decision(self):
+        without_flow = re.sub(r'^## 业务流程总览\n.*?(?=^## |\Z)', '', REVIEW, flags=re.M | re.S)
+        unchanged = without_flow.replace('业务流程变化：有', '业务流程变化：无')
+        cases = [without_flow,
+                 re.sub(r'^- (?:业务流程变化|判定依据)：.*\n', '', without_flow, flags=re.M),
+                 re.sub(r'^- 判定依据：.*$', '- 判定依据：', unchanged, flags=re.M),
+                 re.sub(r'^- 判定依据：.*\n', '', unchanged, flags=re.M),
+                 unchanged.replace('业务流程变化：无', '业务流程变化：待核实'),
+                 unchanged.replace('- 业务流程变化：无', '- 业务流程变化：无\n- 业务流程变化：有')]
+        for source in cases:
+            with self.subTest(source=source[:100]):
+                self.review.write_text(source)
+                self.assert_rejected()
+
+    def test_legacy_overview_and_optional_unchanged_overview_remain_valid(self):
+        legacy = re.sub(r'^- (?:业务流程变化|判定依据)：.*\n', '', REVIEW, flags=re.M)
+        for source in (legacy, REVIEW.replace('业务流程变化：有', '业务流程变化：无')):
+            with self.subTest(source=source[:100]):
+                self.review.write_text(source)
+                page, count = self.render()
+                self.assertIn('<h2>业务流程总览</h2>', page)
+                self.assertEqual(count, 4)
+
+    def test_no_change_markers_cannot_hide_contract_changes_or_shared_dependencies(self):
+        source = FEATURES['cancel-order']
+        for content in (plan_module.NO_INTERFACE_CHANGE + '\n\n' + section(source, '接口设计'),
+                        plan_module.NO_INTERFACE_CHANGE + '\n\n- 引用：[confirm-refund](confirm-refund.md#接口设计)',
+                        plan_module.NO_INTERFACE_CHANGE + '\n\n```json\n{"status":"NEW"}\n```'):
+            with self.subTest(interface=content[:45]):
+                self.feature().write_text(replace_section(source, '接口设计', content))
+                self.assert_rejected()
+        for marker in (plan_module.NO_MODEL_CHANGE, '  ' + plan_module.NO_MODEL_CHANGE + '  '):
+            self.feature().write_text(replace_section(source, '数据模型', section(source, '数据模型') + '\n\n' + marker))
+            self.assert_rejected()
+        self.feature().write_text(source)
+        dependent = FEATURES['confirm-refund']
+        self.feature('confirm-refund').write_text(replace_section(dependent, '数据模型', section(dependent, '数据模型') + '\n\n' + plan_module.NO_MODEL_CHANGE))
+        self.assert_rejected()
+
+    def test_incremental_state_example_keeps_changed_logic_without_model_or_api_redesign(self):
+        plan = self.directory / 'incremental-example.md'
+        shutil.copy2(ASSETS / plan.name, plan)
+        shutil.copy2(ASSETS / 'incremental-example.review.md', plan.with_suffix('.review.md'))
+        shutil.copytree(ASSETS / 'incremental-example.features', self.directory / 'incremental-example.features')
+        bundle = plan_module.validate(plan)
+        feature = bundle['features']['mark-verifying']
+        self.assertFalse(feature['model_visible'])
+        self.assertEqual(feature['interfaces'], {})
+        self.assertIn('VERIFYING', feature['source'])
+        self.assertIn('TimeoutScanner', feature['source'])
+        with patch.object(plan_module, 'diagram_svg', return_value=SVG) as diagram:
+            plan_module.render(plan, plan.with_suffix('.html'), HTML_TEMPLATE)
+        reader = ContentReader()
+        reader.feed(plan.with_suffix('.html').read_text())
+        self.assertEqual(reader.headings, ['背景', '功能目标', '状态机', '功能时序图', '代码改造点'])
+        self.assertEqual(diagram.call_count, 2)
+        output = self.root / 'incremental-run'
+        plan_module.snapshot(plan, output)
+        snapshot = plan_module.validate(output / 'plan.md')
+        self.assertEqual(snapshot['features']['mark-verifying']['source'], feature['source'])
+
+    @unittest.skipUnless(os.environ.get('KEEL_PLANTUML_JAR') or shutil.which('plantuml'), '需要本地 PlantUML')
+    def test_incremental_diagrams_render_with_real_plantuml(self):
+        for path in (ASSETS / 'incremental-example.review.md', ASSETS / 'incremental-example.features/mark-verifying.md'):
+            for language, body in plan_module.blocks(path.read_text()):
+                if language == 'plantuml':
+                    with self.subTest(document=path.name):
+                        image = plan_module.diagram_svg(body)
+                        self.assertTrue(image.startswith('data:image/svg+xml;base64,'))
+                        self.assertIn(b'<svg', base64.b64decode(image.split(',', 1)[1]))
+
     def test_other_sql_is_retained_without_model_review(self):
         self.make_plain()
         model = "- 结构变更：其他调整\n\n```sql\nCREATE INDEX idx_order_status ON orders(status);\n```"

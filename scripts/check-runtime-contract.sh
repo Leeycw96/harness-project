@@ -26,6 +26,10 @@ for required in \
   "keel-plan/skills/keel-plan/assets/plan-review-template.md" \
   "keel-plan/skills/keel-plan/assets/plan-view-template.html" \
   "keel-plan/skills/keel-plan/scripts/render-plan-html.sh" \
+  "keel-plan/agents/keel-planner.toml" \
+  "keel-plan/agents/keel-planner.md" \
+  "common/refs/keel-plan-spec.md" \
+  "common/refs/keel-business-flow-spec.md" \
   "keel-dev/skills/keel-fix/SKILL.md" \
   "keel-dev/skills/keel-fix/assets/bug-template.md" \
   "keel-dev/skills/keel-fix/scripts/keel-fix.py" \

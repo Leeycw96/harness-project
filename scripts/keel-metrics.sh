@@ -29,15 +29,23 @@ def measure(label, *references):
 
 
 print('component\tlines\tchars')
-specs = {mode: f'common/refs/keel-{mode}-spec.md' for mode in ('dev', 'qa', 'call-chain')}
+specs = {mode: f'common/refs/keel-{mode}-spec.md' for mode in ('plan', 'dev', 'qa', 'call-chain')}
 orchestration = 'common/refs/keel-dev-orchestration.md'
+flow_spec = 'common/refs/keel-business-flow-spec.md'
 measure('codex-plan-skill', 'keel-plan/skills/keel-plan/SKILL.md')
+measure('codex-planner-instructions', 'keel-plan/agents/keel-planner.md')
+measure('codex-planner-default-task-input', 'keel-plan/agents/keel-planner.md',
+        'keel-plan/agents/keel-planner.toml', specs['plan'], flow_spec,
+        'keel-plan/skills/keel-plan/SKILL.md#起草与修订任务')
+measure('codex-plan-effective-input', 'keel-plan/skills/keel-plan/SKILL.md',
+        'keel-plan/agents/keel-planner.md', 'keel-plan/agents/keel-planner.toml', specs['plan'], flow_spec)
 measure('codex-plan-template', 'keel-plan/skills/keel-plan/assets/plan-template.md')
 measure('codex-fix-skill', 'keel-dev/skills/keel-fix/SKILL.md')
 measure('codex-builder-diagnosis-input', 'keel-dev/agents/keel-builder.md',
         'keel-dev/agents/keel-builder.toml', specs['dev'] + '#操作约束', specs['dev'] + '#问题定位',
         'keel-dev/skills/keel-fix/SKILL.md#定位任务')
-measure('codex-spec', *specs.values())
+measure('codex-spec', *specs.values(), flow_spec)
+measure('codex-business-flow-spec', flow_spec)
 for mode, path in specs.items():
     measure(f'codex-{mode}-spec', path)
 measure('codex-orchestration-contract', orchestration)
@@ -56,13 +64,13 @@ for role, task, mode in (
     spec = specs[mode]
     measure(f'codex-{role}-instructions', agent + '.md')
     # The old Agent baseline excluded shared coding standards; retain the same comparison scope.
-    scope = read(spec)
+    scope = read(spec) + (read(flow_spec) if role == 'call-chain' else '')
     if role == 'builder':
         scope = scope[:scope.index('## 代码与测试标准\n')]
     measure_contents(f'codex-{role}-baseline-input', read(agent + '.md'), scope,
                      *(read(reference) for reference in task_refs))
     # QA uses the same development standard as implementation, plus its own operation constraints.
-    spec_refs = [spec] + ([specs['dev'] + '#代码与测试标准'] if role == 'qa' else [])
+    spec_refs = [spec] + ([flow_spec] if role == 'call-chain' else []) + ([specs['dev'] + '#代码与测试标准'] if role == 'qa' else [])
     measure(f'codex-{role}-default-task-input', agent + '.md', agent + '.toml', *task_refs, *spec_refs)
 paths = [str(path.relative_to(root)) for directory in ('keel-plan', 'keel-dev', 'common')
          for path in sorted((root / directory).rglob('*')) if path.is_file()]

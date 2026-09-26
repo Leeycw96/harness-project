@@ -105,9 +105,9 @@ artifact 为该报告，tag 为最终判定；按运行协议完成后返回。�
 
 ## 流程维护任务
 
-stage 为 CALL_CHAIN，仅在 full 的 QA 通过且需要独立审查时下发。输入为计划索引、最终 Builder commits 与 diff、规范提供的索引目录；按受影响功能读取对应设计与必要引用，不展开全量文档。只审本轮 Builder commits，以代码为事实，必要时补查相关代码建立完整状态流转。
+stage 为 CALL_CHAIN，仅在 full 的 QA 通过且需要独立审查时下发。输入为计划索引、最终 Builder commits 与 diff、规范提供的索引目录。只审本轮 Builder commits，按通用任务要求读取相关设计并核对代码。
 
-按规范中的维护范围和文档标准决定是否更新；默认 NOOP，不确定时 NOOP 并说明证据缺口。不得依据主会话预判代替独立判断。
+按职责规范和共用粒度独立判断；默认 NOOP，不确定时说明证据缺口。
 
 输出 `call-chain-review.md`，包含最终 `UPDATED` / `NOOP`、base/head/commits、入口与状态/流转/执行符号变化、已有文件与创建/更新门禁的证据，以及更新文件、commit 或 NOOP 原因。
 
