@@ -9,21 +9,16 @@ baseline_chars() {
   awk -F '\t' -v component="$component" '$1 == component { print $3 }' "$baseline_file"
 }
 
-file_chars() {
-  wc -m < "$1" | tr -d ' '
-}
-
-sum_chars() {
-  local total=0 file
-  for file in "$@"; do
-    total=$((total + $(file_chars "$file")))
-  done
-  printf '%s\n' "$total"
+metrics="$("$repo_root/scripts/keel-metrics.sh")"
+current_chars() {
+  local component="$1"
+  awk -F '\t' -v component="$component" '$1 == component { print $3 }' <<< "$metrics"
 }
 
 check_reduction() {
   local component="$1" current="$2" required_percent="$3"
   local baseline actual_percent
+  [[ "$current" =~ ^[0-9]+$ ]] || { echo "缺少当前体量: $component" >&2; return 1; }
   baseline="$(baseline_chars "$component")"
   [ -n "$baseline" ] || {
     echo "缺少 baseline: $component" >&2
@@ -37,17 +32,9 @@ check_reduction() {
   echo "$component: ${actual_percent}% reduction"
 }
 
-check_reduction "codex-full-effective-input" \
-  "$(sum_chars \
-    "$repo_root/keel-dev/skills/keel-dev/SKILL.md" \
-    "$repo_root/common/refs/keel-dev-orchestration.md")" 40
-check_reduction "codex-fast-effective-input" \
-  "$(sum_chars \
-    "$repo_root/keel-dev/skills/keel-dev-fast/SKILL.md" \
-    "$repo_root/common/refs/keel-dev-orchestration.md")" 40
-check_reduction "codex-builder-instructions" \
-  "$(file_chars "$repo_root/keel-dev/agents/keel-builder.md")" 30
-check_reduction "codex-qa-instructions" \
-  "$(file_chars "$repo_root/keel-dev/agents/keel-qa.md")" 30
-check_reduction "codex-call-chain-instructions" \
-  "$(file_chars "$repo_root/keel-dev/agents/keel-call-chain.md")" 30
+check_reduction "codex-full-effective-input" "$(current_chars codex-full-effective-input)" 40
+check_reduction "codex-fast-effective-input" "$(current_chars codex-fast-effective-input)" 40
+# Compare Agent instructions plus relocated task/spec sections against the original scope.
+for role in builder qa call-chain; do
+  check_reduction "codex-$role-instructions" "$(current_chars "codex-$role-baseline-input")" 30
+done

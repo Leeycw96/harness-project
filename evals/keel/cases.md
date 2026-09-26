@@ -17,6 +17,10 @@
 | PLAN-11 | keel-plan | 用户反馈修改验收或重点逻辑 | 修改源文件并重渲染；HTML 共享内容与 MD 一致，不产生重复维护的验收列表 |
 | PLAN-12 | keel-plan | 多功能共享模型和接口 | 只在所属功能定义 SQL/接口，其他功能直接引用章节；HTML 仅展示一次，接口无功能分类；下载包含可独立验证的索引与功能文件 |
 | PLAN-13 | keel-dev | 初始化后源计划被修改或移除 | full/fast 快照包含全部关联功能文件，state 指向 run 内索引；恢复不重新读取源计划，缺文件阻断 |
+| ASO-01 | full / fast | 更换实现 Agent，沿用当前规范 | 不修改 Spec 即可下发相同目标与任务协议；阶段、tag、artifact 与提交范围保持一致 |
+| ASO-02 | full / fast | 更换项目 Spec，沿用三个角色定义 | A 文件不变；实现与验收使用同一份开发标准，缺失引用阻断，不暗自回退固定规范 |
+| ASO-03 | keel-dev | QA 通过后的独立流程审查 | 按 S 维护标准判定；不读取 prefilter 预判，NOOP/UPDATED 及独立 docs commit 与旧流程一致 |
+| ASO-04 | full / fast | 任务中断后恢复 | 沿用当前 run 的角色/规范绑定、计划快照和进度；旧 profile 可恢复，旧 run 无绑定时补默认 |
 | FAST-01 | keel-dev-fast | 局部校验 bugfix | Builder 和 QA 仅消费执行 MD，不读取 HTML 或审阅素材；只改相关代码；相关测试通过；QA 覆盖本轮 commit |
 | FULL-01 | keel-dev | 跨模块多阶段状态流转 | Preflight 后直接 BUILD；不存在 build-scope 阶段；QA 门禁通过；CallChain 为 UPDATED |
 | REVIEW-01 | keel-dev | 预埋 stub、遗漏副作用、入口层业务逻辑和缺失测试 | P0/P1 召回不低于 baseline |

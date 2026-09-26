@@ -12,7 +12,7 @@ Keel 是一组面向 Codex App 的 skills + agent 手册，用于编排 Builder�
 keel-project/
 ├── bin/keel          # 部署 CLI
 ├── install.sh        # 把 bin/ 写入 PATH
-├── common/           # 共享规则和脚本，部署到 .codex/common/
+├── common/           # 共享规范、编排和脚本，部署到 .codex/common/
 ├── keel-plan/        # /keel-plan skill、模板与渲染入口
 └── keel-dev/         # dev skills 与 Codex custom agents
 ```
@@ -74,6 +74,10 @@ keel dev --codex /path/to/your/project
 .codex/
 ├── common/
 │   ├── refs/
+│   │   ├── keel-dev-spec.md           # S：开发约束及代码与测试标准
+│   │   ├── keel-qa-spec.md            # S：验收约束
+│   │   ├── keel-call-chain-spec.md    # S：流程文档规范
+│   │   └── keel-dev-orchestration.md  # O：调度与任务执行要求
 │   └── scripts/
 ├── agents/
 │   ├── keel-builder.md
@@ -95,6 +99,18 @@ keel dev --codex /path/to/your/project
 ## 阶段职责
 
 借鉴 [Karpathy 启发的四项原则](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/README.zh.md)，按 Keel 阶段职责整合：Plan 在制定计划时核实假设、调研歧义并请用户完成关键取舍；Dev 和 fast 按已确认方案落实简洁优先、精准修改与目标驱动，Builder 实现，QA 对照目标与证据验收。仅实际代码偏差或关键遗漏返回 Plan，验证修复仍遵守既有次数上限。
+
+## ASO 开发架构
+
+- **A（Agent）**：Builder、QA、CallChain 的 Markdown 定义角色、能力、原则，保留最小修改、不过度设计、TDD、按计划实现等具体要求；TOML 注册并加载自身角色，不绑定项目规范或阶段步骤。
+- **S（Spec）**：`common/refs/` 下的 `keel-dev-spec.md`、`keel-qa-spec.md`、`keel-call-chain-spec.md` 分别规定开发、验收和流程文档工作的约束；项目手册补充技术栈与验证命令。本次功能目标仍来自已确认的 Plan。
+- **O（Orchestration）**：full/fast 与 `common/refs/keel-dev-orchestration.md` 组合 A/S，提供目标、范围、输入资料和规范引用；同一编排文档中的任务章节规定执行、产物、提交、进度和完成要求。
+
+`common/refs/` 保留三份职责 Spec 和一份编排文档。各角色读取对应 Spec；代码与测试标准在 dev Spec 中维护一份，QA 额外读取其中的“代码与测试标准”章节。替换开发 Spec 时同步验收引用，开发和验收使用同一标准。主会话读取编排文档的“主会话编排”，子任务只读取“通用任务要求”与对应任务章节。
+
+角色和规范可以独立替换：主会话在 `state.json.aso_bindings` 中按 builder/qa/call_chain 记录 agent、spec_refs 和 task_ref；引用使用绝对路径，可附 `#二级标题`，包含其子节，到下一二级标题结束。fast 只配置实现与验收。恢复沿用当前 run 的绑定，缺少绑定的旧 run 使用默认值。缺失资料或章节、规范冲突及超出授权须报告。
+
+本次只规范定义与资料归属，保持既定目标、任务范围、验收标准和交付要求。full/fast 保留原有阶段、完成标记、三轮修复上限、QA 门禁、按需 CallChain 和旧 profile 恢复。Agent 在任务中执行注入的 S/O，能力描述不扩大任务范围。
 
 ## 使用
 
@@ -172,6 +188,7 @@ find common -type f -name '*.sh' -exec bash -n {} \;
 bash -n keel-plan/skills/keel-plan/scripts/render-plan-html.sh
 scripts/check-runtime-contract.sh
 scripts/check-planning-contract.sh
+# check-runtime-contract 已包含 ASO 边界、部署和运行协议验证
 scripts/keel-metrics.sh
 scripts/check-slimming-targets.sh
 scripts/check-call-chain-controlled-eval.sh

@@ -6,7 +6,7 @@ work_dir="$(mktemp -d)"
 trap 'find "$work_dir" -depth -delete' EXIT
 
 # Check language-neutral development rules.
-rules="$repo_root/common/refs/keel-dev-coding-rules.md"
+rules="$repo_root/common/refs/keel-dev-spec.md"
 orchestration="$repo_root/common/refs/keel-dev-orchestration.md"
 for marker in '对外业务契约' '函数、模块' '测试命名、扩展名、位置和发现规则沿用项目约定' '不要求所有语言都有独立编译阶段'; do
   grep -Fq "$marker" "$rules" || { echo "缺少语言无关契约: $marker" >&2; exit 1; }
@@ -68,4 +68,6 @@ cp -R "$repo_root/keel-plan/skills/keel-plan/assets/plan-template.features" "$ru
   ' "$fast_state" >/dev/null
 )
 
-echo "Codex App 单 runtime 与语言无关契约检查通过。"
+python3 "$repo_root/scripts/test-aso-contract.py"
+
+echo "Codex App 单 runtime、ASO 分层与语言无关契约检查通过。"

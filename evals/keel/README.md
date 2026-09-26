@@ -22,7 +22,11 @@ scripts/check-runtime-contract.sh
 scripts/check-slimming-targets.sh
 ```
 
-静态体量只衡量上下文成本，不能替代行为 eval。
+`check-runtime-contract.sh` 同时运行 ASO 架构边界、临时部署和运行协议兼容检查。`keel-metrics.sh` 分别报告角色 A 的体量与默认任务的 A+S+O 全部指令（含 TOML，不含项目材料）。缩减门禁计入从旧 Agent 搬出的任务要求与 Spec 约束，沿用旧基线口径，不把搬文件当作上下文节省。
+
+体量按编排要求实际读取的章节统计，同时报告完整 Spec/编排文件大小；主会话只读调度章节，子任务读通用任务要求、职责章节和对应 Spec；QA 同时读取本次 dev Spec 的代码与测试标准章节。Builder/QA 的历史缩减基线不含当时已独立的代码规约，完整任务体量仍计入这些规约。
+
+这些契约检查不执行模型开发任务。静态体量与协议兼容均不能替代行为 eval；历史 CallChain 配对结果也不代表新版本重新通过模型评测。
 
 ## CallChain 按需调度
 
