@@ -59,8 +59,7 @@ init_keel_run() {
 
   output_dir="$(_abs_path "$output_dir")"
   plan_path="$(_abs_path "$plan_path")"
-  validate_keel_plan "$plan_path" || return 1
-  mkdir -p "$output_dir"
+  plan_path="$(python3 "$SCRIPT_DIR/keel-plan.py" snapshot "$plan_path" "$output_dir")" || return 1
 
   local state_file="$output_dir/state.json"
 
@@ -135,8 +134,7 @@ init_keel_fast_run() {
 
   output_dir="$(_abs_path "$output_dir")"
   plan_path="$(_abs_path "$plan_path")"
-  validate_keel_plan "$plan_path" || return 1
-  mkdir -p "$output_dir"
+  plan_path="$(python3 "$SCRIPT_DIR/keel-plan.py" snapshot "$plan_path" "$output_dir")" || return 1
 
   local state_file="$output_dir/state.json"
 

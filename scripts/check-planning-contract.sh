@@ -20,4 +20,4 @@ for runtime in "$repo_root/keel-dev"; do
   grep -Fq '状态变更符号变化' "$runtime/skills/keel-dev/SKILL.md"
 done
 
-echo "Markdown 单计划、HTML 图表审阅与 CallChain 状态机契约检查通过。"
+echo "Markdown 功能索引与分文件执行计划、HTML 组合审阅与 CallChain 状态机契约检查通过。"

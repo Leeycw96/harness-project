@@ -17,9 +17,9 @@ KEEL_OUTPUT_DIR="${KEEL_BRANCH_DIR}/run-${RUN_NUMBER}"
 mkdir -p "$KEEL_OUTPUT_DIR"
 ```
 
-2. 从用户输入、路径或 `.keel/plans/` 取得用户已确认的 Markdown 计划，调用 `validate_keel_plan "<计划路径>"`。缺失、旧格式或契约不完整时停止并返回 `/keel-plan`；HTML 仅供用户审阅，不作为执行输入。
-3. 确认计划没有未决问题或交给 Builder 的关键选择，再复制到 `${KEEL_OUTPUT_DIR}/plan.md`。不得用已有 run 的旧 artifact 补齐计划。
-4. 初始化函数只传入 output_dir 和 run 内 plan.md，返回唯一 `state.json` 路径并导出 `KEEL_PROFILE`。
+2. 将已确认索引的绝对路径赋给 `KEEL_PLAN_PATH`，运行 `validate_keel_plan "$KEEL_PLAN_PATH"`。索引包含目标、验收、依赖及功能链接；功能文件包含模型、时序图、接口和改造点。输入缺失、旧格式或不完整时返回 `/keel-plan`。
+3. 确认无未决问题后，传 output_dir 和原始索引路径给初始化函数；它校验并快照索引为 run 内 `plan.md`，复制关联功能文件并保留相对链接。不只复制索引，不用旧 run 补齐。
+4. 返回 `state.json` 路径并导出 `KEEL_PROFILE`，`plan_path` 指向 run 内索引。恢复使用快照，不重新初始化；HTML 和审阅素材不作为执行输入。
 5. 读取项目根 `AGENTS.md`，不存在时读 `README.md`。
 
 ## Preflight
@@ -33,7 +33,7 @@ mkdir -p "$KEEL_OUTPUT_DIR"
 
 ## 调度
 
-每个 Agent prompt 只需给出：`KEEL_PROFILE` 绝对路径、阶段、输入、输出、完成 tag。Agent 从该 `state.json` 读取 `plan_path`，写 progress，完成一个阶段后返回，不与其他 Agent 通信。
+Agent prompt 给出：`KEEL_PROFILE` 绝对路径、阶段、输入、输出、完成 tag。Agent 读 `state.json.plan_path` 索引，只加载指定功能 MD 及明确引用的共享章节，不展开无关功能或依赖全文。按索引依赖安排 slice，只传 slug、路径和必要依赖，不拼接全量 MD。Agent 写 progress，完成一个阶段后返回，不互相通信。
 
 主会话收到结果后依次校验完成 tag、artifact 和 git commit，再更新 `state.json`。每个阶段使用新 Agent 执行；完成后结束当前执行。
 
@@ -44,7 +44,7 @@ mkdir -p "$KEEL_OUTPUT_DIR"
 ## 门禁
 
 - 只消费当前 artifact，不扫描历史版本。恢复旧 run 时先校验其 plan.md；旧格式须重新生成计划并新建 run，不自动拼接或迁移历史输入。
-- 运行中的执行 artifact 缺失或格式错误时定向重做一次；再次失败计入恢复次数。`plan.md` 缺失不重做，直接停止并返回 Plan 阶段。
+- 运行中的执行 artifact 缺失或格式错误时定向重做一次；再次失败计入恢复次数。索引或所引用功能文档缺失不重做，直接停止并返回 Plan 阶段。
 - 只记录 Builder 本轮新 commit，不审查或提交用户无关改动。
 - QA `REJECTED` 阻断；非阻断观察只汇总。
 - 除 Builder 代码 commit 和 CallChain 文档 commit 外，不自动 stage、merge、squash、push 或清理历史。

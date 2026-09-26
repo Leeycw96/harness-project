@@ -14,10 +14,10 @@ user-invocable: true
 
 ## 初始化
 
-按共享契约校验用户已确认的单份 Markdown 计划，保存为 `plan.md`，调用：
+按共享契约校验已确认的索引与功能文档，初始化时一起保存到 run：
 
 ```bash
-KEEL_PROFILE=$(init_keel_run "$KEEL_OUTPUT_DIR" "$KEEL_OUTPUT_DIR/plan.md")
+KEEL_PROFILE=$(init_keel_run "$KEEL_OUTPUT_DIR" "$KEEL_PLAN_PATH")
 export KEEL_PROFILE
 ```
 
@@ -29,7 +29,7 @@ Markdown 计划完整、没有待确认事项且 Preflight 通过后，直接进
 
 ### BUILD
 
-按已确认的 Markdown 计划，将小需求一次完成，大需求依据“实施顺序”按一个或少量强相关 slug 切片。每片调度新 `keel-builder`，输入 Markdown 计划和指定 slug，tag `BUILD_SLICE_DONE` 或 `BUILD_DONE`。Builder 不得重新选择技术方案或改变目标业务流程；发现契约矛盾、遗漏关键决策或按现状无法执行时，停止并将 run 置为 `PAUSED`，交回 Plan 阶段确认。
+按已确认的 Markdown 计划，将小需求一次完成，大需求按功能依赖、数据模型和时序关系，以一个或少量强相关 slug 切片。每片调度新 `keel-builder`，输入索引路径和指定 slug，按需读取对应功能文件与共享章节，tag `BUILD_SLICE_DONE` 或 `BUILD_DONE`。Builder 不得重新选择技术方案或改变目标业务流程；发现契约矛盾、遗漏关键决策或按现状无法执行时，停止并将 run 置为 `PAUSED`，交回 Plan 阶段确认。
 
 每片返回后只记录新增 commit。最后一片必须完成相关测试和项目适用的验证检查；全部完成后进入 `REVIEW`。
 

@@ -21,6 +21,9 @@ fi
 
 for required in \
   "keel-plan/skills/keel-plan/assets/plan-template.md" \
+  "keel-plan/skills/keel-plan/assets/plan-template.features/cancel-order.md" \
+  "keel-plan/skills/keel-plan/assets/plan-template.features/confirm-refund.md" \
+  "keel-plan/skills/keel-plan/assets/plan-review-template.md" \
   "keel-plan/skills/keel-plan/assets/plan-view-template.html" \
   "keel-plan/skills/keel-plan/scripts/render-plan-html.sh" \
   "keel-dev/agents/keel-builder.toml" \
@@ -37,6 +40,7 @@ fi
 runtime_dir="$work_dir/runtime"
 mkdir -p "$runtime_dir"
 cp "$repo_root/keel-plan/skills/keel-plan/assets/plan-template.md" "$runtime_dir/plan.md"
+cp -R "$repo_root/keel-plan/skills/keel-plan/assets/plan-template.features" "$runtime_dir/"
 (
   export PROJECT_DIR="$runtime_dir"
   source "$repo_root/common/scripts/keel-init.sh"

@@ -6,7 +6,7 @@
 
 ## 启动
 
-从 `KEEL_PROFILE` 读取 state；旧 run 若指向 `profile.json`，再读取同目录 `state.json`。然后读取本文件、项目手册、`plan.md`、已有 `.keel/call-chain/` 和 Builder commit diff。以 Markdown 计划中的目标业务流程为预期、以实际 diff 为事实。source `.codex/common/scripts/keel-common.sh` 并写 progress：
+从 `KEEL_PROFILE` 读取 state；旧 run 若指向 `profile.json`，再读取同目录 `state.json`。然后读取本文件、项目手册、`plan.md` 轻量索引、已有 `.keel/call-chain/` 和 Builder commit diff；按受影响功能读取对应 MD 与必要引用章节，不展开全量文档。以计划中的目标业务流程为预期、以实际 diff 为事实。source `.codex/common/scripts/keel-common.sh` 并写 progress：
 
 ```bash
 update_progress "keel-call-chain" "CALL_CHAIN" "审查业务流程入口变化" "${output_dir}/call-chain-review.md"

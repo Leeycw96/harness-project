@@ -14,10 +14,10 @@ user-invocable: true
 
 ## 初始化
 
-按共享契约校验用户已确认的单份 Markdown 计划，保存为 `plan.md`，调用：
+按共享契约校验已确认的索引与功能文档，初始化时一起保存到 run：
 
 ```bash
-KEEL_PROFILE=$(init_keel_fast_run "$KEEL_OUTPUT_DIR" "$KEEL_OUTPUT_DIR/plan.md")
+KEEL_PROFILE=$(init_keel_fast_run "$KEEL_OUTPUT_DIR" "$KEEL_PLAN_PATH")
 export KEEL_PROFILE
 ```
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Validate the Codex Markdown plan and render its offline HTML review."""
+"""Validate/snapshot a feature plan bundle and compose its offline HTML review."""
 import argparse
 import base64
+import hashlib
 import html
+import io
 import os
 from pathlib import Path
 import re
@@ -11,13 +13,10 @@ import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+import zipfile
 
-SECTIONS = (
-    "背景与范围", "本次功能目标", "状态机", "功能时序图",
-    "接口设计", "代码改造点", "技术决策与约束", "实施顺序", "验证方案",
-)
-OPTIONAL_SECTIONS = {"状态机", "接口设计"}
-FOLDED_SECTIONS = {"技术决策与约束", "实施顺序", "验证方案"}
+SECTIONS = ("数据模型", "功能时序图", "接口设计", "代码改造点")
+REVIEW_SECTIONS = ("背景", "业务流程总览", "状态机")
 SLUG = r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
 
 
@@ -73,12 +72,12 @@ def section_blocks(parts):
     return sections
 
 
-def validate(path):
+def read_document(path, order, optional):
     if path.suffix != ".md" or not path.is_file():
         raise ValueError(f"需要存在的 Markdown 计划: {path}")
     source = path.read_text(encoding="utf-8")
     if not source.strip() or source.lstrip().startswith("<"):
-        raise ValueError("需要完整 Markdown 计划；旧 XML 输入请重新运行 /keel-plan")
+        raise ValueError("需要完整 Markdown 内容；旧格式输入请重新运行 /keel-plan")
     parts = blocks(source)
     prose = "\n".join(body for lang, body in parts if lang is None)
     titles = re.findall(r"^# (.+)$", prose, re.M)
@@ -87,9 +86,9 @@ def validate(path):
     if re.search(r"\b(?:TBD|TODO|FIXME)\b|^\s*- 决策：(?:待确认|待选择|待定)\s*$", prose, re.I | re.M):
         raise ValueError("计划仍含未决标记，请完成决策后再进入审阅/开发")
     headings = re.findall(r"^## (.+)$", prose, re.M)
-    expected = [name for name in SECTIONS if name not in OPTIONAL_SECTIONS or name in headings]
-    if headings not in [expected, [*expected, "风险与恢复"]]:
-        raise ValueError("计划章节缺失、重复或顺序错误；顺序：" + "、".join(SECTIONS) + "；状态机、接口设计、风险与恢复按需保留")
+    expected = [name for name in order if name not in optional or name in headings]
+    if headings != expected:
+        raise ValueError("计划章节缺失、重复或顺序错误；顺序：" + "、".join(order))
     sections = section_blocks(parts)
     for lang, body in parts:
         if lang is not None and lang.lower() == "plantuml":
@@ -98,52 +97,218 @@ def validate(path):
         if not any(body.strip() for _, body in content):
             raise ValueError(f"计划章节为空: {name}")
 
-    goals = "\n".join(body for lang, body in sections["本次功能目标"] if lang is None)
-    entries = re.split(r"^### (.+)$", goals, flags=re.M)
-    if len(entries) < 3:
-        raise ValueError("本次功能目标必须包含 ### slug — 功能名")
-    features = set()
-    for title, body in zip(entries[1::2], entries[2::2]):
-        match = re.fullmatch(f"({SLUG}) — (.+)", title)
-        if not match or match[1] in features:
-            raise ValueError(f"功能标题或 slug 重复/不合法: {title}")
-        for label in ("目标", "验收标准"):
-            if not re.search(r"^- " + label + r"：\S.*", body, re.M):
-                raise ValueError(f"功能 {match[1]} 缺少{label}")
-        if re.search(r"^- (?:时序图|目标流程)：", body, re.M):
-            raise ValueError("功能目标只保留目标与验收；时序图选择移至功能时序图章节")
-        features.add(match[1])
+    return source, parts, titles[0], sections
 
-    choices = {}
-    for lang, body in sections["功能时序图"]:
-        if lang is None:
-            for slug, choice in re.findall(rf"^- ({SLUG})：(生成|不生成)\s*$", body, re.M):
-                if slug not in features or slug in choices:
-                    raise ValueError(f"时序图选择必须对应唯一功能: {slug}")
-                choices[slug] = choice
-    if set(choices) != features:
-        raise ValueError("每项功能必须在功能时序图章节记录唯一选择")
-    if "状态机" in sections and not any(lang == "plantuml" for lang, _ in sections["状态机"]):
-        raise ValueError("状态机章节必须有新状态图；无调整请省略章节")
 
-    selected = {slug for slug, choice in choices.items() if choice == "生成"}
-    diagrams = {}
-    current = None
-    for lang, body in sections["功能时序图"]:
-        if lang is None:
-            for title in re.findall(r"^### (.+)$", body, re.M):
-                match = re.fullmatch(f"({SLUG}) — (.+)", title)
-                if not match or match[1] not in selected or match[1] in diagrams:
-                    raise ValueError(f"时序图必须对应已选择且唯一的功能: {title}")
-                current = match[1]
-                diagrams[current] = 0
-        elif lang.lower() == "plantuml":
-            if current is None:
-                raise ValueError("时序图前缺少功能三级标题")
-            diagrams[current] += 1
-    if set(diagrams) != selected or any(count < 1 for count in diagrams.values()):
-        raise ValueError("时序图与功能选择不一致：每个已选功能都必须有图")
-    return source, parts, titles[0], choices
+def prose(content):
+    return "\n".join(body for lang, body in content if lang is None)
+
+
+def feature_blocks(content, pattern=rf"({SLUG}) — (.+)"):
+    """Keep code fences attached to each titled entry, keyed by the first capture."""
+    intro, entries, active = [], {}, None
+    for lang, body in content:
+        if lang is not None:
+            (entries[active][1] if active else intro).append((lang, body))
+            continue
+        chunk = []
+        for line in body.splitlines():
+            if line.startswith("### "):
+                (entries[active][1] if active else intro).append((None, "\n".join(chunk)))
+                title = line[4:]
+                match = re.fullmatch(pattern, title)
+                if not match or match[1] in entries:
+                    raise ValueError(f"三级标题重复或不合法: {title}")
+                active = match[1]
+                entries[active] = (title, [])
+                chunk = []
+            else:
+                chunk.append(line)
+        (entries[active][1] if active else intro).append((None, "\n".join(chunk)))
+    return intro, entries
+
+
+def model_in_review(content):
+    if not content:
+        return False
+    changes = re.findall(r"^- 结构变更：(.+)$", prose(content), re.M)
+    if len(changes) != 1:
+        raise ValueError("数据模型须记录一条结构变更：新增表、新增字段、其他调整或无")
+    if changes[0] == "无":
+        if any(lang and lang.lower() in {"sql", "plantuml"} for lang, _ in content):
+            raise ValueError("无结构变更时不能定义 SQL 或模型图；共享模型请引用所属功能")
+        return False
+    kinds = changes[0].split("、")
+    if len(kinds) != len(set(kinds)) or not set(kinds) <= {"新增表", "新增字段", "其他调整"}:
+        raise ValueError("数据模型结构变更类型不合法")
+    visible = bool(set(kinds) & {"新增表", "新增字段"})
+    diagrams = [body for lang, body in content if lang and lang.lower() == "plantuml"]
+    if visible and not any(re.search(r'^\s*entity\s+', body, re.M) for body in diagrams):
+        raise ValueError("新增表或字段的数据模型必须包含 PlantUML 实体关系图")
+    if not any(lang and lang.lower() == "sql" and body.strip() for lang, body in content):
+        raise ValueError("数据模型必须包含本次调整的 SQL")
+    return visible
+
+
+def one_field(content, label):
+    values = re.findall(rf"^- {label}：(.+)$", prose(content), re.M)
+    if len(values) != 1:
+        raise ValueError(f"必须记录唯一的{label}")
+    return values[0]
+
+
+def local_feature_path(plan, relative, slug):
+    # Feature documents live in one child directory, so snapshots remain portable.
+    if not re.fullmatch(rf"[a-zA-Z0-9_.-]+/{re.escape(slug)}\.md", relative) or relative.split("/")[0] in {".", ".."}:
+        raise ValueError(f"功能文档须为计划目录下的相对路径 <目录>/{slug}.md")
+    path = plan.parent / relative
+    if path.parent.is_symlink() or path.is_symlink():
+        raise ValueError("功能文档不能使用符号链接")
+    return path
+
+
+def validate(path):
+    source, parts, title, sections = read_document(path, ("功能目标",), set())
+    intro, goals = feature_blocks(sections["功能目标"])
+    if not goals or any(body.strip() for _, body in intro):
+        raise ValueError("功能目标必须按 ### slug — 功能名 列出")
+    features = {}
+    for slug, (heading, content) in goals.items():
+        if any(lang is not None for lang, _ in content):
+            raise ValueError("索引只保留功能目标、验收和文档路由，不放图表或实现")
+        one_field(content, "目标")
+        acceptance = re.findall(r"^验收标准：\s*\n((?:\s*\n)*- [^\n]+(?:\n- [^\n]+)*)", prose(content), re.M)
+        if len(acceptance) != 1:
+            raise ValueError(f"功能 {slug} 的验收标准必须逐条列出")
+        link = re.fullmatch(rf"\[{slug}\]\(([^)]+)\)", one_field(content, "文档"))
+        if not link:
+            raise ValueError(f"功能 {slug} 缺少文档链接")
+        relative = link[1]
+        feature_path = local_feature_path(path, relative, slug)
+        feature_source, feature_parts, feature_title, detail = read_document(feature_path, SECTIONS, set())
+        if feature_title != heading:
+            raise ValueError(f"功能文档标题必须与索引一致: {slug}")
+        dependency = one_field(content, "依赖")
+        dependencies = [] if dependency == "无" else dependency.split("、")
+        if len(set(dependencies)) != len(dependencies) or slug in dependencies or any(item not in goals for item in dependencies):
+            raise ValueError(f"功能依赖无效: {slug}")
+        visible = model_in_review(detail["数据模型"])
+        choice = one_field(detail["功能时序图"], "时序图")
+        has_diagram = any(lang and lang.lower() == "plantuml" for lang, _ in detail["功能时序图"])
+        if choice not in {"生成", "不生成"} or (choice == "生成") != has_diagram:
+            raise ValueError(f"时序图与选择不一致: {slug}")
+        _, interfaces = feature_blocks(detail["接口设计"], r"([A-Z]+ `/[^`\s]*`|RPC `[^`\n]+`)")
+        for api_heading, api_content in interfaces.values():
+            if not any(body.strip() for _, body in api_content):
+                raise ValueError(f"接口设计缺少内容: {api_heading}")
+        references = {}
+        for section in ("数据模型", "接口设计"):
+            refs = []
+            for line in prose(detail[section]).splitlines():
+                if line.startswith("- 引用："):
+                    match = re.fullmatch(rf"- 引用：\[({SLUG})\]\(({SLUG})\.md#{section}\)", line)
+                    if not match or match[1] != match[2] or match[1] == slug or match[1] not in goals or match[1] in refs:
+                        raise ValueError(f"{slug} 的{section}引用无效")
+                    refs.append(match[1])
+            references[section] = refs
+        if not interfaces and not references["接口设计"] and prose(detail["接口设计"]).strip() != "本功能无接口变更。":
+            raise ValueError("接口设计须以 HTTP 方法与路径或 RPC 签名为三级标题；无变更时明确说明")
+        if not re.search(r"^- .*`[^`]+`.*[：:].+", prose(detail["代码改造点"]), re.M):
+            raise ValueError(f"功能 {slug} 的改造点须定位代码并简述改动")
+        if re.search(r"^### ", prose(detail["代码改造点"]), re.M):
+            raise ValueError("功能文档的代码改造点直接列文件，不重复功能分类")
+        features[slug] = dict(heading=heading, goal=content, path=relative, source=feature_source,
+                              parts=feature_parts, sections=detail, dependencies=dependencies,
+                              choice=choice, model_visible=visible, interfaces=interfaces, references=references)
+
+    visited, visiting = set(), set()
+
+    def visit(slug):
+        if slug in visiting:
+            raise ValueError("功能依赖不能成环")
+        if slug in visited:
+            return
+        visiting.add(slug)
+        for dependency in features[slug]["dependencies"]:
+            visit(dependency)
+        visiting.remove(slug)
+        visited.add(slug)
+
+    api_owners = {}
+    for slug, feature in features.items():
+        visit(slug)
+        for section, refs in feature["references"].items():
+            for ref in refs:
+                owner = features[ref]
+                if Path(owner["path"]).parent != Path(feature["path"]).parent:
+                    raise ValueError("引用必须指向同目录下的功能文档")
+                if owner["references"][section]:
+                    raise ValueError("共享设计须直接引用定义所属功能，不能链式引用")
+                if section == "数据模型" and one_field(owner["sections"][section], "结构变更") == "无":
+                    raise ValueError("数据模型引用必须指向实际模型定义")
+                if section == "接口设计" and not owner["interfaces"]:
+                    raise ValueError("接口引用必须指向实际接口定义")
+        for endpoint in feature["interfaces"]:
+            if endpoint in api_owners:
+                raise ValueError(f"接口 {endpoint} 重复定义；请引用所属功能")
+            api_owners[endpoint] = slug
+    return dict(source=source, title=title, features=features)
+
+
+def execution_files(plan, bundle):
+    return {plan.name: bundle["source"], **{item["path"]: item["source"] for item in bundle["features"].values()}}
+
+
+def snapshot(plan, output):
+    """Capture the validated index and feature sources, without review material."""
+    bundle = validate(plan)
+    files = execution_files(Path("plan.md"), bundle)
+    output = output.resolve()
+    if (output / "state.json").exists():
+        raise ValueError("run 已有状态，不能覆盖；恢复时使用现有快照")
+    for relative in files:
+        target = output / relative
+        if target.exists() or target.is_symlink() or target.parent.is_symlink():
+            raise ValueError(f"run 已有计划文件，不能覆盖: {target}")
+    output.mkdir(parents=True, exist_ok=True)
+    for relative, source in files.items():
+        target = output / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source, encoding="utf-8")
+    print(output / "plan.md")
+
+
+def review_sections(plan, bundle):
+    """Aggregate feature documents without exposing routing or duplicating contracts."""
+    _, _, review_title, review = read_document(plan.with_suffix(".review.md"), REVIEW_SECTIONS, {"状态机"})
+    if review_title != bundle["title"]:
+        raise ValueError("审阅素材与执行计划标题必须一致")
+    stories = [line.strip() for line in prose(review["背景"]).splitlines() if line.strip()]
+    if (not stories or any(lang is not None for lang, _ in review["背景"])
+            or any(not re.fullmatch(r"- User Story：\S.+", line) for line in stories)):
+        raise ValueError("背景仅保留 User Story 列表，不按功能分类或重复目标与验收标准")
+    for name in ("业务流程总览", "状态机"):
+        if name in review and not any(lang and lang.lower() == "plantuml" for lang, _ in review[name]):
+            raise ValueError(f"{name}必须包含 PlantUML 图")
+    goals, models, sequences, interfaces, changes = [], [], [], [], []
+    for item in bundle["features"].values():
+        heading = (None, "### " + item["heading"])
+        goals.extend([heading, *[(lang, re.sub(r"^- (?:文档|依赖)：.*$", "", body, flags=re.M)) for lang, body in item["goal"]]])
+        detail = item["sections"]
+        if item["model_visible"]:
+            models.extend(detail["数据模型"])
+        if item["choice"] == "生成":
+            sequences.extend([heading, *detail["功能时序图"]])
+        for api_heading, api_content in item["interfaces"].values():
+            interfaces.extend([(None, "### " + api_heading), *api_content])
+        changes.extend([heading, *detail["代码改造点"]])
+    result = {"背景": review["背景"], "功能目标": goals, "业务流程总览": review["业务流程总览"]}
+    if "状态机" in review:
+        result["状态机"] = review["状态机"]
+    for name, content in (("数据模型设计", models), ("功能时序图", sequences), ("接口设计", interfaces), ("代码改造点", changes)):
+        if content:
+            result[name] = content
+    return result
 
 
 def validate_diagram(source):
@@ -269,27 +434,24 @@ def prose_html(source, sections):
 
 
 def render(plan, output, template):
-    source, parts, title, choices = validate(plan)
+    bundle = validate(plan)
+    source, title = bundle["source"], bundle["title"]
     plan, output = plan.resolve(), output.resolve()
     if plan.parent.name != "plans" or plan.parent.parent.name != ".keel":
         raise ValueError("HTML 源计划必须位于 <project>/.keel/plans/")
     if output != plan.with_suffix(".html"):
         raise ValueError("HTML 必须与 Markdown 位于同目录且同名")
     sections, rendered, diagram_count = [], [], 0
-    for name, content in section_blocks(parts).items():
-        if name == "功能时序图" and "生成" not in choices.values():
-            continue
+    for name, content in review_sections(plan, bundle).items():
         sections.append(name)
         anchor = f'section-{len(sections)}'
-        folded = name in FOLDED_SECTIONS
-        if folded:
-            rendered.append(f'<details class="plan-detail" id="{anchor}"><summary>{html.escape(name)}</summary>')
-        else:
-            rendered.append(f'<section id="{anchor}"><h2>{html.escape(name)}</h2>')
+        rendered.append(f'<section id="{anchor}"><h2>{html.escape(name)}</h2>')
         for lang, body in content:
             if lang is None:
                 if name == "功能时序图":
-                    body = re.sub(rf"^- ({SLUG})：(生成|不生成)\s*$", "", body, flags=re.M)
+                    body = re.sub(r"^- 时序图：(生成|不生成)\s*$", "", body, flags=re.M)
+                if name in {"数据模型设计", "接口设计"}:
+                    body = re.sub(r"^- (?:结构变更|引用)：.+$", "", body, flags=re.M)
                 rendered.append(prose_html(body, []))
             elif lang.lower() == "plantuml":
                 diagram_count += 1
@@ -299,16 +461,24 @@ def render(plan, output, template):
                                 f'<pre><code>{html.escape(body)}</code></pre></details></figure>')
             else:
                 rendered.append("<pre><code>" + html.escape(body) + "</code></pre>")
-        rendered.append("</details>" if folded else "</section>")
+        rendered.append("</section>")
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zipped:
+        for relative, document in execution_files(plan, bundle).items():
+            zipped.writestr(relative, document)
+    page = template.read_text(encoding="utf-8")
+    scripts = re.findall(r"<script>(.*?)</script>", page, re.S)
+    if len(scripts) != 1:
+        raise ValueError("HTML 模板必须包含唯一的主题切换脚本")
     replacements = {
         "TITLE": html.escape(title),
         "NAV": "\n".join(f'<a href="#section-{index}">{html.escape(name)}</a>' for index, name in enumerate(sections, 1)),
         "CONTENT": "\n".join(rendered),
         "SOURCE": html.escape(source),
-        "SOURCE_BASE64": base64.b64encode(source.encode("utf-8")).decode("ascii"),
-        "FILE_NAME": html.escape(plan.name, quote=True),
+        "SOURCE_BASE64": base64.b64encode(archive.getvalue()).decode("ascii"),
+        "FILE_NAME": html.escape(plan.with_suffix(".zip").name, quote=True),
+        "SCRIPT_HASH": base64.b64encode(hashlib.sha256(scripts[0].encode("utf-8")).digest()).decode("ascii"),
     }
-    page = template.read_text(encoding="utf-8")
     required = set(re.findall(r"__KEEL_(\w+)__", page))
     if required != set(replacements):
         raise ValueError("HTML 模板占位符不完整")
@@ -332,6 +502,9 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     check = commands.add_parser("validate")
     check.add_argument("plan", type=Path)
+    capture = commands.add_parser("snapshot")
+    capture.add_argument("plan", type=Path)
+    capture.add_argument("output", type=Path)
     view = commands.add_parser("render")
     view.add_argument("plan", type=Path)
     view.add_argument("output", type=Path)
@@ -340,6 +513,8 @@ def main():
     try:
         if args.command == "validate":
             validate(args.plan)
+        elif args.command == "snapshot":
+            snapshot(args.plan, args.output)
         else:
             render(args.plan, args.output, args.template)
     except (ValueError, OSError, subprocess.TimeoutExpired) as error:

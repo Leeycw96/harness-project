@@ -1,6 +1,6 @@
 # Keel
 
-当前版本: **3.0.2**（见 `VERSION`）。
+当前版本: **4.0.0**（见 `VERSION`）。
 
 命令入口为 `keel`，开发模式为 `dev`，计划与运行数据使用 `.keel/`。本次更名直接使用新名称，不提供旧命令别名或自动迁移。
 
@@ -64,6 +64,8 @@ keel dev --codex /path/to/your/project
     │   ├── SKILL.md
     │   ├── assets/
     │   │   ├── plan-template.md
+    │   │   ├── plan-template.features/  # 按功能拆分的文档示例
+    │   │   ├── plan-review-template.md
     │   │   └── plan-view-template.html
     │   └── scripts/
     │       └── render-plan-html.sh
@@ -88,7 +90,7 @@ keel dev --codex /path/to/your/project
 
 业务开发规则与语言无关：先识别项目既有语言、架构、测试和 CI 配置，再选择代码落点与验证命令。业务契约可由模块、函数或类方法承载，不强制 Controller/Service 分层、Java 测试后缀或 Maven。多语言仓库按受影响模块分别验证；没有独立编译阶段时使用适用的类型/语法、加载和测试检查，不把未执行记录为通过。
 
-模板保留明确标注的 Java/Maven 示例用于说明写法，实际计划必须替换为项目事实。Python 3 和 PlantUML/Java 是 Keel HTML 渲染工具的依赖，不要求业务项目采用 Python 或 Java。
+模板保留明确标注的 Java/PostgreSQL 示例用于说明写法，实际计划必须替换为项目事实。Python 3 和 PlantUML/Java 是 Keel HTML 渲染工具的依赖，不要求业务项目采用 Python 或 Java。
 
 ## 阶段职责
 
@@ -96,7 +98,7 @@ keel dev --codex /path/to/your/project
 
 ## 使用
 
-1. 在 Codex App 运行 `/keel-plan`，通过对话生成 `.keel/plans/<name>.md` Markdown 开发计划，以及同名 `.html` 用户审阅入口。
+1. 在 Codex App 运行 `/keel-plan`，生成 `.keel/plans/<name>.md` 功能索引、`<name>.features/<slug>.md` 功能文档、`<name>.review.md` 审阅素材及同名 `.html` 用户审阅入口。
 2. 日常小中型改动优先运行 `/keel-dev-fast <plan-path>`。
 3. 高风险改动再运行 `/keel-dev <plan-path>` 走完整验收。
 
@@ -106,17 +108,19 @@ keel dev --codex /path/to/your/project
 
 Codex App 的 Plan 先读取相关 CallChain 和实际代码，列出带 slug 的功能目标，再让用户选择哪些功能生成 PlantUML 时序图（部分、全部或不生成）；已有明确选择时不重复询问。其余只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项，内容可推导时直接起草，不逐章确认。
 
-单份 Markdown 保留开发依据，HTML 优先展示简要目标与验收、变更状态机、选定时序图、HTTP/RPC 接口字段和代码改造点。能一句话说明的不用表格，少量接口变更只列差异。代码改造点指明关键类/方法或函数及修改方向，不沿调用链穷举文件；Dev 据此完成必要联动修改。无状态调整则省略状态机；有调整在一张图中用绿/蓝/红区分新增/修改/删除，删除节点隔离展示。技术约束、实施顺序和验证默认折叠；关键取舍直接展示。“风险与恢复”仅在必要时展开。
+执行文档按功能拆分。轻量索引保留各功能目标、逐项验收、依赖及文件链接；目标只说明技术上要达到的功能效果，不包含实现过程。每份功能 MD 固定包含数据模型、功能时序图、接口设计、代码改造点：模型写表结构和 SQL，时序图写重点逻辑，接口设计写请求/响应契约，改造点只定位文件与符号并用一句话描述改动。共享模型/接口由一个功能定义，其他功能引用其对应章节，SQL 不重复执行。Builder 读索引后仅加载当前功能和必要引用章节；QA 按功能逐份验收。
 
-HTML 从 Markdown 生成，展示实际图像、表格及章节导航，图表源码可展开。用户反馈先修改 Markdown，再重新生成 HTML。Dev、Builder、QA 只读取 Markdown；用户未确认最终 HTML 或渲染失败时，Plan 不会报告完成。
+HTML 按背景、功能目标、业务流程总览、按需状态机、按需数据模型设计、选定时序图、按需 HTTP/RPC 接口设计、代码改造点展示。背景仅展示理解后的 User Story 列表，不按功能分类；功能目标单独展示技术上需要达到的效果，验收标准逐条列出，不混入 HTTP 契约或事务等实现细节。业务流程总览必选，参考 CallChain 并核对代码，以 PlantUML 展示当前关键环节。新增表或字段才展示 ER 图，只列本次相关表、关系和关键字段；仅索引、既有字段或数据回填的 SQL 仍保留在执行 MD。接口设计按 HTTP 方法与路径或 RPC 签名组织，不包含功能编号和功能名称。有状态调整时用绿/蓝/红区分新增/修改/删除，删除节点隔离展示。不增加技术约束、实施顺序、验证方案或“其他必要说明”章节。
 
-渲染依赖 Python 3；包含图表时另需本地 `plantuml` 命令，或通过 `KEEL_PLANTUML_JAR` 指定本地 jar 并提供 Java。图表使用 PlantUML 内置 Smetana 布局，无需 Graphviz；渲染后嵌入 HTML，可离线打开，不向远程服务发送计划。缺少依赖或图语法错误会明确失败并保留旧 HTML。命令行为参考 [PlantUML CLI](https://plantuml.com/command-line)。
+HTML 从索引、功能文档和审阅素材共同生成，目标、验收、模型、时序图、接口及改造点直接复用执行文档；审阅素材只补充 User Stories、当前流程和状态图。下载文档包包含索引和全部功能 MD，保留相对链接，不重新合并成大 MD。用户反馈修改对应源文件后重新生成 HTML；未选画图的功能仍可保留文字执行说明。Dev 初始化将索引与关联文档一起快照到 run，后续按需读取该快照。旧格式须重新运行 Plan；最终 HTML 未确认或渲染失败时不能进入 Dev。
+
+渲染依赖 Python 3 和本地 `plantuml` 命令，或通过 `KEEL_PLANTUML_JAR` 指定本地 jar 并提供 Java。图表使用 PlantUML 内置布局，无需 Graphviz；渲染后嵌入 HTML，可离线打开，不向远程服务发送计划。页面默认深色，可在顶部切换浅色，并在浏览器存储可用时记住选择；打印使用浅色。缺少审阅素材、依赖或图语法错误会明确失败并保留旧 HTML。命令行为参考 [PlantUML CLI](https://plantuml.com/command-line)。
 
 ```bash
 bash .agents/skills/keel-plan/scripts/render-plan-html.sh .keel/plans/example.md .keel/plans/example.html
 ```
 
-Codex App 的 fast run 只调度 Builder 和 QA，不运行 CallChain，适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。Builder 与 QA 消费同一份已确认 Markdown。涉及业务状态节点、流转条件或状态变化入口调整时使用 full，让 CallChain 更新状态机。
+Codex App 的 fast run 只调度 Builder 和 QA，不运行 CallChain，适合小范围 bugfix、局部逻辑调整、简单校验或错误处理。Builder 与 QA 按需读取同一组已确认的功能文档。涉及业务状态节点、流转条件或状态变化入口调整时使用 full，让 CallChain 更新状态机。
 
 ```text
 /keel-dev <plan-path>
@@ -135,7 +139,8 @@ run 目录最小结构:
 
 ```text
 .keel/iterations/<branch>/run-N/
-  plan.md
+  plan.md                    # 功能目标与文档索引
+  <name>.features/            # 各功能的设计 MD
   state.json
   qa-feedback.md
   fix-brief.md
@@ -147,14 +152,15 @@ fast run 最小结构:
 
 ```text
 .keel/iterations/<branch>/run-N/
-  plan.md
+  plan.md                    # 功能目标与文档索引
+  <name>.features/            # 各功能的设计 MD
   state.json
   qa-feedback.md
   fix-brief.md
   progress.tsv
 ```
 
-新 run 的静态契约和运行状态统一保存在 `state.json`，其中仅记录 `plan_path`；所有 Agent 心跳追加到 `progress.tsv`。旧 XML 或双计划 run 不兼容本流程，需要重新运行 `/keel-plan` 并新建 run；不自动拼接历史输入。
+新 run 的静态契约和运行状态统一保存在 `state.json`，其中 `plan_path` 指向 run 内功能索引；所有 Agent 心跳追加到 `progress.tsv`。旧格式（包括单份大 MD）的 run 不兼容本流程，需要重新运行 `/keel-plan` 并新建 run；不自动拼接历史输入。
 
 ## 开发与验证
 

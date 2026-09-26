@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ "$#" -ne 2 ]; then
-  echo "用法: render-plan-html.sh <plan.md> <output.html>" >&2
+  echo "用法: render-plan-html.sh <plan.md> <output.html>（同目录须有同名 .review.md 审阅素材）" >&2
   exit 1
 fi
 command -v python3 >/dev/null 2>&1 || { echo "错误: 需要 Python 3" >&2; exit 1; }

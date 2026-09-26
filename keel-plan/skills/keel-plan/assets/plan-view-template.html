@@ -1,20 +1,24 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-__KEEL_SCRIPT_HASH__'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
   <title>__KEEL_TITLE__ · Keel Plan</title>
   <style>
-    :root { color-scheme: dark; --bg:#0d1117; --surface:#151c25; --line:#303945; --text:#e6edf3; --muted:#a6b1bf; --accent:#80baff; }
+    :root { color-scheme:dark; --bg:#0d1117; --surface:#151c25; --line:#303945; --text:#e6edf3; --muted:#a6b1bf; --accent:#80baff; --code-bg:#0b1016; --inline-code:#222d3b; --status:#9be9a8; }
+    :root[data-theme="light"] { color-scheme:light; --bg:#fff; --surface:#f6f8fa; --line:#d0d7de; --text:#1f2328; --muted:#59636e; --accent:#0969da; --code-bg:#f6f8fa; --inline-code:#eaeef2; --status:#1a7f37; }
     * { box-sizing:border-box; }
     html { scroll-behavior:smooth; scroll-padding-top:90px; }
     body { margin:0; background:var(--bg); color:var(--text); font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
     a { color:var(--accent); text-underline-offset:4px; }
-    a:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
-    .topbar { border-bottom:1px solid var(--line); padding:16px 32px; display:flex; justify-content:space-between; background:var(--bg); gap:20px; }
+    a:focus-visible,summary:focus-visible,button:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+    .topbar { border-bottom:1px solid var(--line); padding:16px 32px; display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; background:var(--bg); gap:12px 20px; }
+    .topbar-actions { display:flex; align-items:center; gap:16px; }
+    .theme-toggle { font:inherit; font-size:13px; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:6px 12px; min-height:36px; cursor:pointer; }
+    .theme-toggle:hover { border-color:var(--accent); }
     .brand { font:600 13px/1.8 ui-monospace,monospace; letter-spacing:.1em; }
-    .status { color:#9be9a8; font-size:12px; }
+    .status { color:var(--status); font-size:12px; }
     .layout { display:grid; grid-template-columns:220px minmax(0,1fr); max-width:1440px; margin:auto; gap:48px; padding:42px 32px 80px; }
     aside { position:sticky; top:24px; align-self:start; max-height:calc(100vh - 48px); overflow:auto; }
     .nav-label,.eyebrow { color:var(--muted); font-size:12px; letter-spacing:.08em; }
@@ -31,8 +35,8 @@
     p { margin:12px 0; }
     ul,ol { padding-left:24px; }
     li { margin:8px 0; }
-    code { font: .88em/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; background:#222d3b; border-radius:4px; padding:2px 5px; }
-    pre { overflow:auto; padding:18px; background:#0b1016; border:1px solid var(--line); border-radius:6px; }
+    code { font: .88em/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; background:var(--inline-code); border-radius:4px; padding:2px 5px; }
+    pre { overflow:auto; padding:18px; background:var(--code-bg); border:1px solid var(--line); border-radius:6px; }
     pre code { background:none; padding:0; white-space:pre; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:8px; margin:18px 0; }
     table { width:100%; border-collapse:collapse; font-size:14px; }
@@ -46,29 +50,59 @@
     details { padding:10px 16px; }
     summary { color:var(--accent); cursor:pointer; font-size:13px; }
     blockquote { border-left:3px solid var(--accent); padding:8px 16px; margin:18px 0; color:var(--muted); background:var(--surface); }
-    .plan-detail { margin:16px 0; border:1px solid var(--line); border-radius:8px; }
-    .plan-detail > summary { font-size:16px; font-weight:600; }
     .source { margin-top:44px; border:1px solid var(--line); border-radius:8px; }
     .source a { display:inline-block; margin-top:16px; }
     footer { color:var(--muted); font-size:12px; margin-top:28px; }
-    @media(max-width:900px) { .layout { grid-template-columns:1fr; padding:24px 18px; gap:24px; } aside { position:static; max-height:none; } nav { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:28px; } }
-    @media print { :root { color-scheme:light; --bg:white; --text:#111; --line:#ccc; --surface:#f7f7f7; --muted:#555; --accent:#23558b; } aside,.topbar,.source { display:none; } .layout { display:block; padding:0; } figure,table { break-inside:avoid; } code { background:#eee; } }
+    @media(max-width:900px) { .layout { grid-template-columns:1fr; padding:24px 18px; gap:24px; } aside { position:static; max-height:none; } nav { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:28px; } .diagram { text-align:left; } .diagram img { max-width:none; } }
+    @media print { :root,:root[data-theme] { color-scheme:light; --bg:white; --text:#111; --line:#ccc; --surface:#f7f7f7; --muted:#555; --accent:#23558b; --code-bg:#f7f7f7; --inline-code:#eee; } aside,.topbar,.source { display:none; } .layout { display:block; padding:0; } figure,table { break-inside:avoid; } }
   </style>
+  <script>
+    (() => {
+      const storageKey = 'keel-plan-theme';
+      let theme = 'dark';
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved === 'light' || saved === 'dark') theme = saved;
+      } catch (_) {}
+      document.documentElement.dataset.theme = theme;
+      document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('theme-toggle');
+        const update = () => {
+          document.documentElement.dataset.theme = theme;
+          toggle.textContent = theme === 'dark' ? '切换浅色' : '切换深色';
+          toggle.setAttribute('aria-label', toggle.textContent + '模式');
+        };
+        toggle.addEventListener('click', () => {
+          theme = theme === 'dark' ? 'light' : 'dark';
+          update();
+          try { localStorage.setItem(storageKey, theme); } catch (_) {}
+        });
+        update();
+        toggle.hidden = false;
+      });
+    })();
+  </script>
 </head>
 <body>
-  <header class="topbar"><span class="brand">KEEL / PLAN</span><span class="status">待用户审阅</span></header>
+  <header class="topbar">
+    <span class="brand">KEEL / PLAN</span>
+    <div class="topbar-actions">
+      <span class="status">待用户审阅</span>
+      <button class="theme-toggle" id="theme-toggle" type="button" hidden>切换浅色</button>
+    </div>
+  </header>
   <div class="layout">
     <aside><div class="nav-label">计划内容</div><nav aria-label="计划章节">__KEEL_NAV__</nav></aside>
     <main>
-      <div class="eyebrow">业务设计与实施计划</div>
+      <div class="eyebrow">业务方案审阅</div>
       <h1>__KEEL_TITLE__</h1>
-      <p class="lead">这次做什么、怎么做、改哪里。审阅后在会话中提出修改或确认。</p>
+      <p class="lead">从用户诉求和当前业务流程出发，评估本次方案。审阅后在会话中提出修改或确认。</p>
       <article id="plan-content">__KEEL_CONTENT__</article>
-      <details class="source"><summary>查看 Markdown 开发计划</summary>
-        <a download="__KEEL_FILE_NAME__" href="data:text/markdown;charset=utf-8;base64,__KEEL_SOURCE_BASE64__">下载 Markdown</a>
+      <details class="source"><summary>查看功能索引与下载执行文档</summary>
+        <a download="__KEEL_FILE_NAME__" href="data:application/zip;base64,__KEEL_SOURCE_BASE64__">下载执行文档包（索引 + 各功能 MD）</a>
         <pre><code>__KEEL_SOURCE__</code></pre>
       </details>
-      <footer>由同一份 Markdown 生成 · Dev 与 Agent 以 Markdown 为开发依据</footer>
+      <footer>审阅素材与执行计划共同生成 · Builder 与 QA 按功能读取 Markdown 文档</footer>
     </main>
   </div>
 </body>

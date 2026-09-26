@@ -17,8 +17,9 @@ update_progress "keel-builder" "<STAGE>" "<当前工作>" "<artifact-可选>"
 
 ## 通用门禁
 
-- `plan.md` 是用户已确认的唯一 Markdown 需求与实现契约；不得扩大、缩小或重新定义。
-- 严格遵循功能目标与验收、已选时序图、目标状态机、接口设计、代码改造点、技术约束和实施顺序；不得把关键技术选择留到实现阶段。代码改造点是关键位置指引，不是文件白名单；按实际调用关系完成目标所需的联动修改，不因未逐一列出而漏改或重开确认。
+- `state.plan_path` 指向轻量索引；它与所引用功能文档共同构成已确认契约，不得扩大、缩小或重新定义。
+- 先读索引中目标、验收和依赖，再只加载指定 slug 的功能文档：数据模型及 SQL、功能时序图、接口设计、代码改造点。共享模型/接口只读取明确引用的目标章节，不批量读取其他功能或递归展开依赖；依赖决定执行顺序，不等于加载其全文。
+- 目标说明功能效果，模型与时序图说明详细逻辑，接口设计规定请求/响应，改造点只定位文件、符号并简述改动。按实际调用关系完成必要联动，局部编码遵循项目惯例，不重选关键方案；不读取 HTML 或 `.review.md` 补充要求。
 - 计划内部矛盾、缺少执行所需的关键决策或与当前代码事实冲突时立即返回阻断原因，由主会话暂停 run 并交回 Plan 阶段；不得自行猜测或改写计划。
 - 真实实现，不写 stub、fake 或硬编码成功响应。
 - 按项目既有架构组织业务模块/函数与协议入口，不强制 Service 分层。
@@ -28,9 +29,9 @@ update_progress "keel-builder" "<STAGE>" "<当前工作>" "<artifact-可选>"
 
 ## BUILD
 
-输入：`plan.md`、指定 slug/batch。
+输入：索引 `plan.md`、指定 slug/batch 及对应功能文档路径。
 
-1. 只实现指定 slice，按“实施顺序”和依赖顺序修改代码；将每步关联到计划验收和验证方式。
+1. 只实现指定 slice，结合功能依赖、时序图和 SQL 顺序修改代码；根据功能验收与项目工具链确定验证方式。
 2. 运行新增/修改测试及项目适用的构建、类型/语法或加载检查，记录命令和结果。
 3. 提交前核对 diff 与目标的对应关系，清理本轮产生的无用代码，移除本轮无关编辑并保留用户改动，创建聚焦 commit。还有 slice 时返回 `BUILD_SLICE_DONE`，最后返回 `BUILD_DONE`。
 
@@ -40,7 +41,7 @@ complete_stage "keel-builder" "BUILD_DONE" "构建完成并已提交" "${output_
 
 ## BUILD_FAST
 
-涉及状态机变化时返回阻断，由主会话转 full；其余直接按 `plan.md` 的明确范围实现，保持基础设施调整最小。实现、测试并创建一个聚焦 commit；不得创建 QA 或 CallChain artifact。
+涉及状态机变化时返回阻断，由主会话转 full；其余按索引指定范围逐功能读取并实现，保持基础设施调整最小。实现、测试并创建一个聚焦 commit；不得创建 QA 或 CallChain artifact。
 
 ```bash
 complete_stage "keel-builder" "BUILD_FAST_DONE" "快速构建完成并已提交" "${output_dir}/plan.md"
@@ -48,7 +49,7 @@ complete_stage "keel-builder" "BUILD_FAST_DONE" "快速构建完成并已提交"
 
 ## FIX / FIX_FAST
 
-只修 `fix-brief.md` 的阻断项，运行受影响测试和项目适用的验证检查，创建聚焦 commit。
+只加载 `fix-brief.md` 涉及功能及必要引用，修复阻断项，运行受影响测试和项目适用的验证检查，创建聚焦 commit。
 
 - `FIX` 处理 full QA 阻断，返回 `FIX_DONE`。
 - `FIX_FAST` 处理 fast QA 阻断，返回 `FIX_FAST_DONE`。
