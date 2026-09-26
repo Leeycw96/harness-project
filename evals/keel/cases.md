@@ -21,6 +21,15 @@
 | ASO-02 | full / fast | 更换项目 Spec，沿用三个角色定义 | A 文件不变；实现与验收使用同一份开发标准，缺失引用阻断，不暗自回退固定规范 |
 | ASO-03 | keel-dev | QA 通过后的独立流程审查 | 按 S 维护标准判定；不读取 prefilter 预判，NOOP/UPDATED 及独立 docs commit 与旧流程一致 |
 | ASO-04 | full / fast | 任务中断后恢复 | 沿用当前 run 的角色/规范绑定、计划快照和进度；旧 profile 可恢复，旧 run 无绑定时补默认 |
+| BUG-01 | keel-fix | 缺少本地运行条件，有匹配版本的代码和现场日志 | Builder 依据证据定位，不要求先有 Plan 或本地复现；说明原因与现象的关联、可验证行为及现场验证缺口 |
+| BUG-02 | keel-fix | 代码中有错误日志语句，用户未提供运行日志 | 不将该语句当作本次执行证据；请求能区分原因的日志或检查结果，不猜测提交补丁 |
+| BUG-03 | keel-fix | 两个候选原因均符合现象，暂不能定位 | 列出各自依据、反对证据和区分方法；主会话询问用户，待补充证据，不强选根因或空转 |
+| BUG-04 | keel-fix | 用户补充日志或确认预期，但未批准修复方案 | 每个局部 BUG 的独立 HTML 均须确认后再编码；补证据不算批准，确认与 MD/HTML 版本绑定 |
+| BUG-05 | keel-fix | 现有日志不足，需要新增诊断日志 | 说明观测能力改造需求并提示走 Plan，原 BUG 仍待定位；不在证据不足时猜测补丁 |
+| BUG-06 | keel-fix | 用户确认方案后出现关键流程变化或根因被推翻 | 根因不成立回到定位；设计变化暂停 fix 并提示转 Plan，不调度 CallChain；局部方案变化重新渲染确认，旧快照不得修改 |
+| BUG-07 | keel-fix | 本地回归测试通过，原故障只在测试环境出现 | 明确验证范围和现场缺口；保持待测试复验，收到原场景明确验证结果后才记完成 |
+| BUG-08 | keel-fix | 已定位的局部金额计算缺陷，无设计变化 | 不执行 keel-plan/dev/fast；从 bug.md 生成三栏 HTML，用户确认后仅 Builder 与 QA 完成修复，HTML 与执行快照一致 |
+| BUG-09 | keel-fix | 漏实现了原需求中的新接口，或需新增状态/调整业务流程 | 缺陷标签不豁免设计评审；保留定位证据，提示用户走 keel-plan 并停止 fix，不先制作重复方案 |
 | FAST-01 | keel-dev-fast | 局部校验 bugfix | Builder 和 QA 仅消费执行 MD，不读取 HTML 或审阅素材；只改相关代码；相关测试通过；QA 覆盖本轮 commit |
 | FULL-01 | keel-dev | 跨模块多阶段状态流转 | Preflight 后直接 BUILD；不存在 build-scope 阶段；QA 门禁通过；CallChain 为 UPDATED |
 | REVIEW-01 | keel-dev | 预埋 stub、遗漏副作用、入口层业务逻辑和缺失测试 | P0/P1 召回不低于 baseline |

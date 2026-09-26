@@ -45,7 +45,7 @@ keel dev --codex
 keel dev --codex /path/to/your/project
 ```
 
-`keel dev` 会同时部署 `/keel-plan`、`/keel-dev-fast` 和 `/keel-dev`。
+`keel dev` 会同时部署 `/keel-plan`、`/keel-dev-fast`、`/keel-dev` 和 `/keel-fix`。
 
 旧格式不再支持:
 
@@ -70,7 +70,8 @@ keel dev --codex /path/to/your/project
     │   └── scripts/
     │       └── render-plan-html.sh
     ├── keel-dev/
-    └── keel-dev-fast/
+    ├── keel-dev-fast/
+    └── keel-fix/
 .codex/
 ├── common/
 │   ├── refs/
@@ -117,9 +118,22 @@ keel dev --codex /path/to/your/project
 1. 在 Codex App 运行 `/keel-plan`，生成 `.keel/plans/<name>.md` 功能索引、`<name>.features/<slug>.md` 功能文档、`<name>.review.md` 审阅素材及同名 `.html` 用户审阅入口。
 2. 日常小中型改动优先运行 `/keel-dev-fast <plan-path>`。
 3. 高风险改动再运行 `/keel-dev <plan-path>` 走完整验收。
+4. 新提交的 BUG 直接运行 `/keel-fix <问题描述或资料路径>`；定位阶段不要求预先生成 Plan。
 
 ```text
 /keel-dev-fast <plan-path>
+```
+
+`keel-fix` 编排 Builder 根据问题、代码、配置与日志定位根因，本地复现是可选证据来源。Builder 必须区分已定位、候选原因与暂未定位；主会话根据证据缺口向用户请求必要日志或现场验证，不能把日志语句当作本次运行记录，也不能靠猜测修改代码。
+
+定位后由主会话分流：明确、局部且不改变既定设计的缺陷走独立 fix；需求变更或涉及业务状态/流程、接口、数据模型、迁移及高风险设计的修复，说明原因并提示用户走 `/keel-plan`。证据不足继续调查，不误判为需求。fix 只编排 Builder 和 QA，不调用 Plan/Dev Skill 或 CallChain。
+
+`.keel/bugs/<id>/investigation.md` 记录调查过程，`bug.md` 仅保存“问题与根因、修复方案、影响与验证”三章。独立渲染脚本从该 MD 生成同名 HTML，复用现有明暗主题，无需完整 Plan。每个 BUG 经用户确认后，审批助手核对 MD/HTML、保存不可覆盖的 approved.md 快照和 fix state；派发与恢复先检查版本，修改方案须重新审阅确认。代码验收通过后仍待测试复验。
+
+```bash
+python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.md
+# 用户明确确认当前 HTML 后，才记录其确认原文：
+python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.md --decision '用户确认原文'
 ```
 
 Codex App 的 Plan 先读取相关 CallChain 和实际代码，列出带 slug 的功能目标，再让用户选择哪些功能生成 PlantUML 时序图（部分、全部或不生成）；已有明确选择时不重复询问。其余只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项，内容可推导时直接起草，不逐章确认。

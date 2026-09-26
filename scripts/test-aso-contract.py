@@ -96,7 +96,8 @@ class AsoContractTests(unittest.TestCase):
                 self.assertNotRegex(text, r'keel-builder|keel-qa\.md|keel-call-chain\.md|\.codex/agents/|KEEL_PROFILE|state\.json|complete_stage|update_progress|\b(?:BUILD|REVIEW|FIX|PAUSED|PREFLIGHT|NOOP|UPDATED)(?:_[A-Z]+)*\b')
 
     def test_deployed_orchestration_resource_graph_is_complete(self):
-        roots = ['.agents/skills/keel-dev/SKILL.md', '.agents/skills/keel-dev-fast/SKILL.md']
+        roots = ['.agents/skills/keel-dev/SKILL.md', '.agents/skills/keel-dev-fast/SKILL.md',
+                 '.agents/skills/keel-fix/SKILL.md']
         seen = set()
         while roots:
             reference = roots.pop()
@@ -104,7 +105,7 @@ class AsoContractTests(unittest.TestCase):
                 continue
             seen.add(reference)
             text = self.read_reference(reference)
-            for linked in re.findall(r'\.codex/[\w/.-]+\.(?:md|sh)(?:#[\w-]+)?', text):
+            for linked in re.findall(r'\.(?:codex|agents)/[\w/.-]+\.(?:md|sh|py)(?:#[\w-]+)?', text):
                 roots.append(linked)
         for task in ROLE_TASKS.values():
             self.assertIn('.codex/common/refs/keel-dev-orchestration.md#' + task, seen)
@@ -112,6 +113,10 @@ class AsoContractTests(unittest.TestCase):
         for name in ROLE_SPECS.values():
             self.assertIn('.codex/common/refs/' + name, seen)
         self.assertIn('.codex/common/refs/keel-dev-spec.md#代码与测试标准', seen)
+        self.assertIn('.codex/common/refs/keel-dev-spec.md#问题定位', seen)
+        self.assertIn('.agents/skills/keel-fix/SKILL.md#定位任务', seen)
+        self.assertIn('.agents/skills/keel-fix/scripts/keel-fix.py', seen)
+        self.assertIn('.agents/skills/keel-fix/assets/bug-template.md', seen)
         self.assertEqual({p.name for p in self.refs.iterdir()}, {*ROLE_SPECS.values(), 'keel-dev-orchestration.md'})
 
     def test_default_bindings_route_each_role_to_spec_and_task(self):

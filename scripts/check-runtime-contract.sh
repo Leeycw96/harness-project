@@ -26,6 +26,9 @@ for required in \
   "keel-plan/skills/keel-plan/assets/plan-review-template.md" \
   "keel-plan/skills/keel-plan/assets/plan-view-template.html" \
   "keel-plan/skills/keel-plan/scripts/render-plan-html.sh" \
+  "keel-dev/skills/keel-fix/SKILL.md" \
+  "keel-dev/skills/keel-fix/assets/bug-template.md" \
+  "keel-dev/skills/keel-fix/scripts/keel-fix.py" \
   "keel-dev/agents/keel-builder.toml" \
   "keel-dev/agents/keel-qa.toml" \
   "keel-dev/agents/keel-call-chain.toml"; do
@@ -69,5 +72,6 @@ cp -R "$repo_root/keel-plan/skills/keel-plan/assets/plan-template.features" "$ru
 )
 
 python3 "$repo_root/scripts/test-aso-contract.py"
+python3 "$repo_root/scripts/test-fix-contract.py"
 
 echo "Codex App 单 runtime、ASO 分层与语言无关契约检查通过。"

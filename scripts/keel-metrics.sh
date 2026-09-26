@@ -33,6 +33,10 @@ specs = {mode: f'common/refs/keel-{mode}-spec.md' for mode in ('dev', 'qa', 'cal
 orchestration = 'common/refs/keel-dev-orchestration.md'
 measure('codex-plan-skill', 'keel-plan/skills/keel-plan/SKILL.md')
 measure('codex-plan-template', 'keel-plan/skills/keel-plan/assets/plan-template.md')
+measure('codex-fix-skill', 'keel-dev/skills/keel-fix/SKILL.md')
+measure('codex-builder-diagnosis-input', 'keel-dev/agents/keel-builder.md',
+        'keel-dev/agents/keel-builder.toml', specs['dev'] + '#操作约束', specs['dev'] + '#问题定位',
+        'keel-dev/skills/keel-fix/SKILL.md#定位任务')
 measure('codex-spec', *specs.values())
 for mode, path in specs.items():
     measure(f'codex-{mode}-spec', path)

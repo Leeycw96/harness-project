@@ -179,6 +179,7 @@ echo "完成。本次共部署 ${count} 个文件,manifest 已更新。"
 echo "在目标项目的 Codex App 中可使用:"
 echo "  /keel-plan       生成 Markdown 开发计划和 HTML 审阅入口"
 if [ "$mode" = "dev" ]; then
+  echo "  /keel-fix        定位并独立修复局部 BUG,设计变化提示转 Plan"
   echo "  /keel-dev-fast   默认推荐路径,小中型改动只运行 Builder 和 QA"
   echo "  /keel-dev        完整验收路径,用于高风险改动"
 else
