@@ -9,7 +9,7 @@
 
 ## 状态机
 
-只增加 VERIFYING 并调整相关流转；原终态与失败重试规则沿用。
+### 导出任务状态机
 
 ```plantuml
 @startuml

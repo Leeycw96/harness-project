@@ -1,18 +1,18 @@
 ---
 name: keel-dev
-description: 高风险后端改动的完整 subagent 验收流程，编排实现、QA 与业务流程维护。
+description: 执行已确认的开发计划，按任务大小组织实现与 QA，并根据实际改动按需维护业务流程索引。
 user-invocable: true
 ---
 
 # Keel Dev
 
-用于复杂流程、迁移、权限、事务并发、外部集成或跨模块状态流转；日常小中型改动使用 `/keel-dev-fast`。
+统一承接已确认计划中的小范围调整和复杂开发。小任务一次实现，大任务按功能依赖分片；质量标准一致，不再要求用户选择快慢入口。
 
 先读 `.codex/common/refs/keel-dev-orchestration.md#主会话编排`，按其中 A/S 绑定与任务协议调度。每阶段下发规范引用、通用任务要求、当前任务章节和完整参数，不能依赖角色内置 Keel 规则。不重复 Plan 的选型与确认。
 
 ## 初始化
 
-按共享契约设置输入并运行：
+新任务按共享契约设置输入并运行；已有 run 按恢复要求处理，不重新初始化：
 
 ```bash
 KEEL_PROFILE=$(init_keel_run "$KEEL_OUTPUT_DIR" "$KEEL_PLAN_PATH")
@@ -25,7 +25,7 @@ export KEEL_PROFILE
 
 ### BUILD
 
-按功能依赖、模型和时序关系切片，每片一个或少量强相关 slug，小需求一次完成。每片调度实现绑定（默认 keel-builder），下发索引路径、slug/batch，按需读取功能及引用章节。tag 为 BUILD_SLICE_DONE，最后一片为 BUILD_DONE；artifact 为 run 内 plan.md。
+小范围任务一次完成并创建一个聚焦提交；确有依赖或隔离需要时按功能、模型和时序关系切片，每片一个或少量强相关 slug。每片调度实现绑定（默认 keel-builder），下发索引路径、slug/batch，按需读取功能及引用章节。tag 为 BUILD_SLICE_DONE，最后一片为 BUILD_DONE；artifact 为 run 内 plan.md。
 
 按实现任务说明实现、测试和提交；每片只记录新 commit，最后一片完成相关测试及适用验证。全部完成进入 REVIEW。契约矛盾、遗漏关键决策或不可执行时 PAUSED，带证据交回 Plan。
 
@@ -37,7 +37,7 @@ APPROVED 进入 CALL_CHAIN_PREFILTER；REJECTED 的阻断项写 fix-brief.md，�
 
 ### CALL_CHAIN_PREFILTER
 
-主会话独立检查本轮 Builder diff：明确没有外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时记 noop；存在任一变化或不确定时保守记 run。
+主会话独立检查本轮 Builder diff：明确没有外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时记 noop；存在任一变化或不确定时保守记 run。不能按改动行数、任务大小或 Plan 是否展示业务总览直接跳过。
 
 ```bash
 record_call_chain_prefilter "<noop|run>" "<判定证据>"

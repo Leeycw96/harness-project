@@ -53,4 +53,3 @@ end
 - `src/ExportPhase.java`，`VERIFYING`（新增）：增加内部校验中状态值。
 - `src/ExportService.java`，`execute`：在调用既有校验前记录 VERIFYING，完成条件改为匹配该状态。
 - `src/TimeoutScanner.java`，`scan`：把 VERIFYING 纳入原运行中超时处理范围。
-- `tests/ExportServiceTest.java`：补充新增状态、成功/失败衔接与超时联动测试，保留原校验用例。

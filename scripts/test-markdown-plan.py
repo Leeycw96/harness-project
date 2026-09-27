@@ -443,22 +443,21 @@ class MarkdownPlanTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "同目录且同名"):
             plan_module.render(self.plan, self.directory / "wrong.html", HTML_TEMPLATE)
 
-    def test_full_fast_initialization_snapshots_only_execution_files(self):
+    def test_unified_initialization_snapshots_only_execution_files(self):
         self.review.unlink()
         env = dict(os.environ, PROJECT_DIR=str(self.root))
         command = '''
 set -euo pipefail
 source "$1/common/scripts/keel-init.sh"
 init_keel_run "$PROJECT_DIR/full" "$PROJECT_DIR/.keel/plans/example.md" >/dev/null
-init_keel_fast_run "$PROJECT_DIR/fast" "$PROJECT_DIR/.keel/plans/example.md" >/dev/null
 if init_keel_run "$PROJECT_DIR/invalid" "$PROJECT_DIR/missing.md"; then exit 1; fi
 if init_keel_run "$PROJECT_DIR/invalid" "$PROJECT_DIR/.keel/plans/example.md" extra.md; then exit 1; fi
 '''
         result = subprocess.run(["bash", "-c", command, "test", str(ROOT)], env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        # Delete the original bundle: both runs must remain self-contained.
+        # Delete the original bundle: the run must remain self-contained.
         shutil.rmtree(self.directory)
-        for mode in ("full", "fast"):
+        for mode in ("full",):
             run = self.root / mode
             state = json.loads((run / "state.json").read_text())
             self.assertEqual(state["plan_path"], str(run / "plan.md"))

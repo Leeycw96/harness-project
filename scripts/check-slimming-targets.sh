@@ -32,8 +32,8 @@ check_reduction() {
   echo "$component: ${actual_percent}% reduction"
 }
 
-check_reduction "codex-full-effective-input" "$(current_chars codex-full-effective-input)" 40
-check_reduction "codex-fast-effective-input" "$(current_chars codex-fast-effective-input)" 40
+# Unified Dev keeps the existing full-workflow baseline. The removed fast entry has no separate gate.
+check_reduction "codex-full-effective-input" "$(current_chars codex-dev-effective-input)" 40
 # Compare Agent instructions plus relocated task/spec sections against the original scope.
 for role in builder qa call-chain; do
   check_reduction "codex-$role-instructions" "$(current_chars "codex-$role-baseline-input")" 30

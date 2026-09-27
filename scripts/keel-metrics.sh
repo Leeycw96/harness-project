@@ -50,10 +50,8 @@ for mode, path in specs.items():
     measure(f'codex-{mode}-spec', path)
 measure('codex-orchestration-contract', orchestration)
 measure('codex-orchestration-dispatch', orchestration + '#主会话编排')
-for mode, skill in (('full', 'keel-dev'), ('fast', 'keel-dev-fast')):
-    path = f'keel-dev/skills/{skill}/SKILL.md'
-    measure(f'codex-{mode}-skill', path)
-    measure(f'codex-{mode}-effective-input', path, orchestration + '#主会话编排')
+measure('codex-dev-skill', 'keel-dev/skills/keel-dev/SKILL.md')
+measure('codex-dev-effective-input', 'keel-dev/skills/keel-dev/SKILL.md', orchestration + '#主会话编排')
 for role, task, mode in (
     ('builder', '实现任务', 'dev'),
     ('qa', '验收任务', 'qa'),

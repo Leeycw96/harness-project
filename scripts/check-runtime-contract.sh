@@ -52,7 +52,6 @@ cp -R "$repo_root/keel-plan/skills/keel-plan/assets/plan-template.features" "$ru
   export PROJECT_DIR="$runtime_dir"
   source "$repo_root/common/scripts/keel-init.sh"
   full_state="$(init_keel_run "$runtime_dir/full" "$runtime_dir/plan.md")"
-  fast_state="$(init_keel_fast_run "$runtime_dir/fast" "$runtime_dir/plan.md")"
   jq -e '
     .artifacts.code_review == null
     and .artifacts.build_scope == null
@@ -63,16 +62,10 @@ cp -R "$repo_root/keel-plan/skills/keel-plan/assets/plan-template.features" "$ru
     and .scope_attempt == null
     and .limits.scope_attempts == null
     and (.review | keys == ["qa"])
+    and (has("fast") | not)
+    and .call_chain.prefilter.mode == "on-demand"
   ' "$full_state" >/dev/null
-  jq -e '
-    .artifacts.code_review == null
-    and .artifacts.qa_feedback != null
-    and .plan_path != null
-    and (has("implementation_plan_path") | not)
-    and (.review | keys == ["qa"])
-    and (.fast.skipped | index("qa") | not)
-    and (.fast.skipped | index("scope-review") | not)
-  ' "$fast_state" >/dev/null
+
 )
 
 python3 "$repo_root/scripts/test-aso-contract.py"

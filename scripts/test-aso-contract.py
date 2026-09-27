@@ -19,11 +19,9 @@ SPEC_FILES = {*ROLE_SPECS.values(), 'keel-plan-spec.md', 'keel-business-flow-spe
 TAGS = {
     'BUILD_SLICE_DONE': ('builder', 'BUILD', 'plan.md'),
     'BUILD_DONE': ('builder', 'BUILD', 'plan.md'),
-    'BUILD_FAST_DONE': ('builder', 'BUILD_FAST', 'plan.md'),
     'FIX_DONE': ('builder', 'FIX', 'fix-brief.md'),
-    'FIX_FAST_DONE': ('builder', 'FIX_FAST', 'fix-brief.md'),
     'APPROVED': ('qa', 'REVIEW', 'qa-feedback.md'),
-    'REJECTED': ('qa', 'REVIEW_FAST_FIX', 'qa-feedback.md'),
+    'REJECTED': ('qa', 'REVIEW_FIX', 'qa-feedback.md'),
     'CALL_CHAIN_NOOP': ('call-chain', 'CALL_CHAIN', 'call-chain-review.md'),
     'CALL_CHAIN_UPDATED': ('call-chain', 'CALL_CHAIN', 'call-chain-review.md'),
 }
@@ -55,10 +53,9 @@ class AsoContractTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
         return result
 
-    def init_run(self, mode, name):
+    def init_run(self, name):
         output = self.project / name
-        function = 'init_keel_run' if mode == 'full' else 'init_keel_fast_run'
-        self.shell('export PROJECT_DIR="$1"\nsource "$2"\n' + function + ' "$3" "$4"', self.project, self.init, output, self.plan)
+        self.shell('export PROJECT_DIR="$1"\nsource "$2"\ninit_keel_run "$3" "$4"', self.project, self.init, output, self.plan)
         return output / 'state.json'
 
     def helper(self, state, command, *args, success=True):
@@ -110,7 +107,7 @@ class AsoContractTests(unittest.TestCase):
         return seen
 
     def test_deployed_orchestration_resource_graph_is_complete(self):
-        roots = ['.agents/skills/keel-dev/SKILL.md', '.agents/skills/keel-dev-fast/SKILL.md',
+        roots = ['.agents/skills/keel-dev/SKILL.md',
                  '.agents/skills/keel-fix/SKILL.md', '.agents/skills/keel-plan/SKILL.md']
         seen = self.reachable_references(roots)
         for entry in ('.agents/skills/keel-plan/SKILL.md', '.agents/skills/keel-dev/SKILL.md'):
@@ -158,8 +155,8 @@ class AsoContractTests(unittest.TestCase):
             self.read_reference(spec_ref)
             self.read_reference(task)
             self.assertTrue((self.project / '.codex/agents' / (agent + '.toml')).is_file())
-        tables = {'实现任务': {'BUILD', 'BUILD_FAST', 'FIX', 'FIX_FAST'},
-                  '验收任务': {'REVIEW', 'REVIEW_FAST', 'REVIEW_FIX', 'REVIEW_FAST_FIX'}}
+        tables = {'实现任务': {'BUILD', 'FIX'},
+                  '验收任务': {'REVIEW', 'REVIEW_FIX'}}
         for task, expected in tables.items():
             text = self.read_reference('.codex/common/refs/keel-dev-orchestration.md#' + task)
             actual = set(re.findall(r'^\| ([A-Z_]+) \|', text, re.M))
@@ -176,6 +173,7 @@ class AsoContractTests(unittest.TestCase):
             manifest = project / '.codex/.keel/installed-manifest'
             manifest.parent.mkdir(parents=True)
             entries = ['.codex/common/refs/' + name for name in retired]
+            entries += ['.agents/skills/keel-dev-fast/SKILL.md', '.agents/skills/keel-dev-fast/agents/openai.yaml']
             for entry in entries:
                 path = project / entry
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -183,6 +181,8 @@ class AsoContractTests(unittest.TestCase):
             manifest.write_text('\n'.join(entries) + '\n')
             user_file = project / '.codex/common/refs/project-notes.md'
             user_file.write_text('project-owned instructions')
+            user_notes = project / '.agents/skills/keel-dev-fast/user-notes.md'
+            user_notes.write_text('keep untracked user notes')
             result = subprocess.run([str(ROOT / 'bin/keel'), 'dev', '--codex', str(project)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             for entry in entries:
@@ -192,24 +192,103 @@ class AsoContractTests(unittest.TestCase):
                 self.assertEqual((project / '.codex/common/refs' / name).read_bytes(), (REFS / name).read_bytes())
                 self.assertIn('.codex/common/refs/' + name, manifest.read_text().splitlines())
             self.assertEqual(user_file.read_text(), 'project-owned instructions')
+            self.assertEqual(user_notes.read_text(), 'keep untracked user notes')
 
-    def test_full_fast_initialization_preserves_gates_and_artifacts(self):
-        for mode in ('full', 'fast'):
-            state = self.init_run(mode, 'init-' + mode)
-            data = json.loads(state.read_text())
-            self.assertEqual(data['mode'], mode)
-            self.assertEqual(data['phase'], 'INIT')
-            self.assertEqual(data['limits'], {'fix_rounds': 3, 'stage_recoveries': 2})
-            self.assertEqual(data['thresholds'], {'short_stage_no_progress_seconds':300,'long_stage_no_progress_seconds':900})
-            self.assertTrue(Path(data['plan_path']).is_file())
-            self.assertEqual(set(data['review']), {'qa'})
-            self.assertEqual('call_chain_review' in data['artifacts'], mode == 'full')
-            self.assertEqual(data['preflight']['test_compile']['user_decision'], None)
-            if mode == 'fast':
-                self.assertEqual(data['fast']['skipped'], ['call-chain'])
+    def test_unified_initialization_preserves_gates_and_conditional_call_chain(self):
+        state = self.init_run('init-dev')
+        data = json.loads(state.read_text())
+        self.assertEqual(data['mode'], 'full')  # Preserve the existing storage value, not a second entrypoint.
+        self.assertEqual(data['phase'], 'INIT')
+        self.assertEqual(data['limits'], {'fix_rounds': 3, 'stage_recoveries': 2})
+        self.assertEqual(data['thresholds'], {'short_stage_no_progress_seconds': 300, 'long_stage_no_progress_seconds': 900})
+        self.assertTrue(Path(data['plan_path']).is_file())
+        self.assertEqual(set(data['review']), {'qa'})
+        self.assertIn('call_chain_review', data['artifacts'])
+        self.assertEqual(data['call_chain']['prefilter']['mode'], 'on-demand')
+        self.assertIsNone(data['call_chain']['prefilter']['decision'])
+        self.assertIsNone(data['preflight']['test_compile']['user_decision'])
+        self.assertNotIn('fast', data)
+        self.assertFalse((self.project / '.agents/skills/keel-dev-fast/SKILL.md').exists())
+        self.shell('export PROJECT_DIR="$1"\nsource "$2"\nif declare -F init_keel_fast_run >/dev/null; then exit 1; fi', self.project, self.init)
+
+    def legacy_fast(self, name, phase):
+        state = self.init_run(name)
+        data = json.loads(state.read_text())
+        data.update(mode='fast', phase=phase, fast={'skipped': ['call-chain']}, fix_round=2)
+        data.pop('call_chain')
+        data['artifacts'].pop('call_chain_review')
+        data['build']['commits'] = ['a' * 40, 'b' * 40]
+        data['build']['current_slice'] = 'fast'
+        data['retries'] = {'keel-qa': 1}
+        data['review']['qa']['status'] = 'rejected'
+        data['aso_bindings'] = {'builder': {'agent': 'custom-builder', 'spec_refs': ['custom.md']}}
+        data['preflight']['test_compile'] = {'status': 'failed_allowed', 'summary': ['baseline evidence'], 'user_decision': True}
+        state.write_text(json.dumps(data))
+        (state.parent / 'qa-feedback.md').write_text('REJECTED: existing evidence')
+        (state.parent / 'fix-brief.md').write_text('existing repair scope')
+        (state.parent / 'progress.tsv').write_text('old FAST progress retained\n')
+        return state, data
+
+    def resume(self, profile, success=True):
+        return self.shell('export PROJECT_DIR="$1"\nsource "$2"\nresume_keel_run "$3"', self.project, self.init, profile, success=success)
+
+    def test_resume_fast_preserves_work_and_maps_only_active_stages(self):
+        phases = {'INIT': 'INIT', 'BUILD_FAST': 'BUILD', 'REVIEW_FAST': 'REVIEW',
+                  'FIX_FAST': 'FIX', 'REVIEW_FAST_FIX': 'REVIEW_FIX', 'PAUSED': 'PAUSED'}
+        for old_phase, new_phase in phases.items():
+            with self.subTest(phase=old_phase):
+                state, old = self.legacy_fast('resume-' + old_phase, old_phase)
+                evidence = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file() and p != state}
+                self.assertEqual(self.resume(state).stdout.strip(), str(state))
+                new = json.loads(state.read_text())
+                self.assertEqual(new['mode'], 'full')
+                self.assertEqual(new['phase'], new_phase)
+                self.assertEqual(new['call_chain']['prefilter']['mode'], 'on-demand')
+                self.assertIsNone(new['call_chain']['prefilter']['decision'])
+                self.assertEqual(new['artifacts']['call_chain_review'], str(state.parent / 'call-chain-review.md'))
+                self.assertIsNone(new['build']['current_slice'])
+                self.assertNotIn('fast', new)
+                for key in ('fix_round', 'retries', 'review', 'preflight', 'aso_bindings', 'plan_path', 'limits'):
+                    self.assertEqual(new[key], old[key])
+                self.assertEqual(new['build']['commits'], old['build']['commits'])
+                self.assertEqual({p: p.read_bytes() for p in evidence}, evidence)
+                before = state.read_bytes()
+                self.resume(state)
+                self.assertEqual(state.read_bytes(), before)
+
+    def test_resume_completed_or_invalid_runs_does_not_rewrite_history(self):
+        state, _ = self.legacy_fast('finished-fast', 'DONE')
+        Path(json.loads(state.read_text())['plan_path']).unlink()
+        before = state.read_bytes()
+        self.resume(state)
+        self.assertEqual(state.read_bytes(), before)
+        state, _ = self.legacy_fast('broken-fast', 'BUILD_FAST')
+        Path(json.loads(state.read_text())['plan_path']).unlink()
+        before = state.read_bytes()
+        self.resume(state, success=False)
+        self.assertEqual(state.read_bytes(), before)
+        state = self.init_run('wrong-mode')
+        data = json.loads(state.read_text())
+        data['mode'] = 'fix'
+        state.write_text(json.dumps(data))
+        before = state.read_bytes()
+        self.resume(state, success=False)
+        self.assertEqual(state.read_bytes(), before)
+
+    def test_resume_legacy_profile_retains_configured_progress(self):
+        state, old = self.legacy_fast('profile-fast', 'FIX_FAST')
+        profile = state.parent / 'profile.json'
+        old['progress'] = {'events': str(state.parent / 'progress.events')}
+        profile.write_text(json.dumps(old))
+        before = profile.read_bytes()
+        self.assertEqual(self.resume(profile).stdout.strip(), str(profile))
+        self.assertEqual(profile.read_bytes(), before)
+        self.assertEqual(json.loads(state.read_text())['phase'], 'FIX')
+        self.helper(profile, 'update_progress keel-builder FIX "继续修复"')
+        self.assertTrue((state.parent / 'progress.events').is_file())
 
     def test_injected_progress_and_completion_protocol_keeps_all_public_tags(self):
-        state = self.init_run('full', 'events')
+        state = self.init_run('events')
         log = state.parent / 'progress.tsv'
         for tag, (role, stage, artifact_name) in TAGS.items():
             artifact = state.parent / artifact_name
@@ -224,7 +303,7 @@ class AsoContractTests(unittest.TestCase):
         self.assertEqual(log.read_text(), before)
 
     def test_replaceable_bindings_survive_state_updates_without_role_edits(self):
-        state = self.init_run('full', 'replaceable')
+        state = self.init_run('replaceable')
         role_paths = list((self.project / '.codex/agents').glob('*'))
         hashes = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in role_paths}
         spec = self.project / 'alternate-spec.md'
@@ -238,7 +317,7 @@ class AsoContractTests(unittest.TestCase):
         self.assertEqual({p:hashlib.sha256(p.read_bytes()).hexdigest() for p in role_paths}, hashes)
 
     def test_call_chain_dispatch_guards_and_shadow_remain_compatible(self):
-        state = self.init_run('full', 'callchain')
+        state = self.init_run('callchain')
         self.helper(state, 'record_call_chain_skip', success=False)
         self.helper(state, 'record_call_chain_prefilter run "新增状态流转"')
         self.helper(state, 'record_call_chain_skip', success=False)
@@ -248,13 +327,22 @@ class AsoContractTests(unittest.TestCase):
         self.assertEqual(data['phase'], 'DONE')
         self.assertEqual(data['call_chain']['action'], 'updated')
         self.assertEqual(data['call_chain']['commit'], 'a' * 40)
-        shadow = self.init_run('full', 'shadow')
+        shadow = self.init_run('shadow')
         self.helper(shadow, '_keel_state_jq \'.call_chain.prefilter.mode = "shadow"\'\nrecord_call_chain_prefilter noop "影子预判"\nrecord_call_chain_shadow_result updated')
         self.assertFalse(json.loads(shadow.read_text())['call_chain']['prefilter']['safe'])
         self.helper(shadow, 'record_call_chain_skip', success=False)
 
+    def test_noop_finishes_without_call_chain_report(self):
+        state = self.init_run('skip-call-chain')
+        self.helper(state, 'record_call_chain_prefilter noop "仅局部校验，无入口或状态变化"\nrecord_call_chain_skip')
+        data = json.loads(state.read_text())
+        self.assertEqual(data['phase'], 'DONE')
+        self.assertEqual(data['call_chain']['status'], 'skipped')
+        self.assertIsNone(data['call_chain']['artifact'])
+        self.assertFalse(Path(data['artifacts']['call_chain_review']).exists())
+
     def test_legacy_profile_uses_its_configured_progress_and_state(self):
-        state = self.init_run('full', 'legacy')
+        state = self.init_run('legacy')
         profile = state.parent / 'profile.json'
         old = json.loads(state.read_text())
         old['progress'] = {'events':str(state.parent / 'progress.events')}

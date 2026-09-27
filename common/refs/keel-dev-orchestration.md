@@ -4,7 +4,7 @@
 
 ## 主会话编排
 
-full/fast 仅用原生 subagent，无该能力则停止；不启动 Agent CLI、tmux、pane 或 send-keys。每任务使用新 Agent，角色之间不通信、调度或等待。
+开发编排仅用原生 subagent，无该能力则停止；不启动 Agent CLI、tmux、pane 或 send-keys。每任务使用新 Agent，角色之间不通信、调度或等待。
 
 ### 角色与规范绑定
 
@@ -18,7 +18,7 @@ full/fast 仅用原生 subagent，无该能力则停止；不启动 Agent CLI、
 
 验收 spec_refs 另加 `.codex/common/refs/keel-dev-spec.md#代码与测试标准`；替换开发 Spec 时同步引用。
 
-A/S 可独立替换。在 `state.json.aso_bindings` 按 builder/qa/call_chain 保存 agent、spec_refs、task_ref；fast 只保存前两项，恢复沿用。引用使用绝对路径，可附 `#二级标题`，只读该节及其子节，到下一二级标题结束；无片段则读全文。替换须具备对应能力并遵守任务约定，不改变授权、目标或门禁；缺失资料、章节或规范冲突须阻断。
+A/S 可独立替换。在 `state.json.aso_bindings` 按 builder/qa/call_chain 保存 agent、spec_refs、task_ref，恢复沿用并补全缺失的职责绑定。引用使用绝对路径，可附 `#二级标题`，只读该节及其子节，到下一二级标题结束；无片段则读全文。替换须具备对应能力并遵守任务约定，不改变授权、目标或门禁；缺失资料、章节或规范冲突须阻断。
 
 ### Run 与 Preflight
 
@@ -36,11 +36,11 @@ A/S 可独立替换。在 `state.json.aso_bindings` 按 builder/qa/call_chain �
 
 每次 prompt 下发：目标、stage、范围（slug/batch、全部验收或修复项）、输入路径、本轮 commits、完整 spec_refs、task_ref、KEEL_PROFILE、output/artifact、完成 tag 和 reporter（逻辑名 keel-builder / keel-qa / keel-call-chain，替换 Agent 后保持日志兼容）。同时要求读取 `.codex/common/refs/keel-dev-orchestration.md#通用任务要求` 与 task_ref 指定章节；子任务不读取主会话编排或其他任务章节。
 
-路径转绝对，按依赖切片，只传当前功能及引用。主会话核验进度、tag、artifact 和 git commit，再更新 state 并推进。契约矛盾、关键决策缺失或不可执行时 PAUSED，带证据交回 Plan；fast 的状态机变化转 full。
+路径转绝对，按依赖切片，只传当前功能及引用。主会话核验进度、tag、artifact 和 git commit，再更新 state 并推进。契约矛盾、关键决策缺失或不可执行时 PAUSED，带证据交回 Plan。
 
 ### 恢复与门禁
 
-- 以 state 和磁盘 artifact 为准。旧 profile.json 再读同目录 state.json；缺 aso_bindings 时补默认绑定。恢复先校验计划快照，不重新初始化；旧计划格式返回 Plan 并新建 run。
+- 以 state 和磁盘 artifact 为准。恢复先结束旧执行，运行 `resume_keel_run "$KEEL_PROFILE"` 并导出返回路径；它校验快照，将未完成的旧 fast run 转为统一阶段，保留提交、计数、报告和进度。核对旧 FAST 标记对应的阶段结果再续作，不重做已完成工作；补齐缺失的 CallChain 绑定及规范。已完成 run 不重开，旧计划格式返回 Plan。
 - 读 progress.tsv 最新记录；旧 run 使用 profile 配置的 progress.events。审查 5 分钟、构建/修复 15 分钟无有效进展时检查；失联则结束旧执行并恢复，每阶段每角色最多恢复 2 次，超过 PAUSED。
 - 当前执行 artifact 缺失或格式错误定向重做一次，再次失败计入恢复次数；计划索引或功能文件缺失直接返回 Plan。
 - 只记录 Builder 本轮新 commit；QA REJECTED 阻断，非阻断观察只汇总。除实现提交和流程文档提交外，不自动 stage、merge、squash、push 或清理历史。
@@ -78,13 +78,11 @@ complete_stage "$reporter" "$tag" "完成结论" "$artifact"
 | stage | 任务与输出 | tag |
 | --- | --- | --- |
 | BUILD | 实现本片功能并创建聚焦 commit，artifact 为 run 内 plan.md | BUILD_SLICE_DONE 或最后一片 BUILD_DONE |
-| BUILD_FAST | 完成本次小范围实现，保持基础设施调整最小，创建一个聚焦 commit；artifact 为 plan.md | BUILD_FAST_DONE |
 | FIX | 只修 fix-brief.md 阻断项，创建聚焦 commit；artifact 为 fix-brief.md | FIX_DONE |
-| FIX_FAST | 同 FIX，保持 fast 范围 | FIX_FAST_DONE |
 
 运行新增/修改及受影响测试、项目适用的构建、类型/语法或加载检查，记录命令和结果；最后一片须完成相关测试及适用验证。提交前核对 diff 与目标，清理本次无用代码和无关编辑，保留用户改动；只 stage 本任务文件，返回本轮新 commit。
 
-BUILD_FAST 或 FIX_FAST 发现状态机变化时返回阻断和证据，由主会话暂停 fast 并转 full；不自行切换模式。不得生成 QA 或 CallChain 报告，不修改流程索引。
+不得生成 QA 或 CallChain 报告，不修改流程索引。发现需改变已确认方案的情况时返回证据，由主会话处理。
 
 ## 验收任务
 
@@ -93,11 +91,9 @@ BUILD_FAST 或 FIX_FAST 发现状态机变化时返回阻断和证据，由主�
 | stage | 验证范围 |
 | --- | --- |
 | REVIEW | 索引中的全部功能及本轮 commits |
-| REVIEW_FAST | 同 REVIEW，额外核对 fast 范围 |
 | REVIEW_FIX | fix-brief.md 阻断项与受影响场景，包含本轮修复提交 |
-| REVIEW_FAST_FIX | 同 REVIEW_FIX，额外确认没有扩大 fast 范围 |
 
-逐功能核验响应、状态、副作用、重要异常和必要联动；检查实现与目标的对应关系、无依据的额外抽象及本轮残留无用代码，不因个人偏好重开选型。fast 出现业务状态机变化须阻断，由主会话转 full。
+逐功能核验响应、状态、副作用、重要异常和必要联动；检查实现与目标的对应关系、无依据的额外抽象及本轮残留无用代码，不因个人偏好重开选型。发现超出已确认方案的变化时报告阻断，不将计划内的状态机变化当作模式限制。
 
 写入或覆盖本次 `qa-feedback.md`，包含最终 `APPROVED` / `REJECTED`、逐功能目标/结果/证据、可执行验证套餐、阻断问题及非阻断观察。没有足够证据支持通过时不得写 APPROVED，明确缺陷与无法验证的区别。不修改业务代码或创建提交。
 
@@ -105,7 +101,7 @@ artifact 为该报告，tag 为最终判定；按运行协议完成后返回。�
 
 ## 流程维护任务
 
-stage 为 CALL_CHAIN，仅在 full 的 QA 通过且需要独立审查时下发。输入为计划索引、最终 Builder commits 与 diff、规范提供的索引目录。只审本轮 Builder commits，按通用任务要求读取相关设计并核对代码。
+stage 为 CALL_CHAIN，仅在 QA 通过且需要独立审查时下发。输入为计划索引、最终 Builder commits 与 diff、规范提供的索引目录。只审本轮 Builder commits，按通用任务要求读取相关设计并核对代码。
 
 按职责规范和共用粒度独立判断；默认 NOOP，不确定时说明证据缺口。
 
