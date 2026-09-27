@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f4f4eb">
+    <title>贪吃蛇 · 再来一局</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./style.css">
+    <script type="module" src="./app.mjs"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <a class="brand" href="./" aria-label="贪吃蛇首页"><span class="brand-mark" aria-hidden="true">↳</span> 再来一局<span class="brand-dot">.</span></a>
+        <span class="edition">经典小游戏 <span aria-hidden="true">/</span> 01</span>
+      </header>
+
+      <section class="intro" aria-labelledby="title">
+        <div><p class="eyebrow">一点专注，一点手速</p><h1 id="title">贪吃蛇<span aria-hidden="true">。</span></h1></div>
+        <p class="intro-copy">吃掉食物，让快乐长一点。<br>下一格，交给你。</p>
+      </section>
+
+      <div class="game-layout">
+        <section class="board-card" aria-label="游戏区域">
+          <div class="board-heading"><span>20 × 20 <span class="muted">棋盘</span></span><span id="status" class="status" data-status="READY" role="status">待开始</span></div>
+          <div class="board-wrap">
+            <canvas id="board" width="400" height="400" aria-label="20 行 20 列贪吃蛇棋盘；浅绿色蛇头、绿色蛇身、珊瑚色食物">此游戏需要支持 Canvas 的浏览器。</canvas>
+            <div id="board-message" class="board-message"><strong id="message-title">准备好了吗？</strong><span id="message-copy">点击「开始游戏」，向前出发</span></div>
+          </div>
+          <div class="board-legend"><span><i class="legend-snake"></i>这是你</span><span><i class="legend-food"></i>每颗 +1 分</span><span class="pace">150 毫秒 / 格</span></div>
+        </section>
+
+        <aside class="sidebar" aria-label="分数与操作">
+          <section class="score-card" aria-labelledby="score-label"><p id="score-label">本局得分</p><div class="score-line"><output id="score" aria-label="本局得分">00</output><span>分</span></div><p class="score-note">每吃一颗，就长大一格。</p></section>
+          <div class="actions"><button id="start" class="button primary" type="button">开始游戏 <span aria-hidden="true">↗</span></button><button id="restart" class="button secondary" type="button" disabled>重新开始 <span aria-hidden="true">↻</span></button></div>
+          <section class="instructions" aria-labelledby="controls-title"><h2 id="controls-title">跟着方向走</h2><div class="key-row" aria-label="方向键"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd><span>或</span><span class="wasd">W A S D</span></div><p>用键盘转向，不能直接掉头。<br>避开边界，也别撞到自己。</p><p class="tiny-note">每步仅接受一次转向 · 以桌面键盘游玩</p></section>
+        </aside>
+      </div>
+      <footer><span>简单的规则，刚刚好的挑战。</span><span>不赶时间，享受这一局 <span aria-hidden="true">↗</span></span></footer>
+    </main>
+  </body>
+</html>
