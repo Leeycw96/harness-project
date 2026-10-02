@@ -15,7 +15,8 @@ import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
 
-SECTIONS = ("数据模型", "功能时序图", "接口设计", "代码改造点")
+SECTIONS = ("合约设计", "数据模型", "功能时序图", "接口设计", "代码改造点")
+OPTIONAL_SECTIONS = {"合约设计"}
 REVIEW_SECTIONS = ("背景", "业务流程总览", "状态机")
 SLUG = r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*"
 NO_MODEL_CHANGE = "本期不涉及数据模型变更，沿用现有实现。"
@@ -153,6 +154,54 @@ def model_in_review(content):
     return visible
 
 
+def contract_names(content):
+    """Check the declared artifact, not whether the project's work requires it."""
+    if not content:
+        return []
+    text = prose(content).strip()
+    if all(line.startswith("- 引用：") for line in text.splitlines() if line.strip()) and not any(
+            lang is not None for lang, _ in content):
+        return []  # References are resolved against the complete bundle below.
+    _, sections = feature_blocks(content, r"(合约清单|合约关系)")
+    if list(sections) != ["合约清单", "合约关系"]:
+        raise ValueError("合约设计须先列合约清单，再给出合约关系；共享设计可直接引用")
+    inventory = sections["合约清单"][1]
+    if any(lang is not None for lang, _ in inventory):
+        raise ValueError("合约清单须使用表格，关系图放在清单之后")
+    lines = prose(inventory).splitlines()
+    headers = [i for i, line in enumerate(lines) if cells(line) == ["合约", "简要说明", "本期变化"]]
+    if len(headers) != 1:
+        raise ValueError("合约清单须包含唯一的合约、简要说明、本期变化三列表格")
+    index = headers[0] + 1
+    if index >= len(lines) or len(cells(lines[index])) != 3 or not all(
+            re.fullmatch(r":?-{3,}:?", cell) for cell in cells(lines[index])):
+        raise ValueError("合约清单表格缺少合法分隔行")
+    names = []
+    for line in lines[index + 1:]:
+        if not line.strip() or "|" not in line:
+            break
+        row = cells(line)
+        if len(row) != 3 or not all(row) or row[2] not in {"新增", "修改", "沿用", "删除"}:
+            raise ValueError("合约清单每行须有名称、简要说明和合法的本期变化")
+        name = row[0].strip("`").strip()
+        if not name or name in names:
+            raise ValueError("合约清单名称不能为空或重复")
+        names.append(name)
+    if not names:
+        raise ValueError("合约清单不能为空")
+    diagrams = [body for lang, body in sections["合约关系"][1] if lang and lang.lower() == "plantuml"]
+    if not diagrams:
+        raise ValueError("合约关系须包含 PlantUML 图，单合约也保留节点")
+    nodes = set()
+    for diagram in diagrams:
+        for quoted, plain in re.findall(
+                r'^\s*class\s+(?:"([^"]+)"|([A-Za-z_$][\w$]*))(?:\s+as\s+[A-Za-z_]\w*)?\s+<<contract>>', diagram, re.M):
+            nodes.add(quoted or plain)
+    if nodes != set(names):
+        raise ValueError("合约关系图须用 class 和 <<contract>> 声明与清单一致的合约节点")
+    return names
+
+
 def one_field(content, label):
     values = re.findall(rf"^- {label}：(.+)$", prose(content), re.M)
     if len(values) != 1:
@@ -188,13 +237,14 @@ def validate(path):
             raise ValueError(f"功能 {slug} 缺少文档链接")
         relative = link[1]
         feature_path = local_feature_path(path, relative, slug)
-        feature_source, feature_parts, feature_title, detail = read_document(feature_path, SECTIONS, set())
+        feature_source, feature_parts, feature_title, detail = read_document(feature_path, SECTIONS, OPTIONAL_SECTIONS)
         if feature_title != heading:
             raise ValueError(f"功能文档标题必须与索引一致: {slug}")
         dependency = one_field(content, "依赖")
         dependencies = [] if dependency == "无" else dependency.split("、")
         if len(set(dependencies)) != len(dependencies) or slug in dependencies or any(item not in goals for item in dependencies):
             raise ValueError(f"功能依赖无效: {slug}")
+        contracts = contract_names(detail.get("合约设计", []))
         visible = model_in_review(detail["数据模型"])
         choice = one_field(detail["功能时序图"], "时序图")
         has_diagram = any(lang and lang.lower() == "plantuml" for lang, _ in detail["功能时序图"])
@@ -205,9 +255,9 @@ def validate(path):
             if not any(body.strip() for _, body in api_content):
                 raise ValueError(f"接口设计缺少内容: {api_heading}")
         references = {}
-        for section in ("数据模型", "接口设计"):
+        for section in ("合约设计", "数据模型", "接口设计"):
             refs = []
-            for line in prose(detail[section]).splitlines():
+            for line in prose(detail.get(section, [])).splitlines():
                 if line.startswith("- 引用："):
                     match = re.fullmatch(rf"- 引用：\[({SLUG})\]\(({SLUG})\.md#{section}\)", line)
                     if not match or match[1] != match[2] or match[1] == slug or match[1] not in goals or match[1] in refs:
@@ -231,7 +281,7 @@ def validate(path):
             raise ValueError("功能文档的代码改造点直接列文件，不重复功能分类")
         features[slug] = dict(heading=heading, goal=content, path=relative, source=feature_source,
                               parts=feature_parts, sections=detail, dependencies=dependencies,
-                              choice=choice, model_visible=visible, interfaces=interfaces, references=references)
+                              choice=choice, model_visible=visible, contracts=contracts, interfaces=interfaces, references=references)
 
     visited, visiting = set(), set()
 
@@ -246,7 +296,7 @@ def validate(path):
         visiting.remove(slug)
         visited.add(slug)
 
-    api_owners = {}
+    api_owners, contract_owners = {}, {}
     for slug, feature in features.items():
         visit(slug)
         for section, refs in feature["references"].items():
@@ -256,6 +306,8 @@ def validate(path):
                     raise ValueError("引用必须指向同目录下的功能文档")
                 if owner["references"][section]:
                     raise ValueError("共享设计须直接引用定义所属功能，不能链式引用")
+                if section == "合约设计" and not owner["contracts"]:
+                    raise ValueError("合约设计引用必须指向实际定义")
                 if section == "数据模型" and one_field(owner["sections"][section], "结构变更") == "无":
                     raise ValueError("数据模型引用必须指向实际模型定义")
                 if section == "接口设计" and not owner["interfaces"]:
@@ -264,6 +316,10 @@ def validate(path):
             if endpoint in api_owners:
                 raise ValueError(f"接口 {endpoint} 重复定义；请引用所属功能")
             api_owners[endpoint] = slug
+        for name in feature["contracts"]:
+            if name in contract_owners:
+                raise ValueError(f"合约 {name} 重复定义；请引用所属功能；不同合约同名时使用模块限定名")
+            contract_owners[name] = slug
     return dict(source=source, title=title, features=features)
 
 
@@ -312,11 +368,13 @@ def review_sections(plan, bundle):
     for name in ("业务流程总览", "状态机"):
         if name in review and not any(lang and lang.lower() == "plantuml" for lang, _ in review[name]):
             raise ValueError(f"{name}必须包含 PlantUML 图")
-    goals, models, sequences, interfaces, changes = [], [], [], [], []
+    goals, contracts, models, sequences, interfaces, changes = [], [], [], [], [], []
     for item in bundle["features"].values():
         heading = (None, "### " + item["heading"])
         goals.extend([heading, *[(lang, re.sub(r"^- (?:文档|依赖)：.*$", "", body, flags=re.M)) for lang, body in item["goal"]]])
         detail = item["sections"]
+        if item["contracts"]:
+            contracts.extend(detail["合约设计"])
         if item["model_visible"]:
             models.extend(detail["数据模型"])
         if item["choice"] == "生成":
@@ -329,7 +387,7 @@ def review_sections(plan, bundle):
         result["业务流程总览"] = review["业务流程总览"]
     if "状态机" in review:
         result["状态机"] = review["状态机"]
-    for name, content in (("数据模型设计", models), ("功能时序图", sequences), ("接口设计", interfaces), ("代码改造点", changes)):
+    for name, content in (("合约设计", contracts), ("数据模型设计", models), ("功能时序图", sequences), ("接口设计", interfaces), ("代码改造点", changes)):
         if content:
             result[name] = content
     return result
@@ -474,7 +532,7 @@ def render(plan, output, template):
             if lang is None:
                 if name == "功能时序图":
                     body = re.sub(r"^- 时序图：(生成|不生成)\s*$", "", body, flags=re.M)
-                if name in {"数据模型设计", "接口设计"}:
+                if name in {"合约设计", "数据模型设计", "接口设计"}:
                     body = re.sub(r"^- (?:结构变更|引用)：.+$", "", body, flags=re.M)
                 rendered.append(prose_html(body, []))
             elif lang.lower() == "plantuml":

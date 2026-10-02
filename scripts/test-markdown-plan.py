@@ -14,6 +14,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import xml.etree.ElementTree as ET
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -109,6 +110,16 @@ class MarkdownPlanTests(unittest.TestCase):
             self.feature(slug).write_text(source)
         self.review.write_text(REVIEW.split("## 状态机")[0])
 
+    def add_contract_design(self, slug="cancel-order", content=None):
+        if content is None:
+            content = section((ASSETS / "contract-example.features/create-project.md").read_text(), "合约设计")
+        source = self.feature(slug).read_text()
+        if "## 合约设计\n" in source:
+            source = replace_section(source, "合约设计", content)
+        else:
+            source = source.replace("## 数据模型\n", "## 合约设计\n\n" + content + "\n\n## 数据模型\n", 1)
+        self.feature(slug).write_text(source)
+
     def test_index_routes_to_independent_four_part_features_without_review(self):
         self.review.unlink()
         bundle = plan_module.validate(self.plan)
@@ -155,6 +166,116 @@ class MarkdownPlanTests(unittest.TestCase):
             self.assertNotIn(unwanted, article)
         for anchor in re.findall(r'href="#([^\"]+)"', page):
             self.assertIn(f'id="{anchor}"', page)
+
+    def test_contract_design_renders_before_database_model_and_keeps_shared_source(self):
+        self.add_contract_design()
+        self.add_contract_design("confirm-refund", "- 引用：[cancel-order](cancel-order.md#合约设计)")
+        page, count = self.render()
+        reader = ContentReader()
+        reader.feed(page)
+        self.assertEqual(reader.headings, ["背景", "功能目标", "业务流程总览", "状态机", "合约设计", "数据模型设计", "功能时序图", "接口设计", "代码改造点"])
+        self.assertEqual(count, 5)
+        contract = page.split("<h2>合约设计</h2>")[1].split("</section>")[0]
+        self.assertEqual(contract.count("<table>"), 1)
+        self.assertEqual(contract.count("<figure>"), 1)
+        self.assertLess(contract.index("<table>"), contract.index("<figure>"))
+        self.assertNotIn("引用：", contract)
+        self.assertIn("N:M", contract)
+        bundle = plan_module.validate(self.plan)
+        self.assertEqual(bundle["features"]["confirm-refund"]["references"]["合约设计"], ["cancel-order"])
+        output = self.root / "contract-run"
+        plan_module.snapshot(self.plan, output)
+        snapshot = plan_module.validate(output / "plan.md")
+        for slug, item in bundle["features"].items():
+            self.assertEqual(snapshot["features"][slug]["source"], item["source"])
+        encoded = re.search(r'data:application/zip;base64,([^\"]+)', page)[1]
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded))) as archive:
+            self.assertEqual(archive.read("example.features/confirm-refund.md").decode(), self.feature("confirm-refund").read_text())
+
+    def test_contract_example_without_database_or_sequence_changes(self):
+        plan = self.directory / "contract-example.md"
+        for name in ("contract-example.md", "contract-example.review.md"):
+            shutil.copy(ASSETS / name, self.directory / name)
+        shutil.copytree(ASSETS / "contract-example.features", self.directory / "contract-example.features")
+        with patch.object(plan_module, "diagram_svg", return_value=SVG) as diagram:
+            plan_module.render(plan, plan.with_suffix(".html"), HTML_TEMPLATE)
+        page = plan.with_suffix(".html").read_text()
+        reader = ContentReader()
+        reader.feed(page)
+        self.assertEqual(reader.headings, ["背景", "功能目标", "业务流程总览", "合约设计", "代码改造点"])
+        self.assertEqual(diagram.call_count, 2)
+        bundle = plan_module.validate(plan)
+        self.assertEqual(bundle["features"]["create-project"]["contracts"], ["ProjectFactory", "Project", "Escrow", "EligibilityRule"])
+        self.assertEqual(bundle["features"]["configure-rules"]["contracts"], [])
+
+    def test_incomplete_contract_design_rejected_before_replacing_html(self):
+        original = section((ASSETS / "contract-example.features/create-project.md").read_text(), "合约设计")
+        for bad in (
+                "仅说明涉及合约开发。",
+                original.replace("### 合约清单", "### 其他内容"),
+                original.replace("| 合约 | 简要说明 | 本期变化 |", "| 合约 | 本期变化 |"),
+                original.replace("| --- | --- | --- |", "| --- | --- |"),
+                original.replace("创建并登记项目，完成项目与托管的初始化。", ""),
+                original.replace("| 新增 |", "| 未定 |", 1),
+                original.replace("| `ProjectFactory` |", "| `Project` |"),
+                re.sub(r"```plantuml\n.*?```", "", original, flags=re.S),
+                original.replace("class Escrow <<contract>>", "class Other <<contract>>"),
+                original.replace("class Project <<contract>>", "class Project"),
+                original.replace("### 合约清单", "### 合约关系", 1),
+                re.sub(r"^\| `.*\n", "", original, flags=re.M)):
+            with self.subTest(content=bad[:90]):
+                self.add_contract_design(content=bad)
+                self.assert_rejected()
+
+    def test_contract_references_require_unique_direct_definition(self):
+        reference = "- 引用：[cancel-order](cancel-order.md#合约设计)"
+        self.add_contract_design("confirm-refund", reference)
+        self.assert_rejected()  # Target has no contract design.
+        self.add_contract_design()
+        for bad in (reference.replace("cancel-order", "missing"),
+                    reference.replace("cancel-order", "confirm-refund"),
+                    reference.replace("#合约设计", "#数据模型"),
+                    reference + "\n" + reference):
+            with self.subTest(reference=bad):
+                self.add_contract_design("confirm-refund", bad)
+                self.assert_rejected()
+        self.add_contract_design("confirm-refund")
+        self.assert_rejected()  # Shared definitions must not be copied.
+        self.add_contract_design("confirm-refund", reference)
+        self.add_contract_design(content="- 引用：[confirm-refund](confirm-refund.md#合约设计)")
+        self.assert_rejected()
+
+    def test_single_contract_and_qualified_names_are_supported(self):
+        design = '''### 合约清单
+
+| 合约 | 简要说明 | 本期变化 |
+| --- | --- | --- |
+| `rewards.Rule` | 独立校验资格。 | 修改 |
+
+### 合约关系
+
+本期仅涉及一个独立合约，无其他合约关联。
+
+```plantuml
+@startuml
+class "rewards.Rule" as Rule <<contract>>
+@enduml
+```'''
+        self.add_contract_design(content=design)
+        page, _ = self.render()
+        self.assertIn("<code>rewards.Rule</code>", page)
+        source = self.feature().read_text()
+        self.feature().write_text(re.sub(r"^## 合约设计\n.*?(?=^## 数据模型)", "", source, flags=re.M | re.S) + "\n## 合约设计\n" + design)
+        self.assert_rejected()  # The optional section still has a defined position.
+
+    @unittest.skipUnless(os.environ.get('KEEL_PLANTUML_JAR') or shutil.which('plantuml'), '需要本地 PlantUML')
+    def test_contract_example_diagrams_render_with_real_plantuml(self):
+        for path in (ASSETS / 'contract-example.review.md', ASSETS / 'contract-example.features/create-project.md'):
+            for language, body in plan_module.blocks(path.read_text()):
+                if language == 'plantuml':
+                    with self.subTest(document=path.name):
+                        image = plan_module.diagram_svg(body)
+                        self.assertIn(b'<svg', base64.b64decode(image.split(',', 1)[1]))
 
     def test_download_contains_exact_portable_index_and_all_feature_sources(self):
         page, _ = self.render()
@@ -503,7 +624,7 @@ if init_keel_run "$PROJECT_DIR/invalid" "$PROJECT_DIR/.keel/plans/example.md" ex
         self.assertIn("refund_tasks", decoded[2])
         for color in ("#DCFCE7", "#DBEAFE", "#FEE2E2"):
             self.assertIn(color, decoded[1])
-        self.assertIn("本期删除", decoded[1])
+        self.assertIn("本期删除", "".join(ET.fromstring(decoded[1]).itertext()))
         self.review.write_text(REVIEW.replace("start\n", "this is not valid PlantUML syntax !!!!\n", 1))
         result = subprocess.run(["bash", str(RENDER), str(self.plan), str(self.output)], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)

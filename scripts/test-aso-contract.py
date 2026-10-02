@@ -143,6 +143,18 @@ class AsoContractTests(unittest.TestCase):
                 ):
                     self.assertIn(relative, manifest)
                     self.assertEqual((project / relative).read_bytes(), (ROOT / original).read_bytes())
+                assets = Path('keel-plan/skills/keel-plan/assets')
+                for source in (ROOT / assets).glob('contract-example*'):
+                    files = source.rglob('*.md') if source.is_dir() else [source]
+                    for original in files:
+                        relative = Path('.agents/skills/keel-plan/assets') / original.relative_to(ROOT / assets)
+                        self.assertIn(str(relative), manifest)
+                        self.assertEqual((project / relative).read_bytes(), original.read_bytes())
+                checked = subprocess.run([
+                    'python3', str(project / '.codex/common/scripts/keel-plan.py'), 'validate',
+                    str(project / '.agents/skills/keel-plan/assets/contract-example.md'),
+                ], capture_output=True, text=True)
+                self.assertEqual(checked.returncode, 0, checked.stderr)
 
     def test_default_bindings_route_each_role_to_spec_and_task(self):
         main = self.read_reference('.codex/common/refs/keel-dev-orchestration.md#主会话编排')
