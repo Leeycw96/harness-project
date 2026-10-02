@@ -1,57 +1,48 @@
 ---
 name: keel-plan
-description: 编排方案调研、用户决策与审阅，按本期改动生成简明的功能执行文档和同源 HTML。
+description: 编排需求调研、方案起草与用户审阅，生成按功能拆分的执行文档和同源 HTML。
 user-invocable: true
 ---
 
 # Keel Plan
 
-主会话负责沟通、调度、检查和渲染，调研与文档编写交给 Planner，不重复其工作。不生成业务代码、原型或另一份实施计划。
+流程：调研 → 用户决策 → 起草 → 检查与渲染 → 用户审阅 → 修订或交付。
+主会话负责沟通、调度和交付，Planner 负责调研与方案设计。
 
-## 绑定与输入
+## 调研
 
-只使用原生 subagent，默认 `keel-planner`；无此能力则说明阻断，不启动 Agent CLI。默认规范为 `.codex/common/refs/keel-plan-spec.md` 和 `.codex/common/refs/keel-business-flow-spec.md`，另加项目 AGENTS.md（缺失用 README.md）。主会话记录本次角色、Spec、输出范围和用户决定，A/S 可独立替换，但须满足本次交付接口；缺失或冲突先报告。
+主会话将需求、项目目录与手册（AGENTS.md，缺失用 README.md）、相关代码和流程资料、已有方案与决定交给 `keel-planner`。Spec 为 `.codex/common/refs/keel-plan-spec.md` 和 `.codex/common/refs/keel-business-flow-spec.md`。
 
-每次下发目标、实际项目目录、需求来源、相关代码/流程资料路径、已有方案、已确认决策、时序图选择、允许写入的源文件范围，以及本 Skill 对应任务章节。引用转绝对路径；只读指定 `#二级标题` 及其子节，不要求角色预置项目路径或其他阶段规则。Planner 不直接询问用户、调用其他 Agent 或推进流程。
+请 Planner 核实现状、本期变化、影响范围及 Spec 的适用条件，提出功能目标、验收结果、必要取舍和待决问题，并返回证据。此步为只读调研；资料不足时由主会话补充资料或安排继续调研。
 
-## 调研与决策
+## 用户决策
 
-调度 Planner 读取 `.agents/skills/keel-plan/SKILL.md#调研任务`，返回现状证据、本期变化与沿用范围、候选功能、Spec 适用条件的核实结果及待决问题。参考相关 `.keel/call-chain/`，但不得修改索引。
+主会话根据调研结果确认需要用户决定的范围、业务规则和关键技术选择，并确认哪些重点功能生成时序图（部分、全部或不生成）。沿用已有明确决定；可从项目核实的问题交回调研。资料充分且关键选择明确后起草。
 
-主会话只询问必须由用户决定的业务、范围或关键技术选择，一次一个；可从资料核实的内容交回调研，不逐章确认。已有明确选择或代选授权直接沿用，不能把未回复视为授权。
+## 起草与修订
 
-根据候选功能，请用户选择哪些重点功能生成时序图（部分、全部或不生成），已有选择不重复询问。选择只影响图表，不改变功能范围。资料充分且关键选择已明确后进入起草。
+主会话调度 `keel-planner`，沿用调研步骤的两项 Spec，提供调研证据、已确认目标与选择、计划名称和源文件范围。请其生成 `.keel/plans/<name>.md`、对应功能文档和同名 `.review.md`，按 Spec 落实适用的必需内容。
 
-## 起草与审阅
+可按需参考 `.agents/skills/keel-plan/assets/plan-template.md`、`.agents/skills/keel-plan/assets/plan-review-template.md` 及关联功能示例；局部调整和合约设计分别参考 `.agents/skills/keel-plan/assets/incremental-example.md`、`.agents/skills/keel-plan/assets/contract-example.md`。示例事实替换为本项目事实。
 
-调度 Planner 按 `.agents/skills/keel-plan/SKILL.md#起草与修订任务` 生成或更新索引、功能 MD 和同标题审阅素材。主会话保留其证据与当前源文件路径，后续只下发反馈和受影响内容。
+修订时仍由 Planner 使用相同 Spec，接收本次反馈与受影响源文件，返回修改结果及未决问题。
 
-渲染前按共用粒度核对流程变化与证据：有变化必须有目标流程总览，无变化可省略，不能仅按是否新增状态判断；图须包含本期新增/调整，不能只展示旧流程或缺少能力的现状。再依据调研事实与本次 Spec 检查适用的必需内容，具体标准以 Spec 为准；核对所有目标有验收与代码改造映射；本期变化及必要联动无遗漏；未改动部分已简写；“本期不涉及”不与枚举、SQL、接口或共享引用变化冲突；关键决策无缺口。检查所有计划源文件及 HTML，移除测试文件、命令、用例与验证安排等自测内容，保留功能结果验收。主会话做范围检查，具体内容问题交回 Planner 修正。
+## 检查与渲染
 
-在项目根执行：
+主会话按本次目标与 Spec 检查源文档，内容缺口交回 Planner 修订；通过后在项目根运行：
 
-`bash .agents/skills/keel-plan/scripts/render-plan-html.sh ".keel/plans/<name>.md" ".keel/plans/<name>.html"`
+```bash
+bash .agents/skills/keel-plan/scripts/render-plan-html.sh ".keel/plans/<name>.md" ".keel/plans/<name>.html"
+```
 
-脚本校验文档集合并组合 HTML，自动加载功能文件及同目录审阅素材。需要 Python 3；含图表时还需要本地 PlantUML（plantuml 或 KEEL_PLANTUML_JAR + Java）。依赖缺失或图语法错误，补齐或交回修正后重试一次；仍失败保留源文件并报告未完成，不能用源码替代图或提示进入开发。
+脚本组合并校验文档，需要 Python 3；含图时需要本地 PlantUML，或 KEEL_PLANTUML_JAR 与 Java。依赖或图语法有误时修正后重试一次；仍失败则保留源文件并报告未完成。
 
-展示摘要及 HTML，请用户集中审阅。反馈交回 Planner 修改对应源文件，再生成同一路径 HTML，禁止单改 HTML。用户确认最终 HTML 且内容、图文和 SQL 一致后，报告 HTML、索引及功能目录。统一进入 `/keel-dev`，由开发编排决定实现切片和是否需要 CallChain；不能因计划篇幅短就忽略风险。
+## 用户审阅与交付
 
-恢复以已有源文档、证据和用户决定为准，不覆盖无关方案；缺少关键选择先补充确认，不沿用不适用于当前内容的旧确认。
+主会话展示摘要和 HTML。收到反馈后返回“起草与修订”，修改源文档并重渲染同一路径；用户明确确认最终 HTML 后，交付 HTML、索引及功能目录，供 `/keel-dev` 执行。
 
-## 调研任务
+## 调度与恢复
 
-只执行本次调研，待决问题返回主会话，不调用或等待其他 Agent，不推进阶段。
+使用原生 subagent，默认 `keel-planner`；A/S 可按本次任务替换，缺少所需能力或资料时报告。每次给 Agent 当前任务、Spec、必要资料和允许写入范围，路径转绝对；任务引用为 `.agents/skills/keel-plan/SKILL.md#调研` 或 `.agents/skills/keel-plan/SKILL.md#起草与修订`。Agent 完成当前任务并返回，主会话处理决策和流程衔接。
 
-读取本次需求、项目手册与指定 Spec，核对相关流程索引、代码、配置、模型和测试，只调研不写业务代码或源计划。识别当前行为、本期变化与沿用内容，核实本期涉及的技术对象与变更范围，逐项核对 Spec 适用条件及其证据；检查潜在接口枚举、数据库约束和联动影响。
-
-返回事实与证据位置、按共用粒度判断的流程变化及依据、建议功能目标/验收、适合画图的重点功能、必要取舍和待用户决定的问题。依据不足时查官方或一手来源，必要选型比较 2–3 个方案并推荐；不为已明确的小调整强造选型，不直接询问用户或编造结论。
-
-## 起草与修订任务
-
-只执行本次文档任务，不直接询问用户、调用其他 Agent 或推进阶段；缺失决策返回主会话。
-
-按本次已确认目标和选择、所给 Spec 编写指定源文件。参考 `.agents/skills/keel-plan/assets/plan-template.md`、对应功能示例及 `.agents/skills/keel-plan/assets/plan-review-template.md`；局部状态变化可参考 `.agents/skills/keel-plan/assets/incremental-example.md` 及其关联文件。合约设计可参考 `.agents/skills/keel-plan/assets/contract-example.md` 及其关联功能文件。依据调研事实落实 Spec 要求的必需内容；只读所需示例，替换全部示例事实。
-
-详述变化，简述沿用步骤，保留关键条件和边界；真正无变化的模型/接口明确标注。只列实际要改的文件及一句话说明，不重新设计已有能力，不另写完整实现教程。
-
-返回修改文件、证据、本期变化/沿用范围及未决问题，不把该汇报新增为计划章节。修订仅处理用户反馈与必要联动，同步模型、接口、图表和引用，保留用户无关改动；不生成 HTML、不提交代码、不自行宣告用户已确认。
+恢复时沿用已有证据、源文档和仍适用的用户决定，从未完成步骤继续；最终审阅未确认或渲染未成功时保留在 Plan。

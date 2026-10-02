@@ -7,7 +7,7 @@ trap 'find "$work_dir" -depth -delete' EXIT
 
 # Check language-neutral development rules.
 rules="$repo_root/common/refs/keel-dev-spec.md"
-orchestration="$repo_root/common/refs/keel-dev-orchestration.md"
+orchestration="$repo_root/keel-dev/skills/keel-dev/SKILL.md"
 for marker in '对外业务契约' '函数、模块' '测试命名、扩展名、位置和发现规则沿用项目约定' '不要求所有语言都有独立编译阶段'; do
   grep -Fq "$marker" "$rules" || { echo "缺少语言无关契约: $marker" >&2; exit 1; }
 done
@@ -29,6 +29,7 @@ for required in \
   "keel-plan/agents/keel-planner.toml" \
   "keel-plan/agents/keel-planner.md" \
   "common/refs/keel-plan-spec.md" \
+  "common/refs/keel-fix-spec.md" \
   "common/refs/keel-business-flow-spec.md" \
   "keel-dev/skills/keel-fix/SKILL.md" \
   "keel-dev/skills/keel-fix/assets/bug-template.md" \
