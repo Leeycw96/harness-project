@@ -29,7 +29,7 @@ user-invocable: true
 
 ## 检查与渲染
 
-主会话按本次目标与 Spec 检查源文档，内容缺口交回 Planner 修订；通过后在项目根运行：
+主会话按本次目标与 Spec 检查源文档的完整性、范围与简洁程度，缺口或冗余交回 Planner 修订；通过后在项目根运行：
 
 ```bash
 bash .agents/skills/keel-plan/scripts/render-plan-html.sh ".keel/plans/<name>.md" ".keel/plans/<name>.html"

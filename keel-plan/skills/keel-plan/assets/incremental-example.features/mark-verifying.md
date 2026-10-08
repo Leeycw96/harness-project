@@ -12,10 +12,6 @@
 
 - 时序图：生成
 
-仅增加内部校验阶段。示例假设现有接口只返回任务标识或最终文件地址，不暴露内部 phase，所以接口契约不变。沿用 ExportJob 的领取/生成、FileValidator 的校验规则、原结果通知和 FAILED 重试入口，不展开其内部调用。
-
-进入校验前条件更新 RUNNING → VERIFYING，成功/失败落库条件随之调整；沿用原独立状态更新事务和并发保护，未命中条件时按原规则退出，不把文件生成或校验包入新事务。原超时扫描独立运行，范围须包含 VERIFYING，处理策略不变。
-
 ```plantuml
 @startuml
 participant "ExportJob.run" as Job
@@ -23,23 +19,30 @@ participant "ExportService.execute" as Service
 participant "FileValidator.check" as Validator
 database 导出任务库 as DB
 participant "TimeoutScanner.scan" as Timer
-par 原导出处理
-group 沿用现有领取与文件生成
+par 校验路径
+group 沿用领取与文件生成（ExportJob.run）
 Job -> Service : 领取任务并生成文件（沿用）
 end
 Service -> DB : [新增] 条件更新 RUNNING → VERIFYING
-Service -> Validator : 校验文件（规则沿用）
-alt 原校验成功
-Service -> DB : VERIFYING → COMPLETED（调整原条件）
-else 原校验失败
-Service -> DB : VERIFYING → FAILED（调整原条件）
+note over Service,DB
+沿用原独立状态更新事务与并发保护
+未命中条件时按原规则退出
+文件生成与校验不纳入该事务
+end note
+opt 条件更新命中
+Service -> Validator : 校验文件
+alt 校验成功
+Service -> DB : [修改] VERIFYING → COMPLETED（条件更新）
+else 校验失败
+Service -> DB : [修改] VERIFYING → FAILED（条件更新）
 end
-Service --> Job : 原有结果与通知（沿用）
-else 原独立超时扫描
-opt 原超时扫描发现仍在运行的任务
-Timer -> DB : 扫描 RUNNING、VERIFYING（扩展状态范围）
-Timer -> DB : 按原条件更新为 FAILED（策略沿用）
 end
+else 独立超时扫描
+Timer -> DB : 扫描超时的运行中任务
+note over Timer,DB
+[修改] 扫描范围由 RUNNING 扩为 RUNNING、VERIFYING
+end note
+Timer -> DB : 按原并发条件更新为 FAILED（覆盖 VERIFYING）
 end
 @enduml
 ```

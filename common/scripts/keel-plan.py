@@ -135,23 +135,40 @@ def feature_blocks(content, pattern=rf"({SLUG}) — (.+)"):
 def model_in_review(content):
     if not content:
         return False
-    changes = re.findall(r"^- 结构变更：(.+)$", prose(content), re.M)
+    text = prose(content)
+    changes = re.findall(r"^- 结构变更：(.+)$", text, re.M)
     if len(changes) != 1:
-        raise ValueError("数据模型须记录一条结构变更：新增表、新增字段、其他调整或无")
+        raise ValueError("数据模型须记录一条结构变更：新增表、新增字段、JSON结构调整、其他调整或无")
+    migrations = re.findall(r"^- SQL迁移：(.*)$", text, re.M)
+    if len(migrations) > 1 or (migrations and migrations[0].strip() not in {"需要", "不需要"}):
+        raise ValueError("SQL迁移须为唯一的需要或不需要声明")
+    migration = migrations[0].strip() if migrations else None
+    sql_blocks = [body for lang, body in content if lang and lang.lower() == "sql"]
     if changes[0] == "无":
-        if any(lang and lang.lower() in {"sql", "plantuml"} for lang, _ in content):
-            raise ValueError("无结构变更时不能定义 SQL 或模型图；共享模型请引用所属功能")
+        if migration == "需要":
+            raise ValueError("无结构变更时不能声明需要 SQL 迁移")
+        if any(lang and lang.lower() in {"sql", "plantuml", "json"} for lang, _ in content):
+            raise ValueError("无结构变更时不能定义 SQL、模型图或 JSON 结构；共享模型请引用所属功能")
         return False
-    kinds = changes[0].split("、")
-    if len(kinds) != len(set(kinds)) or not set(kinds) <= {"新增表", "新增字段", "其他调整"}:
+    declared = changes[0].split("、")
+    kinds = set(declared)
+    if len(declared) != len(kinds) or not kinds <= {"新增表", "新增字段", "JSON结构调整", "其他调整"}:
         raise ValueError("数据模型结构变更类型不合法")
-    visible = bool(set(kinds) & {"新增表", "新增字段"})
+    physical_addition = bool(kinds & {"新增表", "新增字段"})
+    json_change = "JSON结构调整" in kinds
     diagrams = [body for lang, body in content if lang and lang.lower() == "plantuml"]
-    if visible and not any(re.search(r'^\s*entity\s+', body, re.M) for body in diagrams):
+    if physical_addition and not any(re.search(r'^\s*entity\s+', body, re.M) for body in diagrams):
         raise ValueError("新增表或字段的数据模型必须包含 PlantUML 实体关系图")
-    if not any(lang and lang.lower() == "sql" and body.strip() for lang, body in content):
+    if migration == "不需要" and sql_blocks:
+        raise ValueError("不需要 SQL 迁移时不能定义 SQL 围栏")
+    needs_sql = migration == "需要" or (migration is None and bool(kinds & {"新增表", "新增字段", "其他调整"}))
+    if needs_sql and not any(body.strip() for body in sql_blocks):
         raise ValueError("数据模型必须包含本次调整的 SQL")
-    return visible
+    if json_change:
+        structure = re.sub(r"^- (?:结构变更|SQL迁移|引用)：.*$", "", text, flags=re.M).strip()
+        if not structure and not any(lang and lang.lower() == "json" and body.strip() for lang, body in content):
+            raise ValueError("JSON结构调整须包含结构差异说明或非空 JSON 围栏")
+    return physical_addition or json_change
 
 
 def contract_names(content):
@@ -378,7 +395,8 @@ def review_sections(plan, bundle):
         if item["model_visible"]:
             models.extend(detail["数据模型"])
         if item["choice"] == "生成":
-            sequences.extend([heading, *detail["功能时序图"]])
+            sequences.extend([heading, *[(lang, body) for lang, body in detail["功能时序图"]
+                                        if lang and lang.lower() == "plantuml"]])
         for api_heading, api_content in item["interfaces"].values():
             interfaces.extend([(None, "### " + api_heading), *api_content])
         changes.extend([heading, *detail["代码改造点"]])
@@ -530,10 +548,8 @@ def render(plan, output, template):
         rendered.append(f'<section id="{anchor}"><h2>{html.escape(name)}</h2>')
         for lang, body in content:
             if lang is None:
-                if name == "功能时序图":
-                    body = re.sub(r"^- 时序图：(生成|不生成)\s*$", "", body, flags=re.M)
                 if name in {"合约设计", "数据模型设计", "接口设计"}:
-                    body = re.sub(r"^- (?:结构变更|引用)：.+$", "", body, flags=re.M)
+                    body = re.sub(r"^- (?:结构变更|SQL迁移|引用)：.+$", "", body, flags=re.M)
                 rendered.append(prose_html(body, []))
             elif lang.lower() == "plantuml":
                 diagram_count += 1

@@ -29,6 +29,15 @@ EXAMPLE = (ASSETS / "plan-template.md").read_text().replace("plan-template.featu
 REVIEW = (ASSETS / "plan-review-template.md").read_text()
 FEATURES = {p.stem: p.read_text() for p in (ASSETS / "plan-template.features").glob("*.md")}
 SVG = "data:image/svg+xml;base64," + base64.b64encode(b'<svg xmlns="http://www.w3.org/2000/svg"></svg>').decode()
+JSON_MODEL = """- 结构变更：JSON结构调整
+
+`orders.metadata.externalRef` 新增可选 string，缺失时视为未设置。
+
+局部 JSON：
+
+```json
+{"externalRef":"reference-1"}
+```"""
 
 
 def replace_section(source, name, content):
@@ -166,6 +175,64 @@ class MarkdownPlanTests(unittest.TestCase):
             self.assertNotIn(unwanted, article)
         for anchor in re.findall(r'href="#([^\"]+)"', page):
             self.assertIn(f'id="{anchor}"', page)
+
+    def test_sequence_review_shows_only_selected_diagrams_and_keeps_execution_source(self):
+        first = next(body for language, body in plan_module.blocks(section(FEATURES["cancel-order"], "功能时序图"))
+                     if language == "plantuml")
+        first = first.replace("@enduml", "note over Service : [修改] 申请退款时记录申请时间\n@enduml")
+        second = """@startuml
+participant "RefundJob.dispatch" as Job
+participant 退款网关 as Gateway
+note over Job : [新增] 首次派发复用持久化退款请求 ID
+Job -> Gateway : 幂等退款
+@enduml"""
+        sequence = """- 时序图：生成
+
+沿用完整旧查询逻辑：读取订单、校验归属，并按既有规则筛选可取消状态。
+
+```json
+{"legacyQuery":{"ownerId":"user-1","status":"PAID"}}
+```
+
+```plantuml
+""" + first + """
+```
+
+实现约定：订单更新与退款任务写入同事务，既有查询和渠道校验步骤沿用。
+
+```text
+内部执行资料：保留既有渠道路由和错误处理。
+```
+
+```PlantUML
+""" + second + """
+```
+
+图后执行说明：沿用渠道异常分类，按现有重试机制补偿，不重新设计错误码。
+"""
+        source = replace_section(FEATURES["cancel-order"], "功能时序图", sequence)
+        self.feature().write_text(source)
+        with patch.object(plan_module, "diagram_svg", return_value=SVG) as diagram:
+            plan_module.render(self.plan, self.output, HTML_TEMPLATE)
+        page = self.output.read_text()
+        sequences = page.split("<h2>功能时序图</h2>")[1].split("</section>")[0]
+        tree = ET.fromstring("<sequence>" + sequences + "</sequence>")
+        self.assertEqual([element.tag for element in tree], ["h3", "figure", "figure"])
+        self.assertEqual("".join(tree.find("h3").itertext()), "cancel-order — 发起取消")
+        diagram.assert_any_call(first)
+        diagram.assert_any_call(second)
+        self.assertEqual(diagram.call_count, 5)
+        model = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
+        interfaces = page.split("<h2>接口设计</h2>")[1].split("</section>")[0]
+        self.assertIn("ALTER TABLE orders", model)
+        self.assertIn("/orders/{id}/cancel", interfaces)
+        encoded = re.search(r'data:application/zip;base64,([^\"]+)', page)[1]
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded))) as archive:
+            self.assertEqual(archive.read("example.features/cancel-order.md").decode(), source)
+        output = self.root / "sequence-run"
+        plan_module.snapshot(self.plan, output)
+        snapshot = plan_module.validate(output / "plan.md")
+        self.assertEqual(snapshot["features"]["cancel-order"]["source"], source)
 
     def test_contract_design_renders_before_database_model_and_keeps_shared_source(self):
         self.add_contract_design()
@@ -441,6 +508,119 @@ class "rewards.Rule" as Rule <<contract>>
                     model.replace("- 结构变更：新增字段", "- 结构变更：无")):
             with self.subTest(model=bad[:60]):
                 self.feature().write_text(replace_section(source, "数据模型", bad))
+                self.assert_rejected()
+
+    def test_json_structure_without_sql_or_er_is_visible_and_portable(self):
+        self.make_plain()
+        source = replace_section(self.feature().read_text(), "数据模型", JSON_MODEL)
+        self.feature().write_text(source)
+        bundle = plan_module.validate(self.plan)
+        self.assertTrue(bundle["features"]["cancel-order"]["model_visible"])
+        page, count = self.render()
+        model = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
+        self.assertIn("orders.metadata.externalRef", model)
+        self.assertIn("reference-1", model)
+        self.assertNotIn("结构变更：", model)
+        self.assertNotIn("<figure>", model)
+        self.assertEqual(count, 1)
+        encoded = re.search(r'data:application/zip;base64,([^\"]+)', page)[1]
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded))) as archive:
+            self.assertEqual(archive.read("example.features/cancel-order.md").decode(), source)
+        output = self.root / "json-run"
+        plan_module.snapshot(self.plan, output)
+        snapshot = plan_module.validate(output / "plan.md")
+        self.assertEqual(snapshot["features"]["cancel-order"]["source"], source)
+
+    def test_json_example_renders_without_diagram_tools(self):
+        plan = self.directory / "json-example.md"
+        shutil.copy2(ASSETS / plan.name, plan)
+        shutil.copy2(ASSETS / "json-example.review.md", plan.with_suffix(".review.md"))
+        shutil.copytree(ASSETS / "json-example.features", self.directory / "json-example.features")
+        bundle = plan_module.validate(plan)
+        feature = bundle["features"]["set-display-label"]
+        self.assertTrue(feature["model_visible"])
+        self.assertEqual(feature["interfaces"], {})
+        self.assertFalse(any(language and language.lower() in {"sql", "plantuml"}
+                             for language, _ in feature["parts"]))
+        with patch.dict(os.environ, {}, clear=True), patch.object(plan_module.shutil, "which", return_value=None):
+            plan_module.render(plan, plan.with_suffix(".html"), HTML_TEMPLATE)
+        page = plan.with_suffix(".html").read_text()
+        reader = ContentReader()
+        reader.feed(page)
+        self.assertEqual(reader.headings, ["背景", "功能目标", "数据模型设计", "代码改造点"])
+        self.assertIn("displayLabel", page.split('<article id="plan-content">')[1].split("</article>")[0])
+
+    def test_shared_json_structure_renders_once(self):
+        self.feature().write_text(replace_section(FEATURES["cancel-order"], "数据模型", JSON_MODEL))
+        bundle = plan_module.validate(self.plan)
+        self.assertEqual(bundle["features"]["confirm-refund"]["references"]["数据模型"], ["cancel-order"])
+        page, _ = self.render()
+        model = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
+        self.assertEqual(model.count("orders.metadata.externalRef"), 1)
+        self.assertNotIn("引用：", model)
+
+    def test_json_sql_migration_decision_checks_sql_and_hides_metadata(self):
+        self.make_plain()
+        source = self.feature().read_text()
+        sql = "```sql\nUPDATE orders SET metadata = metadata || '{\"externalRef\":\"legacy\"}'::jsonb;\n```"
+        for model in (JSON_MODEL + "\n\n- SQL迁移：不需要",
+                      JSON_MODEL + "\n\n- SQL迁移：需要\n\n" + sql):
+            with self.subTest(model=model[-80:]):
+                self.feature().write_text(replace_section(source, "数据模型", model))
+                page, _ = self.render()
+                visible = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
+                self.assertNotIn("SQL迁移：", visible)
+                self.assertEqual("UPDATE orders" in visible, "UPDATE orders" in model)
+        for model in (JSON_MODEL + "\n\n- SQL迁移：需要",
+                      JSON_MODEL + "\n\n- SQL迁移：需要\n\n```sql\n\n```",
+                      JSON_MODEL + "\n\n- SQL迁移：不需要\n\n" + sql,
+                      JSON_MODEL + "\n\n- SQL迁移：不需要\n\n```sql\n\n```",
+                      JSON_MODEL + "\n\n- SQL迁移：未知",
+                      JSON_MODEL + "\n\n- SQL迁移：",
+                      JSON_MODEL + "\n\n- SQL迁移：需要\n- SQL迁移：不需要\n\n" + sql):
+            with self.subTest(model=model[-80:]):
+                self.feature().write_text(replace_section(source, "数据模型", model))
+                self.assert_rejected()
+
+    def test_json_structure_needs_content_and_cannot_claim_no_change(self):
+        self.make_plain()
+        source = self.feature().read_text()
+        diagram = "```plantuml\n@startuml\nentity orders {\n id : string\n}\n@enduml\n```"
+        for model in ("- 结构变更：JSON结构调整",
+                      "- 结构变更：JSON结构调整\n- SQL迁移：不需要",
+                      "- 结构变更：JSON结构调整\n\n```json\n\n```",
+                      "- 结构变更：JSON结构调整\n- SQL迁移：需要\n\n```sql\nUPDATE orders SET metadata = '{}';\n```",
+                      "- 结构变更：JSON结构调整\n\n" + diagram,
+                      JSON_MODEL + "\n\n" + plan_module.NO_MODEL_CHANGE,
+                      JSON_MODEL.replace("JSON结构调整", "无", 1),
+                      "- 结构变更：无\n- SQL迁移：需要",
+                      "- 结构变更：无\n\n" + plan_module.NO_MODEL_CHANGE + "\n\n```json\n{\"externalRef\":\"reference-1\"}\n```"):
+            with self.subTest(model=model[-80:]):
+                self.feature().write_text(replace_section(source, "数据模型", model))
+                self.assert_rejected()
+
+    def test_mixed_physical_and_json_structure_keeps_er_and_sql_requirements(self):
+        source = FEATURES["cancel-order"]
+        model = section(source, "数据模型").replace("结构变更：新增字段", "结构变更：新增字段、JSON结构调整")
+        model += "\n\n" + JSON_MODEL.split("\n", 1)[1]
+        self.feature().write_text(replace_section(source, "数据模型", model))
+        page, _ = self.render()
+        visible = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
+        self.assertIn("ALTER TABLE orders", visible)
+        self.assertIn("orders.metadata.externalRef", visible)
+        for bad in (re.sub(r"```sql\n.*?```", "", model, flags=re.S),
+                    re.sub(r"```plantuml\n.*?```", "", model, flags=re.S)):
+            with self.subTest(model=bad[-80:]):
+                self.feature().write_text(replace_section(source, "数据模型", bad))
+                self.assert_rejected()
+
+    def test_fenced_migration_metadata_cannot_disable_required_sql(self):
+        source = FEATURES["cancel-order"]
+        model = re.sub(r"```sql\n.*?```", "", section(source, "数据模型"), flags=re.S)
+        for language in ("text", "json"):
+            with self.subTest(language=language):
+                fenced = model + "\n\n```" + language + "\n- SQL迁移：不需要\n```"
+                self.feature().write_text(replace_section(source, "数据模型", fenced))
                 self.assert_rejected()
 
     def test_html_escapes_all_sources(self):
