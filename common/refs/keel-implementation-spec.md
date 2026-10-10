@@ -1,3 +1,8 @@
+---
+name: keel-implementation-spec
+description: 规定已确认改动的实施权限与设计边界，用于开发、修复和返修。
+---
+
 # 代码实施（S）
 
 ## 操作约束

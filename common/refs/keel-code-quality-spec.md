@@ -1,3 +1,8 @@
+---
+name: keel-code-quality-spec
+description: 规定代码与测试质量，用于代码实施和交付验收。
+---
+
 # 代码与测试质量（S）
 
 ## 代码与测试标准

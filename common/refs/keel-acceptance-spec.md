@@ -1,3 +1,8 @@
+---
+name: keel-acceptance-spec
+description: 规定独立验收权限、证据和报告要求，用于验收交付与复验改动。
+---
+
 # 交付验收规范（S）
 
 ## 操作约束

@@ -101,6 +101,28 @@ class AsoContractTests(unittest.TestCase):
                 text = (REFS / name).read_text()
                 self.assertNotRegex(text, r'keel-builder|keel-qa\.md|keel-call-chain\.md|\.codex/agents/|KEEL_PROFILE|state\.json|complete_stage|update_progress|\b(?:BUILD|REVIEW|FIX|PAUSED|PREFLIGHT)(?:_[A-Z]+)*\b')
 
+    def spec_metadata(self, path):
+        header = re.match(r'\A---\n(.*?)\n---(?:\n|\Z)', path.read_text(), re.S)
+        self.assertIsNotNone(header, str(path))
+        fields = {}
+        for key, value in re.findall(r'^(name|description):[ \t]*(.*)$', header[1], re.M):
+            self.assertNotIn(key, fields, str(path))
+            self.assertTrue(value.strip().strip('\'"').strip(), str(path) + ': ' + key)
+            fields[key] = value.strip()
+        self.assertEqual(set(fields), {'name', 'description'}, str(path))
+        return fields, header[0]
+
+    def test_specs_have_unique_metadata_preserved_by_deployment(self):
+        names = set()
+        for source in sorted(REFS.glob('*-spec.md')):
+            with self.subTest(spec=source.name):
+                metadata, header = self.spec_metadata(source)
+                self.assertNotIn(metadata['name'], names, source.name)
+                names.add(metadata['name'])
+                deployed_metadata, deployed_header = self.spec_metadata(self.refs / source.name)
+                self.assertEqual(deployed_metadata, metadata)
+                self.assertEqual(deployed_header, header)
+
     def reachable_references(self, roots):
         roots = list(roots)
         seen = set()

@@ -1,3 +1,8 @@
+---
+name: keel-code-change-spec
+description: 规定改造点的简要表达，用于方案和修复说明的改造点列表。
+---
+
 # Keel Code Change Spec（S）
 
 ## 改造点

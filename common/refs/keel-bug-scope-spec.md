@@ -1,3 +1,8 @@
+---
+name: keel-bug-scope-spec
+description: 规定局部修复资格与范围，用于缺陷分流、局部修复和原场景复验。
+---
+
 # 局部修复边界（S）
 
 ## 适用范围

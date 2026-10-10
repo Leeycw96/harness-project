@@ -1,3 +1,8 @@
+---
+name: keel-fix-review-spec
+description: 规定简要修复说明和展示标准，用于编写、修订或审阅修复说明。
+---
+
 # 修复说明编写规范（S）
 
 ## 修复说明

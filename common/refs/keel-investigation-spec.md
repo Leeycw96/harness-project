@@ -1,3 +1,8 @@
+---
+name: keel-investigation-spec
+description: 规定只读调查和证据判断，用于定位问题、分析根因和补充资料。
+---
+
 # 问题调查（S）
 
 ## 问题定位
