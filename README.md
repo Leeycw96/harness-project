@@ -14,7 +14,7 @@ Keel 是一组面向 Codex App 的 skills + agent 手册，用于编排 Planner�
 keel-project/
 ├── bin/keel          # 部署 CLI
 ├── install.sh        # 把 bin/ 写入 PATH
-├── common/           # 共享规范、编排和脚本，部署到 .codex/common/
+├── common/           # 共享规范和脚本，部署到 .codex/common/
 ├── keel-plan/        # /keel-plan 编排、Planner、模板与渲染入口
 └── keel-dev/         # dev skills 与 Codex custom agents
 ```
@@ -86,7 +86,8 @@ keel dev --codex /path/to/your/project
 │   │   ├── keel-flow-index-spec.md    # S：流程文档维护
 │   │   ├── keel-bug-scope-spec.md     # S：局部修复边界
 │   │   ├── keel-code-change-spec.md   # S：改造点表达
-│   │   └── keel-business-flow-spec.md # S：业务流程表达
+│   │   ├── keel-business-flow-spec.md # S：业务流程表达
+│   │   └── ...                         # 5 份旧名称兼容 Spec
 │   └── scripts/
 ├── agents/
 │   ├── keel-planner.md
@@ -113,23 +114,23 @@ keel dev --codex /path/to/your/project
 
 ## ASO 设计规范
 
-本项目按 **Agent、Spec、Orchestration** 组织能力。A 由 Agent 定义承载，S 由职责规约承载，O 由对应 Skill 的 `SKILL.md` 承载。编排以 Agent 能自主完成职责内工作为设计前提，设计好大的步骤，给清任务与规范，保留执行空间。新增或调整 Plan、Dev、Fix 等流程时，先确定内容属于哪一层；职责分离不要求每条规则都拆一个文件。
+本项目按 **Agent、Spec、Orchestration** 组织能力。A 定义角色，S 定义使用场景的规范，O 由对应 Skill 的 `SKILL.md` 说明流程。Skill 选择执行者、给清任务与规范，Agent 自主完成本职工作。新增或调整流程时，先确定内容属于哪一层；职责分离不要求每条规则都拆一个文件。
 
 | 层次 | 应包含 | 不应包含 |
 | --- | --- | --- |
 | **A（Agent）** | 角色、能力、原则：专业职责、擅长的工作、稳定的判断方式 | 固定项目规范路径、阶段步骤、状态字段、重试次数、完成命令 |
-| **S（Spec）** | 项目或职责规范：操作边界、工程标准及其适用条件、必需产物、文档格式、图表表达和验收要求 | 调度哪个 Agent、什么时候问用户、阶段推进与恢复 |
+| **S（Spec）** | 按场景组织的工作规范：操作边界、质量标准及其适用条件、必需产物、文档与图表格式、验收要求 | 调度哪个 Agent、什么时候问用户、阶段推进与恢复 |
 | **O（Orchestration）** | `SKILL.md` 中的高层编排：主要步骤及顺序、执行者、任务与 Spec、必要的用户决策和步骤衔接 | 重写 Agent 的角色原则，重复维护 Spec 中的标准，细管 Agent 的执行方法，堆叠限制，将编排主线拆到独立编排文档 |
 
 ### 编写与调整要求
 
 1. Agent Markdown 固定为“角色、能力、原则”。原则用能直接指导行动的句子，如最小修改、不过度设计、先看已有实现、定位不出来就明说；TOML 只做必要注册并加载角色说明。
-2. Spec 按使用场景组织，定义产物完整性与质量标准，也可规定标准的适用条件和必需产物；例如“涉及合约开发的方案必须包含合约清单和关系图”。条件属于哪层取决于约束对象：产物要求属于 S，任务调度和阶段控制属于 O。共享标准保持一个来源，通过编排下发引用；例如 QA 与 Builder 使用同一份代码和测试标准。Spec 是长期工作规范，本次需求与修复目标放在任务资料中。
+2. Spec 按使用场景组织，定义工作边界、质量要求、必需产物及适用条件；共享标准保持一个来源，Builder 与 QA 使用同一份代码和测试标准。本次需求与修复目标放在任务中，Spec 保留长期规则。
 3. 每个 `SKILL.md` 说明从接收输入到最终交付的主要步骤及顺序，包括主会话承担的沟通、检查和交付。涉及 subagent 时，明确调用哪个 Agent、这一步要完成什么、依据什么 Spec，并提供必要的任务资料；仅在影响步骤衔接时补充输出、分支或恢复说明，不要求每一步套用完整字段模板。
 4. 信任 Agent 的专业能力，由其依据任务、Spec 和项目事实自主选择调研路径、工具与局部执行方法。编排聚焦目标和协作，不逐项规定模型能够自主完成的操作，不重复角色原则或 Spec，不堆叠禁止事项。仅保留授权边界、关键用户决策、必要质量门禁和跨步骤交接要求；主会话依据结果推进，已有明确决定直接沿用。
-5. 编排流程、A/S 绑定及必要的推进和恢复规则统一维护在所属 `SKILL.md`，不另设 `keel-dev-orchestration.md` 一类独立编排文件。可引用职责 Spec、模板和可执行脚本；共享脚本提供机制，`SKILL.md` 只说明必要调用及结果衔接，不展开脚本内部实现，不以外部引用代替流程主线。
+5. 编排流程、A/S 绑定及必要的推进和恢复规则统一维护在所属 `SKILL.md`，不另设 `keel-dev-orchestration.md` 一类独立编排文件。可引用场景 Spec、模板和可执行脚本；共享脚本提供机制，`SKILL.md` 只说明必要调用及结果衔接，不展开脚本内部实现，不以外部引用代替流程主线。
 6. A/S 可以独立替换，O 核对能力、引用和交付接口。缺资料、规范冲突或超出授权时说明原因，不能静默回退或扩大任务。
-7. 重组文件时保留原有目标、质量要求和门禁；同步调用方、部署、模板、校验与测试。统计完整任务实际读取的内容，不把搬文件当成上下文节省。
+7. 重组文件时保留原有目标、质量要求和门禁；同步调用方、部署、模板、校验与测试。体量统计区分主会话编排、Agent 固定输入和动态任务资料，不把搬文件当成上下文节省。
 
 ### 方案从简设计
 
@@ -161,13 +162,26 @@ Plan 与 Fix 的改造点共用 `common/refs/keel-code-change-spec.md`：按真�
 | 流程维护 | CallChain | 流程文档维护 + 通用工作 + 业务流程表达 | keel-dev 的 SKILL.md：判断是否需要维护、调度与结果处理 |
 | 局部缺陷修复 | Builder、QA | 按步选择调查/实施/验收规范 + 局部修复边界；说明编写另用修复说明与改造点表达 | keel-fix 的 SKILL.md：定位、分流、独立审阅、修复验收与现场复验 |
 
-Spec 位于 `common/refs/`，各 Skill 按步骤直接下发场景规范的 name 与文件或 `#二级标题` 引用。Plan 的主会话负责沟通和检查，调研与文档编写交给 Planner，避免重复工作。生成的 HTML 与执行 MD 使用同一份设计内容，不独立编造另一份方案。
+Plan 的主会话负责沟通和检查，调研与文档编写交给 Planner。生成的 HTML 与执行 MD 使用同一份设计内容。
 
-Spec 正文已按使用场景与共享标准组织，完整分类见 [Spec 目录](docs/specs/README.md)。旧名称仅为已有引用保留兼容入口，当前 Skill 不再通过它们派发规范。
+### Spec 格式与引用
 
-Agent 的业务输入仅两段：**任务**包含本步目标、范围、必要资料引用及交付要求；**Spec**包含所选规范的 name 与绝对路径，章节引用包含子节、到下一二级标题结束。调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 返回业务结论、产物、commits、验证证据和遗留项，不读取 Skill 或调用运行助手。
+Spec 位于 `common/refs/`，按使用场景和共享标准分类，完整清单见 [Spec 目录](docs/specs/README.md)。每份文件开头用 YAML 声明 `name` 和 `description`：`name` 全局唯一，当前采用文件名去掉 `.md`；`description` 简述用途和使用场景。
 
-主会话选择 Agent/Spec，管理用户确认、阶段、恢复和当前原生执行标识；开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 只记录 agent、spec_refs，旧 task_ref 保留但忽略。主会话根据当前执行的新消息调用 `update_progress`，核对产物、提交和证据后调用 `complete_stage` 并推进状态；运行字段和内部完成标记不下发 Agent，也没有自动进度采集器。APPROVED/REJECTED、NOOP/UPDATED 仍为业务报告结论。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 CallChain、批准快照与旧 profile 恢复。
+正文直接列出简短易懂的规则，正确或错误示例按需添加并保留前缀。旧名称保留原章节和规范引用，供已有文件使用；当前 Skill 直接选择场景规范。
+
+### Skill 与 Agent 协议
+
+Plan、Dev、Fix 给 Agent 的业务输入只有两段：
+
+- **任务**：本步目标、范围、必要资料引用（含项目手册）和交付要求。
+- **Spec**：所选规范的 name 与绝对路径列表；`#二级标题` 引用包含子节，到下一二级标题结束。
+
+调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 依据任务与 Spec 工作，返回业务结论、产物、commits、验证证据和遗留项；QA 使用 APPROVED/REJECTED，流程维护使用 NOOP/UPDATED。
+
+主会话选择 Agent/Spec，负责用户确认、阶段、进度与恢复；根据当前执行的新消息记录进度，核对产物、提交和证据后记录完成，再推进状态。运行字段、内部完成标记和 Skill 不下发给 Agent；Agent 不调用运行助手或修改运行状态，现有脚本也没有自动进度采集器。
+
+开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 保留但忽略。恢复先结束旧执行，再启动新任务，晚到的旧进展和结果不用于新执行。审查五分钟、实现或返修十五分钟无进展时检查，轮询、重复摘要或仅 running 不重置计时。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 CallChain、批准快照与旧 profile 恢复。
 
 ## 使用
 
@@ -185,7 +199,7 @@ Agent 的业务输入仅两段：**任务**包含本步目标、范围、必要�
 
 `.keel/bugs/<id>/bug.md` 与同名 HTML 仅简述“问题、原因、改造点、影响点、建议验证点”五章，影响和建议回归按业务流程表达。调查证据、预期依据、分流结论与设计边界保留在同目录 `investigation.md` 的“修复资格”章节，其他章节记录调查进展；HTML 不展示证据代码或重复的完整源文档，保留 Markdown 下载。
 
-用户确认后，审批助手核对 MD、HTML 和修复资格，保存 approved.md、approved-investigation.md 快照及独立 fix state，供 Builder/QA 执行与验收。派发与恢复先检查版本；仅补充调查日志无需重新批准，资格或审阅内容实质变化须重渲染并重新确认。旧三章文档及既有已批准任务继续兼容；代码验收通过后仍待原场景复验。
+用户确认后，审批脚本核对 MD、HTML 和修复资格，保存 approved.md、approved-investigation.md 快照及独立 fix state，供 Builder/QA 执行与验收。派发、恢复及记录完成前复核批准版本；仅补充调查日志无需重新批准，资格或审阅内容实质变化须重渲染并重新确认。旧三章文档继续兼容，既有已批准任务沿用原快照与 HTML，无需迁移或重新渲染；代码验收通过后仍待原场景复验。
 
 ```bash
 python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.md
@@ -241,7 +255,7 @@ run 目录最小结构:
 
 恢复未完成的旧 fast run 时，先结束旧执行并调用 `resume_keel_run`，核对已有提交、报告和历史完成标记后续作。转换保留计划快照、Preflight、返修/恢复次数、用户规范绑定及进度，不重置执行记录；已完成的旧任务保持原样。旧 `profile.json` 配置的进度文件仍可使用。
 
-新 run 的静态契约和运行状态统一保存在 `state.json`，其中 `plan_path` 指向 run 内功能索引；所有 Agent 心跳追加到 `progress.tsv`。旧格式（包括单份大 MD）的 run 不兼容本流程，需要重新运行 `/keel-plan` 并新建 run；不自动拼接历史输入。
+新 run 的静态契约和运行状态统一保存在 `state.json`，其中 `plan_path` 指向 run 内功能索引；主会话将当前 Agent 执行的新进展和经核验的完成结果追加到 `progress.tsv`。旧格式（包括单份大 MD）的 run 不兼容本流程，需要重新运行 `/keel-plan` 并新建 run；不自动拼接历史输入。
 
 ## 开发与验证
 
@@ -266,6 +280,8 @@ git status --short
 ```
 
 对 `bin/keel` 做端到端测试时,目标目录必须用 `mktemp -d` 创建,测试结束后清理,避免污染真实项目。
+
+输入体量按 Agent 实际加载的角色配置和场景 Spec 统计；动态任务、项目资料和真实模型用量由行为评估记录，见 [评估说明](evals/keel/README.md)。
 
 ## 部署行为
 
