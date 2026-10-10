@@ -77,6 +77,7 @@ keel dev --codex /path/to/your/project
 ├── common/
 │   ├── refs/
 │   │   ├── keel-work-spec.md          # S：通用工作要求
+│   │   ├── keel-document-writing-spec.md # S：简短易懂的 Markdown 表达
 │   │   ├── keel-code-quality-spec.md  # S：代码与测试质量
 │   │   ├── keel-investigation-spec.md # S：问题调查
 │   │   ├── keel-proposal-spec.md      # S：方案设计与编写
@@ -169,6 +170,8 @@ Plan 的主会话负责沟通和检查，调研与文档编写交给 Planner。�
 Spec 位于 `common/refs/`，按使用场景和共享标准分类，完整清单见 [Spec 目录](docs/specs/README.md)。每份文件开头用 YAML 声明 `name` 和 `description`：`name` 全局唯一，当前采用文件名去掉 `.md`；`description` 简述用途和使用场景。
 
 正文直接列出简短易懂的规则，正确或错误示例按需添加并保留前缀。旧名称保留原章节和规范引用，供已有文件使用；当前 Skill 直接选择场景规范。
+
+Planner、Builder、QA 和 CallChain 的 Spec 输入共用 `keel-document-writing-spec`：Markdown 用短句和直白说法，少写重复背景、过程和图表复述；证据用短结论加真实引用，保留必要设计、字段、SQL、图表及验证信息。它作为写作规范输入，不增加产物检查或固定字数限制。
 
 ### Skill 与 Agent 协议
 

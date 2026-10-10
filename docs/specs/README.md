@@ -20,6 +20,7 @@ Spec 说明工作边界、质量要求和产物标准。正文直接用条目列
 | 用途 | 规范 | 内容 |
 | --- | --- | --- |
 | 通用工作要求 | [keel-work-spec.md](../../common/refs/keel-work-spec.md) | 项目约定、授权、改动保护、相关资料与如实报告；不授予业务修改权限 |
+| 文档表达 | [keel-document-writing-spec.md](../../common/refs/keel-document-writing-spec.md) | Markdown 用短句、直白说法和必要引用，保留设计与验证依据；作为 Agent 输入使用 |
 | 代码与测试质量 | [keel-code-quality-spec.md](../../common/refs/keel-code-quality-spec.md) | 真实实现、根因、职责、测试与项目检查 |
 | 改造点表达 | [keel-code-change-spec.md](../../common/refs/keel-code-change-spec.md) | 类、模块或文件加一句话改动，只约束说明列表 |
 | 业务流程表达 | [keel-business-flow-spec.md](../../common/refs/keel-business-flow-spec.md) | 业务阶段与变化的共用粒度 |

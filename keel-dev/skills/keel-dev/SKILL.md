@@ -15,9 +15,9 @@ user-invocable: true
 
 | 工作 | 默认 Agent | Spec |
 | --- | --- | --- |
-| 实现 | keel-builder | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-implementation-spec`：`.codex/common/refs/keel-implementation-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md` |
-| 验收 | keel-qa | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-acceptance-spec`：`.codex/common/refs/keel-acceptance-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md` |
-| 流程维护 | keel-call-chain | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-flow-index-spec`：`.codex/common/refs/keel-flow-index-spec.md`；`keel-business-flow-spec`：`.codex/common/refs/keel-business-flow-spec.md` |
+| 实现 | keel-builder | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-implementation-spec`：`.codex/common/refs/keel-implementation-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
+| 验收 | keel-qa | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-acceptance-spec`：`.codex/common/refs/keel-acceptance-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
+| 流程维护 | keel-call-chain | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-flow-index-spec`：`.codex/common/refs/keel-flow-index-spec.md`；`keel-business-flow-spec`：`.codex/common/refs/keel-business-flow-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
 
 ## 初始化
 

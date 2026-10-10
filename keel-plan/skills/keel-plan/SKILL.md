@@ -11,7 +11,7 @@ user-invocable: true
 
 ## 调研
 
-主会话调度 `keel-planner`，任务包含需求、项目目录与手册（AGENTS.md，缺失用 README.md）、相关代码和流程资料、已有方案与决定。Spec 为 `keel-work-spec`（`.codex/common/refs/keel-work-spec.md`）、`keel-proposal-spec`（`.codex/common/refs/keel-proposal-spec.md#工作与资料边界`）、`keel-business-flow-spec`（`.codex/common/refs/keel-business-flow-spec.md`）。
+主会话调度 `keel-planner`，任务包含需求、项目目录与手册（AGENTS.md，缺失用 README.md）、相关代码和流程资料、已有方案与决定。Spec 为 `keel-work-spec`（`.codex/common/refs/keel-work-spec.md`）、`keel-proposal-spec`（`.codex/common/refs/keel-proposal-spec.md#工作与资料边界`）、`keel-business-flow-spec`（`.codex/common/refs/keel-business-flow-spec.md`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。
 
 请 Planner 核实现状、本期变化、影响范围及 Spec 的适用条件，提出功能目标、验收结果、必要取舍和待决问题，并返回证据。此步为只读调研；资料不足时由主会话补充资料或安排继续调研。
 
@@ -21,7 +21,7 @@ user-invocable: true
 
 ## 起草与修订
 
-主会话调度 `keel-planner`，沿用调研步骤的通用工作和业务流程 Spec，方案规范改用 `keel-proposal-spec` 全文（`.codex/common/refs/keel-proposal-spec.md`），另给 `keel-code-change-spec`（`.codex/common/refs/keel-code-change-spec.md`）。任务包含调研证据、已确认目标与选择、计划名称和源文件范围；请其生成 `.keel/plans/<name>.md`、对应功能文档和同名 `.review.md`，按 Spec 落实适用的必需内容。
+主会话调度 `keel-planner`，沿用调研步骤的通用工作、业务流程和文档表达 Spec，方案规范改用 `keel-proposal-spec` 全文（`.codex/common/refs/keel-proposal-spec.md`），另给 `keel-code-change-spec`（`.codex/common/refs/keel-code-change-spec.md`）。任务包含调研证据、已确认目标与选择、计划名称和源文件范围；请其生成 `.keel/plans/<name>.md`、对应功能文档和同名 `.review.md`，按 Spec 落实适用的必需内容。
 
 可按需参考 `.agents/skills/keel-plan/assets/plan-template.md`、`.agents/skills/keel-plan/assets/plan-review-template.md` 及关联功能示例；局部调整和合约设计分别参考 `.agents/skills/keel-plan/assets/incremental-example.md`、`.agents/skills/keel-plan/assets/contract-example.md`。示例事实替换为本项目事实。
 

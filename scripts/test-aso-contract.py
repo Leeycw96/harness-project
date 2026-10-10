@@ -22,7 +22,8 @@ COMPATIBILITY_SPECS = {'keel-dev-spec.md', 'keel-qa-spec.md', 'keel-fix-spec.md'
 SPEC_FILES = COMPATIBILITY_SPECS | {'keel-business-flow-spec.md', 'keel-code-change-spec.md'}
 SCENARIO_SPECS = {'keel-work-spec.md', 'keel-code-quality-spec.md', 'keel-implementation-spec.md',
                   'keel-investigation-spec.md', 'keel-proposal-spec.md', 'keel-fix-review-spec.md',
-                  'keel-acceptance-spec.md', 'keel-flow-index-spec.md', 'keel-bug-scope-spec.md'}
+                  'keel-acceptance-spec.md', 'keel-flow-index-spec.md', 'keel-bug-scope-spec.md',
+                  'keel-document-writing-spec.md'}
 SPEC_FILES |= SCENARIO_SPECS
 TAGS = {
     'BUILD_SLICE_DONE': ('builder', 'BUILD', 'plan.md'),
@@ -174,6 +175,7 @@ class AsoContractTests(unittest.TestCase):
                     ('.codex/agents/keel-planner.md', 'keel-plan/agents/keel-planner.md'),
                     ('.codex/agents/keel-planner.toml', 'keel-plan/agents/keel-planner.toml'),
                     ('.codex/common/refs/keel-plan-spec.md', 'common/refs/keel-plan-spec.md'),
+                    ('.codex/common/refs/keel-document-writing-spec.md', 'common/refs/keel-document-writing-spec.md'),
                 ):
                     self.assertIn(relative, manifest)
                     self.assertEqual((project / relative).read_bytes(), (ROOT / original).read_bytes())
@@ -200,6 +202,7 @@ class AsoContractTests(unittest.TestCase):
             spec_refs = re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', spec_cell)
             self.assertTrue(spec_refs, spec_cell)
             self.assertIn(ROLE_SPECS[role], {Path(reference.partition('#')[0]).name for reference in spec_refs})
+            self.assertIn('.codex/common/refs/keel-document-writing-spec.md', spec_refs)
             effective = self.reachable_references(spec_refs)
             effective_files = {Path(reference.partition('#')[0]).name for reference in effective}
             self.assertTrue(COMPATIBILITY_SPECS.isdisjoint(effective_files))
@@ -247,7 +250,8 @@ class AsoContractTests(unittest.TestCase):
         refs = re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', dispatch)
         self.assertEqual(set(refs), {'.codex/common/refs/keel-work-spec.md',
                                      '.codex/common/refs/keel-investigation-spec.md',
-                                     '.codex/common/refs/keel-bug-scope-spec.md#适用范围'})
+                                     '.codex/common/refs/keel-bug-scope-spec.md#适用范围',
+                                     '.codex/common/refs/keel-document-writing-spec.md'})
         effective = self.reachable_references(refs)
         names = {Path(reference.partition('#')[0]).name for reference in effective}
         self.assertNotIn('keel-implementation-spec.md', names)
@@ -259,10 +263,13 @@ class AsoContractTests(unittest.TestCase):
     def test_plan_research_and_drafting_use_distinct_proposal_scope(self):
         research = self.read_reference('.agents/skills/keel-plan/SKILL.md#调研')
         self.assertIn('.codex/common/refs/keel-proposal-spec.md#工作与资料边界', research)
+        self.assertIn('.codex/common/refs/keel-document-writing-spec.md', research)
         self.assertNotRegex(research, r'keel-proposal-spec\.md`|keel-proposal-spec\.md[）)]')
         drafting = self.read_reference('.agents/skills/keel-plan/SKILL.md#起草与修订')
         self.assertIn('.codex/common/refs/keel-proposal-spec.md`', drafting)
         self.assertIn('.codex/common/refs/keel-code-change-spec.md', drafting)
+        # Drafting inherits the writing spec already declared for research.
+        self.assertRegex(drafting, r'沿用调研步骤[^。\n]*文档表达 Spec')
 
     def test_redeployment_removes_retired_files_but_preserves_user_files(self):
         with tempfile.TemporaryDirectory(prefix='keel-upgrade-') as work:

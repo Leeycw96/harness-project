@@ -34,6 +34,7 @@ for required in \
   "common/refs/keel-business-flow-spec.md" \
   "common/refs/keel-work-spec.md" \
   "common/refs/keel-code-quality-spec.md" \
+  "common/refs/keel-document-writing-spec.md" \
   "common/refs/keel-implementation-spec.md" \
   "common/refs/keel-investigation-spec.md" \
   "common/refs/keel-proposal-spec.md" \
