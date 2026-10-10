@@ -82,6 +82,6 @@ end
 
 ## 代码改造点
 
-- `src/main/java/example/OrderService.java`，`cancel` / `requestRefund`（新增）：将直接取消改为事务内记录待退款、申请时间及退款任务。
-- `src/main/java/example/Order.java`，`refundRequestedAt`（新增）：映射退款申请时间字段。
-- `src/main/resources/db/migration/V42__refund_requested_at.sql`（新增）：增加订单退款申请时间列。
+- `src/main/java/example/OrderService.java`：将直接取消改为事务内记录待退款、申请时间及退款任务。
+- `src/main/java/example/Order.java`：映射新增的退款申请时间。
+- `src/main/resources/db/migration/V42__refund_requested_at.sql`：新增订单退款申请时间列迁移。

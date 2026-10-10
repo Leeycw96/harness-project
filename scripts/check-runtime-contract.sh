@@ -30,9 +30,11 @@ for required in \
   "keel-plan/agents/keel-planner.md" \
   "common/refs/keel-plan-spec.md" \
   "common/refs/keel-fix-spec.md" \
+  "common/refs/keel-code-change-spec.md" \
   "common/refs/keel-business-flow-spec.md" \
   "keel-dev/skills/keel-fix/SKILL.md" \
   "keel-dev/skills/keel-fix/assets/bug-template.md" \
+  "keel-dev/skills/keel-fix/assets/investigation-template.md" \
   "keel-dev/skills/keel-fix/scripts/keel-fix.py" \
   "keel-dev/agents/keel-builder.toml" \
   "keel-dev/agents/keel-qa.toml" \

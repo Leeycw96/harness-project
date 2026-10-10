@@ -32,20 +32,22 @@ print('component\tlines\tchars')
 specs = {mode: f'common/refs/keel-{mode}-spec.md' for mode in ('plan', 'dev', 'qa', 'call-chain', 'fix')}
 orchestration = 'keel-dev/skills/keel-dev/SKILL.md'
 flow_spec = 'common/refs/keel-business-flow-spec.md'
+change_spec = 'common/refs/keel-code-change-spec.md'
 measure('codex-plan-skill', 'keel-plan/skills/keel-plan/SKILL.md')
 measure('codex-planner-instructions', 'keel-plan/agents/keel-planner.md')
 measure('codex-planner-default-task-input', 'keel-plan/agents/keel-planner.md',
-        'keel-plan/agents/keel-planner.toml', specs['plan'], flow_spec,
+        'keel-plan/agents/keel-planner.toml', specs['plan'], flow_spec, change_spec,
         'keel-plan/skills/keel-plan/SKILL.md#起草与修订')
 measure('codex-plan-effective-input', 'keel-plan/skills/keel-plan/SKILL.md',
-        'keel-plan/agents/keel-planner.md', 'keel-plan/agents/keel-planner.toml', specs['plan'], flow_spec)
+        'keel-plan/agents/keel-planner.md', 'keel-plan/agents/keel-planner.toml', specs['plan'], flow_spec, change_spec)
 measure('codex-plan-template', 'keel-plan/skills/keel-plan/assets/plan-template.md')
 measure('codex-fix-skill', 'keel-dev/skills/keel-fix/SKILL.md')
 measure('codex-builder-diagnosis-input', 'keel-dev/agents/keel-builder.md',
         'keel-dev/agents/keel-builder.toml', specs['dev'] + '#操作约束', specs['dev'] + '#问题定位',
         'keel-dev/skills/keel-fix/SKILL.md#接收与定位')
-measure('codex-spec', *specs.values(), flow_spec)
+measure('codex-spec', *specs.values(), flow_spec, change_spec)
 measure('codex-business-flow-spec', flow_spec)
+measure('codex-code-change-spec', change_spec)
 for mode, path in specs.items():
     measure(f'codex-{mode}-spec', path)
 measure('codex-dev-skill', 'keel-dev/skills/keel-dev/SKILL.md')

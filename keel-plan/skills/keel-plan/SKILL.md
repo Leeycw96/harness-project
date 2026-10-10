@@ -21,7 +21,7 @@ user-invocable: true
 
 ## 起草与修订
 
-主会话调度 `keel-planner`，沿用调研步骤的两项 Spec，提供调研证据、已确认目标与选择、计划名称和源文件范围。请其生成 `.keel/plans/<name>.md`、对应功能文档和同名 `.review.md`，按 Spec 落实适用的必需内容。
+主会话调度 `keel-planner`，沿用调研步骤的两项 Spec，另下发 `.codex/common/refs/keel-code-change-spec.md`，提供调研证据、已确认目标与选择、计划名称和源文件范围。请其生成 `.keel/plans/<name>.md`、对应功能文档和同名 `.review.md`，按 Spec 落实适用的必需内容。
 
 可按需参考 `.agents/skills/keel-plan/assets/plan-template.md`、`.agents/skills/keel-plan/assets/plan-review-template.md` 及关联功能示例；局部调整和合约设计分别参考 `.agents/skills/keel-plan/assets/incremental-example.md`、`.agents/skills/keel-plan/assets/contract-example.md`。示例事实替换为本项目事实。
 

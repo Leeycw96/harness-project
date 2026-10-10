@@ -23,4 +23,4 @@ ProfilePresenter.toView 有 displayLabel 时采用该值，缺键时回退 profi
 
 ## 代码改造点
 
-- `src/ProfilePresenter.ts`，`toView`：按新增键和缺省兼容规则计算既有显示名称输出。
+- `src/ProfilePresenter.ts`：按新增键和缺省兼容规则计算既有显示名称输出。

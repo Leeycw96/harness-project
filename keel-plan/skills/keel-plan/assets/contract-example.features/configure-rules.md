@@ -22,5 +22,5 @@ Project.setRules(address[]) 仅允许本项目管理者调用，用提交的合�
 
 ## 代码改造点
 
-- `contracts/Project.sol`，`setRules` / `isEligible`（新增）：限制规则配置权限并执行全部资格校验。
-- `contracts/EligibilityRule.sol`，`constructor` / `isEligible`（新增）：保存固定地址白名单并提供可复用的资格校验。
+- `contracts/Project.sol`：新增规则配置与资格校验，限制配置权限。
+- `contracts/EligibilityRule.sol`：新增白名单规则合约，保存固定地址白名单并提供可复用的资格校验。

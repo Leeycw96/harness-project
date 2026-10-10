@@ -16,7 +16,7 @@ DEV_SKILL = '.agents/skills/keel-dev/SKILL.md'
 ROLE_TASKS = {'builder': '实现', 'qa': '验收', 'call-chain': '流程维护'}
 ROLE_SPECS = {'builder': 'keel-dev-spec.md', 'qa': 'keel-qa-spec.md', 'call-chain': 'keel-call-chain-spec.md'}
 AGENT_DIRS = {role: AGENTS for role in ROLE_TASKS} | {'planner': ROOT / 'keel-plan/agents'}
-SPEC_FILES = {*ROLE_SPECS.values(), 'keel-plan-spec.md', 'keel-business-flow-spec.md', 'keel-fix-spec.md'}
+SPEC_FILES = {*ROLE_SPECS.values(), 'keel-plan-spec.md', 'keel-business-flow-spec.md', 'keel-fix-spec.md', 'keel-code-change-spec.md'}
 TAGS = {
     'BUILD_SLICE_DONE': ('builder', 'BUILD', 'plan.md'),
     'BUILD_DONE': ('builder', 'BUILD', 'plan.md'),
@@ -125,6 +125,7 @@ class AsoContractTests(unittest.TestCase):
         self.assertIn('.agents/skills/keel-fix/SKILL.md#接收与定位', seen)
         self.assertIn('.agents/skills/keel-fix/scripts/keel-fix.py', seen)
         self.assertIn('.agents/skills/keel-fix/assets/bug-template.md', seen)
+        self.assertIn('.agents/skills/keel-fix/assets/investigation-template.md', seen)
         self.assertIn('.agents/skills/keel-plan/SKILL.md#调研', seen)
         self.assertIn('.agents/skills/keel-plan/SKILL.md#起草与修订', seen)
         self.assertIn('.agents/skills/keel-plan/assets/incremental-example.md', seen)

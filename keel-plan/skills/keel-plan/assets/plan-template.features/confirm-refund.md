@@ -35,5 +35,5 @@
 
 ## 代码改造点
 
-- `src/main/java/example/RefundController.java`，`callback`（新增）：接收退款回调并交给订单服务处理。
-- `src/main/java/example/OrderService.java`，`confirmRefund`（新增）：验签后按退款结果幂等更新订单并触发取消通知。
+- `src/main/java/example/RefundController.java`：新增退款回调接收并交给订单服务处理。
+- `src/main/java/example/OrderService.java`：验签后按退款结果幂等更新订单并触发取消通知。

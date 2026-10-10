@@ -49,6 +49,6 @@ Project "0..*" -- "0..*" EligibilityRule : 配置与复用（N:M）
 
 ## 代码改造点
 
-- `contracts/ProjectFactory.sol`，`createProject`（新增）：创建并初始化项目及托管，登记成功创建的项目。
-- `contracts/Project.sol`，`initializeEscrow`（新增）：保存工厂与管理者身份，完成受限的一次性托管绑定。
-- `contracts/Escrow.sol`，`constructor`（新增）：绑定唯一所属项目并限制资金操作的调用者。
+- `contracts/ProjectFactory.sol`：新增项目工厂，创建并初始化项目及托管并登记结果。
+- `contracts/Project.sol`：新增项目合约，保存工厂与管理者身份并完成受限的一次性托管绑定。
+- `contracts/Escrow.sol`：新增托管合约，绑定唯一所属项目并限制资金操作的调用者。

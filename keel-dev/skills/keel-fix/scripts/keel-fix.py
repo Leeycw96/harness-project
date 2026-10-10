@@ -24,7 +24,8 @@ spec = importlib.util.spec_from_file_location('keel_review_markdown', COMMON)
 markdown = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(markdown)
 
-SECTIONS = ('问题与根因', '修复方案', '影响与验证')
+SECTIONS = ('问题', '原因', '改造点', '影响点', '建议验证点')
+LEGACY_SECTIONS = ('问题与根因', '修复方案', '影响与验证')
 BOUNDARIES = ('业务状态调整', '业务流程调整', '接口契约调整', '数据模型或迁移', '高风险设计')
 
 
@@ -59,6 +60,38 @@ def field(content, label, multiple=False):
     return values if multiple else values[0]
 
 
+def qualification(content):
+    values = {label: field(content, label) for label in ('定位结论', '事项分类', '处理路径', *BOUNDARIES)}
+    if (values['定位结论'] not in {'已定位', '候选原因', '暂未定位'} or
+            values['事项分类'] not in {'缺陷', '需求变更', '待判断'} or
+            values['处理路径'] not in {'fix', 'plan', '待补证据'}):
+        raise ValueError('定位结论、事项分类或处理路径无效')
+    if any(values[label] not in {'无', '有', '待确认'} for label in BOUNDARIES):
+        raise ValueError('影响边界只能填写无、有或待确认')
+    eligible = (values['定位结论'] == '已定位' and values['事项分类'] == '缺陷' and
+                values['处理路径'] == 'fix' and all(values[label] == '无' for label in BOUNDARIES))
+    return values, eligible
+
+
+def investigation(source):
+    path = source.parent / 'investigation.md'
+    if path.is_symlink():
+        raise ValueError('调查资料不能使用符号链接')
+    raw = path.read_bytes()
+    parts = markdown.blocks(raw.decode('utf-8'))
+    prose = markdown.prose(parts)
+    if len(re.findall(r'^## 修复资格$', prose, re.M)) != 1:
+        raise ValueError('investigation.md 需要唯一的修复资格章节')
+    content = markdown.prose(markdown.section_blocks(parts)['修复资格'])
+    if re.search(r'\b(?:TBD|TODO|FIXME)\b', content, re.I):
+        raise ValueError('修复资格仍有未决占位符')
+    for label in ('预期依据', '证据', '分流依据'):
+        field(content, label)
+    values, eligible = qualification(content)
+    signature = json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
+    return {'raw': raw, 'sha256': digest(raw), 'qualification_sha256': digest(signature), 'eligible': eligible}
+
+
 def validate(path):
     path = Path(path)
     if path.is_symlink() or path.suffix != '.md':
@@ -70,30 +103,47 @@ def validate(path):
     titles = re.findall(r'^# (.+)$', prose, re.M)
     if not source.startswith('# ') or len(titles) != 1:
         raise ValueError('需要唯一的一级标题')
-    if re.findall(r'^## (.+)$', prose, re.M) != list(SECTIONS):
+    headings = re.findall(r'^## (.+)$', prose, re.M)
+    legacy = headings == list(LEGACY_SECTIONS)
+    if headings != list(SECTIONS) and not legacy:
         raise ValueError('修复说明须依次包含：' + '、'.join(SECTIONS))
     if re.search(r'\b(?:TBD|TODO|FIXME)\b', prose, re.I):
         raise ValueError('修复说明仍有未决占位符')
     sections = markdown.section_blocks(parts)
     text = {name: markdown.prose(content) for name, content in sections.items()}
-    for label in ('当前现象', '预期行为', '预期依据', '根因', '证据', '分流依据'):
-        field(text['问题与根因'], label)
-    conclusion = field(text['问题与根因'], '定位结论')
-    category = field(text['问题与根因'], '事项分类')
-    route = field(text['问题与根因'], '处理路径')
-    if conclusion not in {'已定位', '候选原因', '暂未定位'} or category not in {'缺陷', '需求变更', '待判断'} or route not in {'fix', 'plan', '待补证据'}:
-        raise ValueError('定位结论、事项分类或处理路径无效')
-    field(text['修复方案'], '修复目标')
-    field(text['修复方案'], '代码改造点', multiple=True)
-    boundaries = {label: field(text['修复方案'], label) for label in BOUNDARIES}
-    if any(value not in {'无', '有', '待确认'} for value in boundaries.values()):
-        raise ValueError('影响边界只能填写无、有或待确认')
-    for label in ('影响范围', '现场待验证'):
-        field(text['影响与验证'], label)
-    field(text['影响与验证'], '回归验证', multiple=True)
-    eligible = conclusion == '已定位' and category == '缺陷' and route == 'fix' and all(value == '无' for value in boundaries.values())
-    return {'raw': raw, 'source': source, 'title': titles[0], 'parts': parts,
-            'eligible': eligible, 'sha256': digest(raw)}
+    details = None
+    if legacy:
+        problem, changes, impact = (text[name] for name in LEGACY_SECTIONS)
+        for label in ('当前现象', '预期行为', '预期依据', '根因', '证据', '分流依据'):
+            field(problem, label)
+        for label in ('定位结论', '事项分类', '处理路径'):
+            field(problem, label)
+        field(changes, '修复目标')
+        for label in BOUNDARIES:
+            field(changes, label)
+        for label in ('影响范围', '现场待验证'):
+            field(impact, label)
+        _, eligible = qualification(problem + '\n' + changes)
+        summary = {
+            '问题': field(problem, '当前现象') + '\n\n预期：' + field(problem, '预期行为'),
+            '原因': field(problem, '根因'),
+            '改造点': '\n'.join('- ' + value for value in field(changes, '代码改造点', multiple=True)),
+            '影响点': field(impact, '影响范围'),
+            '建议验证点': '\n'.join('- ' + value for value in field(impact, '回归验证', multiple=True)) +
+                         '\n- ' + field(impact, '现场待验证'),
+        }
+    else:
+        if any(lang is not None for lang, _ in parts):
+            raise ValueError('简要修复说明不包含代码块，调查证据保留在 investigation.md')
+        if any(not text[name].strip() for name in SECTIONS):
+            raise ValueError('修复说明各章须有简要内容')
+        if not re.search(r'^- .*`[^`]+`.*[：:].+', text['改造点'], re.M):
+            raise ValueError('改造点须列真实类或模块，并用一句话说明改动')
+        details = investigation(path)
+        eligible = details['eligible']
+        summary = {name: text[name].strip() for name in SECTIONS}
+    return {'raw': raw, 'source': source, 'title': titles[0], 'parts': parts, 'summary': summary,
+            'eligible': eligible, 'sha256': digest(raw), 'investigation': details}
 
 
 def require_fix(document):
@@ -112,17 +162,8 @@ def render(source):
     script = scripts[0]
     script_hash = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
     sections, content = [], []
-    for lang, body in document['parts']:
-        if lang is None:
-            body = re.sub(r'^- 处理路径：fix$', '- 处理建议：局部缺陷修复', body, flags=re.M)
-            body = re.sub(r'^- 处理路径：plan$', '- 处理建议：进入方案评审', body, flags=re.M)
-            if document['eligible']:
-                for label in BOUNDARIES:
-                    summary = '- 设计影响：现有业务状态、业务流程、接口契约及数据模型保持不变，不涉及高风险设计调整。' if label == BOUNDARIES[0] else ''
-                    body = re.sub(r'^- ' + re.escape(label) + r'：无$', summary, body, flags=re.M)
-            content.append(markdown.prose_html(body, sections))
-        else:
-            content.append('<pre><code>' + html.escape(body) + '</code></pre>')
+    for name in SECTIONS:
+        content.append(markdown.prose_html('## ' + name + '\n\n' + document['summary'][name], sections))
     nav = ''.join(f'<a href="#section-{i}">{html.escape(name)}</a>' for i, name in enumerate(sections, 1))
     title = html.escape(document['title'])
     status = '待用户确认修复方案' if document['eligible'] else '证据或范围未满足，不能进入修复'
@@ -136,16 +177,19 @@ def render(source):
 <span class="status">{status}</span><button class="theme-toggle" id="theme-toggle" type="button" hidden>切换浅色</button></div></header>
 <div class="layout"><aside><div class="nav-label">修复说明</div><nav aria-label="修复章节">{nav}</nav></aside>
 <main><div class="eyebrow">BUG 修复审阅</div><h1>{title}</h1>
-<p class="lead">核对问题证据、修复方式和影响范围，再在会话中确认或提出修改。</p>
+<p class="lead">查看问题、修复方式和业务影响，再在会话中确认或提出修改。</p>
 <article id="fix-content">{''.join(content)}</article>
-<details class="source"><summary>查看或下载修复说明</summary>
+<details class="source"><summary>下载修复说明</summary>
 <a download="{html.escape(source.name, quote=True)}" href="data:text/markdown;charset=utf-8;base64,{source64}">下载 Markdown</a>
-<pre><code>{html.escape(document['source'])}</code></pre></details>
-<footer>HTML 与执行说明来自同一份 Markdown · 用户确认后交由 Builder 与 QA 执行</footer>
+</details>
+<footer>确认修复说明后开始修复与验收。</footer>
 </main></div></body></html>'''
     output = source.with_suffix('.html')
     atomic_write(output, page.encode())
-    write_json(source.with_suffix('.review.json'), {'source_sha256': document['sha256'], 'html_sha256': digest(page.encode())})
+    review = {'source_sha256': document['sha256'], 'html_sha256': digest(page.encode())}
+    if document['investigation']:
+        review['qualification_sha256'] = document['investigation']['qualification_sha256']
+    write_json(source.with_suffix('.review.json'), review)
     return output
 
 
@@ -165,6 +209,15 @@ def check(state_path):
         raise ValueError('方案已变化或确认快照不一致，必须重新审阅确认')
     if digest(source.with_suffix('.html').read_bytes()) != approval['html_sha256']:
         raise ValueError('HTML 已变化或缺失，必须重新审阅确认')
+    if document['investigation']:
+        details = document['investigation']
+        evidence_snapshot = state_path.parent / 'approved-investigation.md'
+        if (approval.get('qualification_sha256') != details['qualification_sha256'] or
+                state.get('investigation_path') != str(evidence_snapshot) or evidence_snapshot.is_symlink() or
+                approval.get('investigation_sha256') != digest(evidence_snapshot.read_bytes())):
+            raise ValueError('修复资格已变化或调查快照不一致，必须重新审阅确认')
+    elif 'qualification_sha256' in approval:
+        raise ValueError('修复资格来源已变化，必须重新审阅确认')
     return state
 
 
@@ -179,8 +232,13 @@ def approve(source, decision):
     document = validate(source)
     require_fix(document)
     review = json.loads(source.with_suffix('.review.json').read_text())
-    if review.get('source_sha256') != document['sha256'] or review.get('html_sha256') != digest(source.with_suffix('.html').read_bytes()):
+    if (review.get('source_sha256') != document['sha256'] or
+            review.get('html_sha256') != digest(source.with_suffix('.html').read_bytes())):
         raise ValueError('HTML 与当前 Markdown 不一致，须重新渲染并请用户确认')
+    details = document['investigation']
+    signature = details['qualification_sha256'] if details else None
+    if review.get('qualification_sha256') != signature:
+        raise ValueError('修复资格已变化，须重新渲染并请用户确认')
     runs = source.parent / 'runs'
     if runs.is_symlink():
         raise ValueError('运行目录不能使用符号链接')
@@ -190,7 +248,8 @@ def approve(source, decision):
         latest = existing[-1] / 'state.json'
         previous = json.loads(latest.read_text())
         if (previous.get('approval', {}).get('source_sha256') == document['sha256'] and
-                previous.get('approval', {}).get('html_sha256') == review['html_sha256']):
+                previous.get('approval', {}).get('html_sha256') == review['html_sha256'] and
+                previous.get('approval', {}).get('qualification_sha256') == signature):
             check(latest)
             return latest  # Repeating approval must not reset the repair limit or progress.
     run = runs / f'run-{int(existing[-1].name[4:]) + 1 if existing else 1}'
@@ -205,6 +264,11 @@ def approve(source, decision):
              'build': {'commits': []}, 'review': {'qa': {'status': 'pending'}},
              'preflight': {'main_compile': {'status': 'pending', 'summary': []},
                            'test_compile': {'status': 'pending', 'summary': [], 'user_decision': None}}}
+    if details:
+        evidence_snapshot = run / 'approved-investigation.md'
+        atomic_write(evidence_snapshot, details['raw'])
+        state['investigation_path'] = str(evidence_snapshot)
+        state['approval']['investigation_sha256'] = details['sha256']
     write_json(run / 'state.json', state)
     atomic_write(run / 'progress.tsv', b'')
     return run / 'state.json'
