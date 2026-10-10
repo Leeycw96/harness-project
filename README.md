@@ -1,6 +1,6 @@
 # Keel
 
-当前版本: **4.0.2**（见 `VERSION`）。
+当前版本: **4.0.3**（见 `VERSION`）。
 
 版本更新记录见 [CHANGE_LOG.md](CHANGE_LOG.md)。
 
