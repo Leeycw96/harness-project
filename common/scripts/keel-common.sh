@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Keel Codex App common helpers.
-# Disk contract: state.json + progress.tsv. KEEL_PROFILE is the compatible state path variable.
+# Keel Codex App main-session helpers.
+# The main session records native Agent messages and verified results through these APIs.
+# Agent business inputs are task + Spec; runtime fields stay with the main session.
+# Disk contract: state.json + progress.tsv. KEEL_PROFILE retains legacy path compatibility.
 
 SCRIPT_PATH="${BASH_SOURCE[0]-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
@@ -84,6 +86,7 @@ append_progress_event() {
   printf '\n' >> "$events"
 }
 
+# Called by the main session when dispatching or receiving new native progress.
 update_progress() {
   local agent="$1" stage="$2" message="$3" artifact="${4:-}"
   if [ -z "$agent" ] || [ -z "$stage" ] || [ -z "$message" ]; then
@@ -105,6 +108,7 @@ update_progress() {
   printf '%s\n' "$progress_file"
 }
 
+# Called by the main session after checking returned artifacts, commits and evidence.
 complete_stage() {
   local agent="$1" tag="$2" message="$3" artifact="${4:-}"
   if [ -z "$agent" ] || [ -z "$tag" ] || [ -z "$message" ]; then

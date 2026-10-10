@@ -309,7 +309,7 @@ class FixContractTests(unittest.TestCase):
         self.assertEqual(page.read_bytes(), original)
         self.assertFalse((self.bug.parent / 'runs').exists())
 
-    def test_deployed_cli_works_without_plan_and_reuses_progress_helpers(self):
+    def test_deployed_cli_and_main_session_record_returns_without_losing_approval(self):
         result = subprocess.run([str(ROOT / 'bin/keel'), 'dev', '--codex', str(self.project)], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         script = self.project / '.agents/skills/keel-fix/scripts/keel-fix.py'
@@ -323,11 +323,33 @@ class FixContractTests(unittest.TestCase):
         checked = subprocess.run([sys.executable, str(script), 'check', str(state)], capture_output=True, text=True)
         self.assertEqual(checked.returncode, 0, checked.stderr)
         self.assertEqual(checked.stdout.strip(), str(state.parent / 'approved.md'))
+        data = json.loads(state.read_text())
+        data.update(fix_round=2, retries={'keel-qa': 2},
+                    aso_bindings={'builder': {'agent': 'keel-builder',
+                                              'spec_refs': [str(self.project / '.codex/common/refs/keel-implementation-spec.md')]}})
+        state.write_text(json.dumps(data))
+        before_state = state.read_bytes()
         helper = self.project / '.codex/common/scripts/keel-common.sh'
-        result = subprocess.run(['bash', '-c', 'set -euo pipefail\nexport KEEL_PROFILE="$1"\nsource "$2"\nupdate_progress keel-builder BUG_BUILD "正在修复"\ncomplete_stage keel-builder BUG_BUILD_DONE "已完成" "$3"',
-                                 'fix-test', str(state), str(helper), str(state.parent / 'approved.md')], capture_output=True, text=True)
+        # Main-session recording follows approval validation; agents return business results only.
+        record = 'set -euo pipefail\npython3 "$3" check "$1" >/dev/null\nexport KEEL_PROFILE="$1"\nsource "$2"\nupdate_progress keel-builder BUG_BUILD "已收到修复结果"\ncomplete_stage keel-builder BUG_BUILD_DONE "已核验修复结果" "$4"'
+        args = ['fix-test', str(state), str(helper), str(script), str(state.parent / 'approved.md')]
+        result = subprocess.run(['bash', '-c', record, *args], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('BUG_BUILD_DONE', (state.parent / 'progress.tsv').read_text())
+        log = state.parent / 'progress.tsv'
+        self.assertIn('BUG_BUILD_DONE', log.read_text())
+        self.assertEqual(state.read_bytes(), before_state)
+        self.assertEqual(fix.check(state)['fix_round'], 2)
+        before_log = log.read_bytes()
+        missing = subprocess.run(['bash', '-c', 'set -euo pipefail\nexport KEEL_PROFILE="$1"\nsource "$2"\ncomplete_stage keel-qa APPROVED "缺少验收报告" "$3"',
+                                  'fix-test', str(state), str(helper), str(state.parent / 'missing-feedback.md')], capture_output=True, text=True)
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertEqual(log.read_bytes(), before_log)
+        self.assertEqual(state.read_bytes(), before_state)
+        self.bug.write_text(REVISED_EXAMPLE)
+        changed = subprocess.run(['bash', '-c', record, *args], capture_output=True, text=True)
+        self.assertNotEqual(changed.returncode, 0)
+        self.assertEqual(log.read_bytes(), before_log)
+        self.assertEqual(state.read_bytes(), before_state)
         self.assertFalse((self.project / '.keel/plans').exists())
 
 

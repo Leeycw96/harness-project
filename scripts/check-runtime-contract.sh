@@ -83,4 +83,4 @@ cp -R "$repo_root/keel-plan/skills/keel-plan/assets/plan-template.features" "$ru
 python3 "$repo_root/scripts/test-aso-contract.py"
 python3 "$repo_root/scripts/test-fix-contract.py"
 
-echo "Codex App 单 runtime、ASO 分层与语言无关契约检查通过。"
+echo "Codex App 单 runtime、任务＋Spec 输入与语言无关契约检查通过。"

@@ -22,11 +22,11 @@ scripts/check-runtime-contract.sh
 scripts/check-slimming-targets.sh
 ```
 
-`check-runtime-contract.sh` 同时运行 ASO 架构边界、临时部署和运行协议兼容检查。`keel-metrics.sh` 分别报告角色 A 的体量与默认任务的 A+S+O 全部指令（含 TOML，不含项目材料）。缩减门禁计入从旧 Agent 搬出的任务要求与 Spec 约束，沿用旧基线口径，不把搬文件当作上下文节省。
+`check-runtime-contract.sh` 同时运行 ASO 架构边界、临时部署和运行协议兼容检查。`keel-metrics.sh` 分别报告角色 A、默认 Agent 固定输入和完整 A/S/O 指令总量。缩减门禁计入 Agent 必须加载的任务要求与 Spec 约束，对照旧基线，不把搬文件当作上下文节省。
 
 Plan 另外报告 Planner 角色体量、默认起草任务输入和完整 A/S/O 指令总量；不把 Skill 变短等同于总输入减少。
 
-体量按编排要求实际读取的章节统计，同时报告完整 Spec/编排文件大小；主会话只读调度章节，子任务读通用任务要求、职责章节和对应 Spec；QA 同时读取本次 dev Spec 的代码与测试标准章节。Builder/QA 的历史缩减基线不含当时已独立的代码规约，完整任务体量仍计入这些规约。
+体量按当前两段输入协议统计：主会话读取所属 Skill；Agent 的固定输入为角色 Markdown、注册 TOML 和实际选用的场景 Spec，章节引用只统计该节及子节。`default-task-input` 和 `fixed-input` 均报告这部分固定内容，不把 Skill 步骤、运行助手或兼容入口当作 Agent 输入；本次动态任务、项目资料及真实 token 用量由行为 eval 另行记录，固定体量不代表整轮成本。共享代码与测试质量计入完整固定输入，Builder/QA 的历史缩减比较继续排除当时已独立的代码规约。
 
 这些契约检查不执行模型开发任务。静态体量与协议兼容均不能替代行为 eval；历史 CallChain 配对结果也不代表新版本重新通过模型评测。
 

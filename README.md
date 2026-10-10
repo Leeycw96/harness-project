@@ -124,7 +124,7 @@ keel dev --codex /path/to/your/project
 ### 编写与调整要求
 
 1. Agent Markdown 固定为“角色、能力、原则”。原则用能直接指导行动的句子，如最小修改、不过度设计、先看已有实现、定位不出来就明说；TOML 只做必要注册并加载角色说明。
-2. Spec 按职责组织，定义产物完整性与质量标准，也可规定标准的适用条件和必需产物；例如“涉及合约开发的方案必须包含合约清单和关系图”。条件属于哪层取决于约束对象：产物要求属于 S，任务调度和阶段控制属于 O。共享标准保持一个来源，通过编排下发引用；例如 QA 与 Builder 使用同一份代码和测试标准。Spec 是长期工作规范，本次需求与修复目标放在任务资料中。
+2. Spec 按使用场景组织，定义产物完整性与质量标准，也可规定标准的适用条件和必需产物；例如“涉及合约开发的方案必须包含合约清单和关系图”。条件属于哪层取决于约束对象：产物要求属于 S，任务调度和阶段控制属于 O。共享标准保持一个来源，通过编排下发引用；例如 QA 与 Builder 使用同一份代码和测试标准。Spec 是长期工作规范，本次需求与修复目标放在任务资料中。
 3. 每个 `SKILL.md` 说明从接收输入到最终交付的主要步骤及顺序，包括主会话承担的沟通、检查和交付。涉及 subagent 时，明确调用哪个 Agent、这一步要完成什么、依据什么 Spec，并提供必要的任务资料；仅在影响步骤衔接时补充输出、分支或恢复说明，不要求每一步套用完整字段模板。
 4. 信任 Agent 的专业能力，由其依据任务、Spec 和项目事实自主选择调研路径、工具与局部执行方法。编排聚焦目标和协作，不逐项规定模型能够自主完成的操作，不重复角色原则或 Spec，不堆叠禁止事项。仅保留授权边界、关键用户决策、必要质量门禁和跨步骤交接要求；主会话依据结果推进，已有明确决定直接沿用。
 5. 编排流程、A/S 绑定及必要的推进和恢复规则统一维护在所属 `SKILL.md`，不另设 `keel-dev-orchestration.md` 一类独立编排文件。可引用职责 Spec、模板和可执行脚本；共享脚本提供机制，`SKILL.md` 只说明必要调用及结果衔接，不展开脚本内部实现，不以外部引用代替流程主线。
@@ -155,17 +155,19 @@ Plan 与 Fix 的改造点共用 `common/refs/keel-code-change-spec.md`：按真�
 
 | 工作 | A | S | O |
 | --- | --- | --- | --- |
-| 方案设计 | Planner | keel-plan-spec.md + 共用业务流程/改造点粒度 | keel-plan 的 SKILL.md：调研、决策沟通、起草/修订、渲染与最终确认 |
-| 开发 | Builder | keel-dev-spec.md | keel-dev 的 SKILL.md：初始化、实现、验收、返修与交付 |
-| 验收 | QA | keel-qa-spec.md + 本次开发质量标准 | 所属 keel-dev 或 keel-fix 的 SKILL.md |
-| 流程维护 | CallChain | keel-call-chain-spec.md + 共用业务流程粒度 | keel-dev 的 SKILL.md：判断是否需要维护、调度与结果处理 |
-| 局部缺陷修复 | Builder、QA | keel-fix-spec.md + 共用改造点粒度 + 开发/验收 Spec | keel-fix 的 SKILL.md：定位、分流、独立审阅、修复验收与现场复验 |
+| 方案设计 | Planner | 方案编写 + 通用工作 + 业务流程/改造点表达 | keel-plan 的 SKILL.md：调研、决策沟通、起草/修订、渲染与最终确认 |
+| 开发 | Builder | 代码实施 + 通用工作 + 代码与测试质量 | keel-dev 的 SKILL.md：初始化、实现、验收、返修与交付 |
+| 验收 | QA | 交付验收 + 通用工作 + 同一代码与测试质量 | 所属 keel-dev 或 keel-fix 的 SKILL.md |
+| 流程维护 | CallChain | 流程文档维护 + 通用工作 + 业务流程表达 | keel-dev 的 SKILL.md：判断是否需要维护、调度与结果处理 |
+| 局部缺陷修复 | Builder、QA | 按步选择调查/实施/验收规范 + 局部修复边界；说明编写另用修复说明与改造点表达 | keel-fix 的 SKILL.md：定位、分流、独立审阅、修复验收与现场复验 |
 
-Spec 位于 `common/refs/`，各 Skill 按步骤下发文件或 `#二级标题` 引用；任务说明引用所属 `SKILL.md` 的对应步骤。Plan 的主会话负责沟通和检查，调研与文档编写交给 Planner，避免重复工作。生成的 HTML 与执行 MD 使用同一份设计内容，不独立编造另一份方案。
+Spec 位于 `common/refs/`，各 Skill 按步骤直接下发场景规范的 name 与文件或 `#二级标题` 引用。Plan 的主会话负责沟通和检查，调研与文档编写交给 Planner，避免重复工作。生成的 HTML 与执行 MD 使用同一份设计内容，不独立编造另一份方案。
 
-Spec 正文已按使用场景与共享标准组织，完整分类见 [Spec 目录](docs/specs/README.md)。上表中的旧名称暂为兼容入口，保留原章节并指向新规范；本轮只调整 Spec，Skill 调度与 Agent 输入组合仍沿用现有约定。
+Spec 正文已按使用场景与共享标准组织，完整分类见 [Spec 目录](docs/specs/README.md)。旧名称仅为已有引用保留兼容入口，当前 Skill 不再通过它们派发规范。
 
-开发 run 在 `state.json.aso_bindings` 中按 builder/qa/call_chain 记录 agent、spec_refs 和 task_ref；引用使用绝对路径，章节包含其子节，到下一二级标题结束。恢复沿用当前 run 的绑定并补全缺失职责。统一使用 BUILD、REVIEW、FIX、REVIEW_FIX，保留三轮修复上限、QA 门禁、按需 CallChain 和旧 profile 恢复。
+Agent 的业务输入仅两段：**任务**包含本步目标、范围、必要资料引用及交付要求；**Spec**包含所选规范的 name 与绝对路径，章节引用包含子节、到下一二级标题结束。调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 返回业务结论、产物、commits、验证证据和遗留项，不读取 Skill 或调用运行助手。
+
+主会话选择 Agent/Spec，管理用户确认、阶段、恢复和当前原生执行标识；开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 只记录 agent、spec_refs，旧 task_ref 保留但忽略。主会话根据当前执行的新消息调用 `update_progress`，核对产物、提交和证据后调用 `complete_stage` 并推进状态；运行字段和内部完成标记不下发 Agent，也没有自动进度采集器。APPROVED/REJECTED、NOOP/UPDATED 仍为业务报告结论。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 CallChain、批准快照与旧 profile 恢复。
 
 ## 使用
 

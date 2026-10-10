@@ -13,10 +13,13 @@ ROOT = Path(__file__).resolve().parent.parent
 AGENTS = ROOT / 'keel-dev/agents'
 REFS = ROOT / 'common/refs'
 DEV_SKILL = '.agents/skills/keel-dev/SKILL.md'
-ROLE_TASKS = {'builder': '实现', 'qa': '验收', 'call-chain': '流程维护'}
-ROLE_SPECS = {'builder': 'keel-dev-spec.md', 'qa': 'keel-qa-spec.md', 'call-chain': 'keel-call-chain-spec.md'}
-AGENT_DIRS = {role: AGENTS for role in ROLE_TASKS} | {'planner': ROOT / 'keel-plan/agents'}
-SPEC_FILES = {*ROLE_SPECS.values(), 'keel-plan-spec.md', 'keel-business-flow-spec.md', 'keel-fix-spec.md', 'keel-code-change-spec.md'}
+ROLE_STEPS = {'builder': '实现', 'qa': '验收', 'call-chain': '流程维护'}
+ROLE_SPECS = {'builder': 'keel-implementation-spec.md', 'qa': 'keel-acceptance-spec.md',
+              'call-chain': 'keel-flow-index-spec.md'}
+AGENT_DIRS = {role: AGENTS for role in ROLE_STEPS} | {'planner': ROOT / 'keel-plan/agents'}
+COMPATIBILITY_SPECS = {'keel-dev-spec.md', 'keel-qa-spec.md', 'keel-fix-spec.md',
+                       'keel-plan-spec.md', 'keel-call-chain-spec.md'}
+SPEC_FILES = COMPATIBILITY_SPECS | {'keel-business-flow-spec.md', 'keel-code-change-spec.md'}
 SCENARIO_SPECS = {'keel-work-spec.md', 'keel-code-quality-spec.md', 'keel-implementation-spec.md',
                   'keel-investigation-spec.md', 'keel-proposal-spec.md', 'keel-fix-review-spec.md',
                   'keel-acceptance-spec.md', 'keel-flow-index-spec.md', 'keel-bug-scope-spec.md'}
@@ -136,13 +139,11 @@ class AsoContractTests(unittest.TestCase):
         return seen
 
     def test_scenario_specs_do_not_depend_on_compatibility_entries(self):
-        compatibility = {'keel-dev-spec.md', 'keel-qa-spec.md', 'keel-fix-spec.md',
-                         'keel-plan-spec.md', 'keel-call-chain-spec.md'}
         for name in SCENARIO_SPECS:
             with self.subTest(spec=name):
                 text = (REFS / name).read_text()
                 targets = re.findall(r'\.codex/common/refs/([\w.-]+\.md)', text)
-                self.assertTrue(compatibility.isdisjoint(targets), name)
+                self.assertTrue(COMPATIBILITY_SPECS.isdisjoint(targets), name)
 
     def test_deployed_orchestration_resource_graph_is_complete(self):
         roots = ['.agents/skills/keel-dev/SKILL.md',
@@ -150,19 +151,13 @@ class AsoContractTests(unittest.TestCase):
         seen = self.reachable_references(roots)
         for entry in ('.agents/skills/keel-plan/SKILL.md', '.agents/skills/keel-dev/SKILL.md'):
             self.assertIn('.codex/common/refs/keel-business-flow-spec.md', self.reachable_references([entry]))
-        for task in ROLE_TASKS.values():
-            self.assertIn(DEV_SKILL + '#' + task, seen)
-        self.assertIn(DEV_SKILL + '#运行衔接', seen)
-        for name in SPEC_FILES:
+        for name in SPEC_FILES - COMPATIBILITY_SPECS:
             self.assertIn('.codex/common/refs/' + name, {reference.partition('#')[0] for reference in seen})
-        self.assertIn('.codex/common/refs/keel-dev-spec.md#代码与测试标准', seen)
-        self.assertIn('.codex/common/refs/keel-dev-spec.md#问题定位', seen)
-        self.assertIn('.agents/skills/keel-fix/SKILL.md#接收与定位', seen)
+        self.assertTrue(COMPATIBILITY_SPECS.isdisjoint({Path(reference.partition('#')[0]).name for reference in seen}))
+        self.assertFalse(any(re.search(r'/SKILL\.md#', reference) for reference in seen))
         self.assertIn('.agents/skills/keel-fix/scripts/keel-fix.py', seen)
         self.assertIn('.agents/skills/keel-fix/assets/bug-template.md', seen)
         self.assertIn('.agents/skills/keel-fix/assets/investigation-template.md', seen)
-        self.assertIn('.agents/skills/keel-plan/SKILL.md#调研', seen)
-        self.assertIn('.agents/skills/keel-plan/SKILL.md#起草与修订', seen)
         self.assertIn('.agents/skills/keel-plan/assets/incremental-example.md', seen)
         self.assertEqual({p.name for p in self.refs.iterdir()}, SPEC_FILES)
 
@@ -195,19 +190,79 @@ class AsoContractTests(unittest.TestCase):
                 ], capture_output=True, text=True)
                 self.assertEqual(checked.returncode, 0, checked.stderr)
 
-    def test_default_bindings_route_each_role_to_spec_and_task(self):
+    def test_default_bindings_route_each_role_directly_to_scenario_specs(self):
         main = self.read_reference(DEV_SKILL + '#角色与规范')
-        rows = re.findall(r'^\| (实现|验收|流程维护) \| (keel-[\w-]+) \| (\.codex/[^ ]+) \| (\.agents/[^ ]+) \|$', main, re.M)
+        rows = re.findall(r'^\| (实现|验收|流程维护) \| (keel-[\w-]+) \| ([^|]+) \|$', main, re.M)
         self.assertEqual(len(rows), 3)
-        for _, agent, spec_ref, task in rows:
+        for step, agent, spec_cell in rows:
             role = agent.removeprefix('keel-')
-            self.assertEqual(task.partition('#')[2], ROLE_TASKS[role])
-            self.assertEqual(spec_ref, '.codex/common/refs/' + ROLE_SPECS[role])
-            self.read_reference(spec_ref)
-            self.read_reference(task)
+            self.assertEqual(step, ROLE_STEPS[role])
+            spec_refs = re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', spec_cell)
+            self.assertTrue(spec_refs, spec_cell)
+            self.assertIn(ROLE_SPECS[role], {Path(reference.partition('#')[0]).name for reference in spec_refs})
+            effective = self.reachable_references(spec_refs)
+            effective_files = {Path(reference.partition('#')[0]).name for reference in effective}
+            self.assertTrue(COMPATIBILITY_SPECS.isdisjoint(effective_files))
+            self.assertIn('keel-work-spec.md', effective_files)
+            if role in {'builder', 'qa'}:
+                self.assertIn('keel-code-quality-spec.md', effective_files)
+            if role == 'qa':
+                self.assertNotIn('keel-implementation-spec.md', effective_files)
+            for reference in spec_refs:
+                self.read_reference(reference)
+                metadata, _ = self.spec_metadata(self.project / reference.partition('#')[0])
+                self.assertIn(metadata['name'], spec_cell)
             self.assertTrue((self.project / '.codex/agents' / (agent + '.toml')).is_file())
         for tag, (role, _, _) in TAGS.items():
-            self.assertIn(tag, self.read_reference(DEV_SKILL + '#' + ROLE_TASKS[role]))
+            self.assertIn(tag, self.read_reference(DEV_SKILL + '#' + ROLE_STEPS[role]))
+
+    def test_agent_input_is_task_and_named_specs_without_runtime_injection(self):
+        contracts = [(DEV_SKILL, '运行衔接'),
+                     ('.agents/skills/keel-fix/SKILL.md', '运行衔接'),
+                     ('.agents/skills/keel-plan/SKILL.md', '调度与恢复')]
+        for skill, heading in contracts:
+            with self.subTest(skill=skill):
+                text = self.read_reference(skill)
+                contract = self.read_reference(skill + '#' + heading)
+                inputs = re.findall(r'^- \*\*(.+?)\*\*：(.+)$', contract, re.M)
+                self.assertEqual([label for label, _ in inputs], ['任务', 'Spec'])
+                for _, definition in inputs:
+                    self.assertNotRegex(definition, r'KEEL_PROFILE|\b(?:stage|artifact|tag|reporter|task_ref)\b|SKILL\.md|运行衔接|complete_stage|update_progress')
+                self.assertIn('name', inputs[1][1])
+                self.assertIn('绝对路径', inputs[1][1])
+                self.assertIn('#二级标题', inputs[1][1])
+                self.assertNotRegex(text, r'\.agents/skills/[\w-]+/SKILL\.md#')
+                self.assertNotRegex(contract, r'Agent[^\n。]*(?:导出 KEEL_PROFILE|source |export |complete_stage|update_progress)')
+                self.assertRegex(contract, r'不(?:附|下发)[^\n。]*Skill')
+                if heading == '运行衔接':
+                    self.assertIn('忽略旧 task_ref', contract)
+                    self.assertIn('主会话', contract)
+                    self.assertIn('update_progress', contract)
+                    self.assertIn('complete_stage', contract)
+                    self.assertIn('Agent 不调用运行助手或修改运行状态', contract)
+
+    def test_fix_investigation_does_not_inherit_implementation_permissions(self):
+        text = self.read_reference('.agents/skills/keel-fix/SKILL.md#接收与定位')
+        dispatch = text.split('\n\n')[1]
+        refs = re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', dispatch)
+        self.assertEqual(set(refs), {'.codex/common/refs/keel-work-spec.md',
+                                     '.codex/common/refs/keel-investigation-spec.md',
+                                     '.codex/common/refs/keel-bug-scope-spec.md#适用范围'})
+        effective = self.reachable_references(refs)
+        names = {Path(reference.partition('#')[0]).name for reference in effective}
+        self.assertNotIn('keel-implementation-spec.md', names)
+        self.assertTrue(COMPATIBILITY_SPECS.isdisjoint(names))
+        permissions = '\n'.join(self.read_reference(reference) for reference in effective)
+        self.assertIn('定位时不修改业务代码、测试、配置或数据', permissions)
+        self.assertNotIn('修改业务代码、测试，并聚焦提交', permissions)
+
+    def test_plan_research_and_drafting_use_distinct_proposal_scope(self):
+        research = self.read_reference('.agents/skills/keel-plan/SKILL.md#调研')
+        self.assertIn('.codex/common/refs/keel-proposal-spec.md#工作与资料边界', research)
+        self.assertNotRegex(research, r'keel-proposal-spec\.md`|keel-proposal-spec\.md[）)]')
+        drafting = self.read_reference('.agents/skills/keel-plan/SKILL.md#起草与修订')
+        self.assertIn('.codex/common/refs/keel-proposal-spec.md`', drafting)
+        self.assertIn('.codex/common/refs/keel-code-change-spec.md', drafting)
 
     def test_redeployment_removes_retired_files_but_preserves_user_files(self):
         with tempfile.TemporaryDirectory(prefix='keel-upgrade-') as work:
@@ -267,7 +322,8 @@ class AsoContractTests(unittest.TestCase):
         data['build']['current_slice'] = 'fast'
         data['retries'] = {'keel-qa': 1}
         data['review']['qa']['status'] = 'rejected'
-        data['aso_bindings'] = {'builder': {'agent': 'custom-builder', 'spec_refs': ['custom.md']}}
+        data['aso_bindings'] = {'builder': {'agent': 'custom-builder', 'spec_refs': ['custom.md'],
+                                          'task_ref': str(self.project / DEV_SKILL) + '#实现'}}
         data['preflight']['test_compile'] = {'status': 'failed_allowed', 'summary': ['baseline evidence'], 'user_decision': True}
         state.write_text(json.dumps(data))
         (state.parent / 'qa-feedback.md').write_text('REJECTED: existing evidence')
@@ -333,8 +389,12 @@ class AsoContractTests(unittest.TestCase):
         self.helper(profile, 'update_progress keel-builder FIX "继续修复"')
         self.assertTrue((state.parent / 'progress.events').is_file())
 
-    def test_injected_progress_and_completion_protocol_keeps_all_public_tags(self):
+    def test_main_session_records_agent_results_with_existing_public_tags(self):
         state = self.init_run('events')
+        data = json.loads(state.read_text())
+        data.update(phase='REVIEW_FIX', fix_round=2, retries={'keel-qa': 2})
+        state.write_text(json.dumps(data))
+        original_state = state.read_bytes()
         log = state.parent / 'progress.tsv'
         for tag, (role, stage, artifact_name) in TAGS.items():
             artifact = state.parent / artifact_name
@@ -344,9 +404,36 @@ class AsoContractTests(unittest.TestCase):
         events = [line.split('\t') for line in log.read_text().splitlines()]
         self.assertEqual({event[3] for event in events if event[1] == 'complete'}, set(TAGS))
         self.assertEqual(len(events), 2 * len(TAGS))
+        # Recording a return is distinct from the main session's business verdict and state transition.
+        self.assertEqual(state.read_bytes(), original_state)
         before = log.read_text()
         self.helper(state, 'complete_stage keel-qa APPROVED "不能通过" "$3"', state.parent / 'missing.md', success=False)
         self.assertEqual(log.read_text(), before)
+        self.assertEqual(state.read_bytes(), original_state)
+
+    def test_old_completion_logs_and_missing_return_cannot_complete_call_chain(self):
+        state = self.init_run('missing-call-chain-return')
+        self.helper(state, '_keel_state_jq \'.phase = "CALL_CHAIN" | .fix_round = 2 | .retries = {"keel-call-chain": 2}\'\nrecord_call_chain_prefilter run "状态流转发生变化"')
+        log = state.parent / 'progress.tsv'
+        log.write_text('old\tcomplete\tkeel-call-chain\tCALL_CHAIN_UPDATED\t历史完成记录\n')
+        self.assertEqual(self.resume(state).stdout.strip(), str(state))
+        before = state.read_bytes()
+        old_log = log.read_bytes()
+        report = state.parent / 'call-chain-review.md'
+        # The main session validates the returned report before recording completion and the result.
+        command = 'complete_stage keel-call-chain CALL_CHAIN_UPDATED "已核验流程报告" "$3"\nrecord_call_chain_result updated "$4"'
+        self.helper(state, command, report, 'a' * 40, success=False)
+        self.assertEqual(state.read_bytes(), before)
+        self.assertEqual(log.read_bytes(), old_log)
+        self.assertNotEqual(json.loads(state.read_text())['call_chain']['status'], 'completed')
+        report.write_text('UPDATED\n已核验的业务状态变化及流程文档提交证据。')
+        self.helper(state, command, report, 'a' * 40)
+        after = json.loads(state.read_text())
+        self.assertEqual(after['phase'], 'DONE')
+        self.assertEqual(after['call_chain']['status'], 'completed')
+        self.assertEqual(after['call_chain']['artifact'], str(report))
+        self.assertEqual(after['fix_round'], 2)
+        self.assertEqual(after['retries'], {'keel-call-chain': 2})
 
     def test_replaceable_bindings_survive_state_updates_without_role_edits(self):
         state = self.init_run('replaceable')
@@ -356,10 +443,10 @@ class AsoContractTests(unittest.TestCase):
         spec.write_text('使用本项目配置的验证工具，遵守已授权的交付范围。')
         (self.project / '.codex/agents/alternate-builder.toml').write_text(
             'name = "alternate-builder"\ndeveloper_instructions = "依据注入目标与规范完成实现并报告证据。"\n')
-        bindings = {'builder': {'agent': 'alternate-builder', 'spec_refs':[str(spec)],
-                               'task_ref':str(self.project / DEV_SKILL) + '#实现'}}
+        bindings = {'builder': {'agent': 'alternate-builder', 'spec_refs':[str(spec)]}}
         self.helper(state, '_keel_state_jq --argjson bindings "$3" \'.aso_bindings = $bindings\'\nrecord_call_chain_prefilter noop "仅局部校验"\nrecord_call_chain_skip', json.dumps(bindings))
         self.assertEqual(json.loads(state.read_text())['aso_bindings'], bindings)
+        self.assertEqual(set(bindings['builder']), {'agent', 'spec_refs'})
         self.assertEqual({p:hashlib.sha256(p.read_bytes()).hexdigest() for p in role_paths}, hashes)
 
     def test_call_chain_dispatch_guards_and_shadow_remain_compatible(self):

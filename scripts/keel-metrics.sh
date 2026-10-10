@@ -57,61 +57,73 @@ def measure(label, *references):
     measure_contents(label, *contents, *expanded[len(rule_contents):])
 
 
+def spec_references(text):
+    references = [reference.replace('.codex/common/refs/', 'common/refs/', 1).strip()
+                  for reference in re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', text)]
+    complete_files = {reference for reference in references if '#' not in reference}
+    return list(dict.fromkeys(reference for reference in references
+                              if '#' not in reference or reference.partition('#')[0] not in complete_files))
+
+
+def required_rules(references, excluded=()):
+    references = [reference for reference in references if reference.partition('#')[0] not in excluded]
+    return expand_contents([read(reference) for reference in references], excluded=excluded, root_refs=references)
+
+
+def fixed_agent_input(label, agent, references):
+    # The dynamic task and project evidence are measured by behavior evals, not this inventory.
+    measure(label, agent + '.md', agent + '.toml', *references)
+
+
 print('component\tlines\tchars')
-specs = {mode: f'common/refs/keel-{mode}-spec.md' for mode in ('plan', 'dev', 'qa', 'call-chain', 'fix')}
-orchestration = 'keel-dev/skills/keel-dev/SKILL.md'
-flow_spec = 'common/refs/keel-business-flow-spec.md'
-change_spec = 'common/refs/keel-code-change-spec.md'
-measure('codex-plan-skill', 'keel-plan/skills/keel-plan/SKILL.md')
-measure('codex-planner-instructions', 'keel-plan/agents/keel-planner.md')
-measure('codex-planner-default-task-input', 'keel-plan/agents/keel-planner.md',
-        'keel-plan/agents/keel-planner.toml', specs['plan'], flow_spec, change_spec,
-        'keel-plan/skills/keel-plan/SKILL.md#起草与修订')
-measure('codex-plan-effective-input', 'keel-plan/skills/keel-plan/SKILL.md',
-        'keel-plan/agents/keel-planner.md', 'keel-plan/agents/keel-planner.toml', specs['plan'], flow_spec, change_spec)
+plan_skill = 'keel-plan/skills/keel-plan/SKILL.md'
+dev_skill = 'keel-dev/skills/keel-dev/SKILL.md'
+fix_skill = 'keel-dev/skills/keel-fix/SKILL.md'
+quality_spec = 'common/refs/keel-code-quality-spec.md'
+all_specs = [str(path.relative_to(root)) for path in sorted((root / 'common/refs').glob('*.md'))]
+
+planner = 'keel-plan/agents/keel-planner'
+research_refs = spec_references(read(plan_skill + '#调研'))
+proposal_refs = spec_references(read(plan_skill + '#调研') + read(plan_skill + '#起草与修订'))
+measure('codex-plan-skill', plan_skill)
+measure('codex-planner-instructions', planner + '.md')
+fixed_agent_input('codex-planner-research-input', planner, research_refs)
+fixed_agent_input('codex-planner-default-task-input', planner, proposal_refs)
+measure('codex-plan-effective-input', plan_skill, planner + '.md', planner + '.toml', *proposal_refs)
 measure('codex-plan-template', 'keel-plan/skills/keel-plan/assets/plan-template.md')
-measure('codex-fix-skill', 'keel-dev/skills/keel-fix/SKILL.md')
-measure('codex-builder-diagnosis-input', 'keel-dev/agents/keel-builder.md',
-        'keel-dev/agents/keel-builder.toml', specs['dev'] + '#操作约束', specs['dev'] + '#问题定位',
-        'keel-dev/skills/keel-fix/SKILL.md#接收与定位')
-canonical_specs = [str(path.relative_to(root)) for path in sorted((root / 'common/refs').glob('*.md'))
-                   if str(path.relative_to(root)) not in specs.values()]
-measure('codex-spec', *specs.values(), *canonical_specs)
-measure('codex-business-flow-spec', flow_spec)
-measure('codex-code-change-spec', change_spec)
-for mode, path in specs.items():
-    measure(f'codex-{mode}-spec', path)
-for path in canonical_specs:
-    if path not in (flow_spec, change_spec):
-        measure('codex-' + Path(path).stem.removeprefix('keel-'), path)
-measure('codex-dev-skill', 'keel-dev/skills/keel-dev/SKILL.md')
-measure('codex-dev-effective-input', orchestration)
-for role, task, mode in (
-    ('builder', '实现', 'dev'),
-    ('qa', '验收', 'qa'),
-    ('call-chain', '流程维护', 'call-chain'),
-):
-    agent = f'keel-dev/agents/keel-{role}'
-    task_refs = [orchestration + '#运行衔接', orchestration + '#' + task]
-    spec = specs[mode]
+measure('codex-fix-skill', fix_skill)
+fixed_agent_input('codex-builder-diagnosis-input', 'keel-dev/agents/keel-builder',
+                  spec_references(read(fix_skill + '#接收与定位').split('\n\n')[1]))
+measure('codex-spec', *all_specs)
+for path in all_specs:
+    suffix = Path(path).stem.removeprefix('keel-')
+    measure('codex-' + suffix, path)
+
+measure('codex-dev-skill', dev_skill)
+measure('codex-dev-effective-input', dev_skill)
+rows = re.findall(r'^\| (实现|验收|流程维护) \| (keel-[\w-]+) \| ([^|]+) \|$',
+                  read(dev_skill + '#角色与规范'), re.M)
+if len(rows) != 3:
+    raise SystemExit('开发职责绑定须包含实现、验收和流程维护')
+for _, name, cell in rows:
+    role = name.removeprefix('keel-')
+    agent = 'keel-dev/agents/' + name
+    references = spec_references(cell)
     measure(f'codex-{role}-instructions', agent + '.md')
-    # The old Agent baseline excluded shared coding standards; retain the same comparison scope.
-    scope = read(spec) + (read(flow_spec) if role == 'call-chain' else '')
-    if role == 'builder':
-        scope = scope[:scope.index('## 代码与测试标准\n')]
-    scope_contents = expand_contents([scope], excluded={'common/refs/keel-code-quality-spec.md'})
-    measure_contents(f'codex-{role}-baseline-input', read(agent + '.md'), *scope_contents,
-                     *(read(reference) for reference in task_refs))
-    # QA uses the same development standard as implementation, plus its own operation constraints.
-    spec_refs = [spec] + ([flow_spec] if role == 'call-chain' else []) + ([specs['dev'] + '#代码与测试标准'] if role == 'qa' else [])
-    measure(f'codex-{role}-default-task-input', agent + '.md', agent + '.toml', *task_refs, *spec_refs)
-for role, task, mode in (('builder', '修复', 'dev'), ('qa', '验收与返修', 'qa')):
-    agent = f'keel-dev/agents/keel-{role}'
-    fix_skill = 'keel-dev/skills/keel-fix/SKILL.md'
-    extra = [specs['dev'] + '#代码与测试标准'] if role == 'qa' else []
-    measure(f'codex-{role}-fix-task-input', agent + '.md', agent + '.toml',
-            fix_skill + '#' + task, fix_skill + '#运行衔接', specs['fix'], specs[mode], *extra)
+    # The historical role baseline excluded shared coding standards; keep that comparison scope.
+    # Skill steps and runtime instructions now stay with the main session and are not Agent input.
+    measure_contents(f'codex-{role}-baseline-input', read(agent + '.md'),
+                     *required_rules(references, excluded={quality_spec}))
+    fixed_agent_input(f'codex-{role}-default-task-input', agent, references)
+    measure(f'codex-{role}-fixed-input', agent + '.md', agent + '.toml', *references)
+
+for role, step in (('builder', '修复'), ('qa', '验收与返修')):
+    dispatch = read(fix_skill + '#' + step).split('\n\n')[1]
+    references = spec_references(dispatch)
+    fixed_agent_input(f'codex-{role}-fix-task-input', 'keel-dev/agents/keel-' + role, references)
+
 paths = [str(path.relative_to(root)) for directory in ('keel-plan', 'keel-dev', 'common')
          for path in sorted((root / directory).rglob('*')) if path.is_file()]
 measure('codex-runtime', *paths)
+
 PY_METRICS

@@ -11,7 +11,7 @@ user-invocable: true
 
 ## 调研
 
-主会话将需求、项目目录与手册（AGENTS.md，缺失用 README.md）、相关代码和流程资料、已有方案与决定交给 `keel-planner`。Spec 为 `.codex/common/refs/keel-plan-spec.md` 和 `.codex/common/refs/keel-business-flow-spec.md`。
+主会话调度 `keel-planner`，任务包含需求、项目目录与手册（AGENTS.md，缺失用 README.md）、相关代码和流程资料、已有方案与决定。Spec 为 `keel-work-spec`（`.codex/common/refs/keel-work-spec.md`）、`keel-proposal-spec`（`.codex/common/refs/keel-proposal-spec.md#工作与资料边界`）、`keel-business-flow-spec`（`.codex/common/refs/keel-business-flow-spec.md`）。
 
 请 Planner 核实现状、本期变化、影响范围及 Spec 的适用条件，提出功能目标、验收结果、必要取舍和待决问题，并返回证据。此步为只读调研；资料不足时由主会话补充资料或安排继续调研。
 
@@ -21,7 +21,7 @@ user-invocable: true
 
 ## 起草与修订
 
-主会话调度 `keel-planner`，沿用调研步骤的两项 Spec，另下发 `.codex/common/refs/keel-code-change-spec.md`，提供调研证据、已确认目标与选择、计划名称和源文件范围。请其生成 `.keel/plans/<name>.md`、对应功能文档和同名 `.review.md`，按 Spec 落实适用的必需内容。
+主会话调度 `keel-planner`，沿用调研步骤的通用工作和业务流程 Spec，方案规范改用 `keel-proposal-spec` 全文（`.codex/common/refs/keel-proposal-spec.md`），另给 `keel-code-change-spec`（`.codex/common/refs/keel-code-change-spec.md`）。任务包含调研证据、已确认目标与选择、计划名称和源文件范围；请其生成 `.keel/plans/<name>.md`、对应功能文档和同名 `.review.md`，按 Spec 落实适用的必需内容。
 
 可按需参考 `.agents/skills/keel-plan/assets/plan-template.md`、`.agents/skills/keel-plan/assets/plan-review-template.md` 及关联功能示例；局部调整和合约设计分别参考 `.agents/skills/keel-plan/assets/incremental-example.md`、`.agents/skills/keel-plan/assets/contract-example.md`。示例事实替换为本项目事实。
 
@@ -43,6 +43,11 @@ bash .agents/skills/keel-plan/scripts/render-plan-html.sh ".keel/plans/<name>.md
 
 ## 调度与恢复
 
-使用原生 subagent，默认 `keel-planner`；A/S 可按本次任务替换，缺少所需能力或资料时报告。每次给 Agent 当前任务、Spec、必要资料和允许写入范围，路径转绝对；任务引用为 `.agents/skills/keel-plan/SKILL.md#调研` 或 `.agents/skills/keel-plan/SKILL.md#起草与修订`。Agent 完成当前任务并返回，主会话处理决策和流程衔接。
+使用原生 subagent，默认 `keel-planner`；主会话选择或替换 Agent/Spec，核对能力与引用。业务输入仅两段：
 
-恢复时沿用已有证据、源文档和仍适用的用户决定，从未完成步骤继续；最终审阅未确认或渲染未成功时保留在 Plan。
+- **任务**：自包含本步目标、范围、必要资料引用（含项目手册）与交付要求。
+- **Spec**：规范 name 与绝对路径列表；带 `#二级标题` 时只加载该节及子节。
+
+调用层实际加载所选注册 Agent 的角色配置并提供项目环境，不增加第三段业务输入；尽量使用独立任务上下文，工具支持时关闭完整历史继承，不靠继承父 Skill 或对话充当角色。不附 Skill、task_ref 或历史对话，不把运行字段和完成标记夹入任务。Agent 自主工作，仅返回业务结论、产物、证据和遗留项；主会话记录当前原生执行标识，通过原生消息跟进，仅接受当前执行结果，拒绝晚到的旧结果，并手动完成检查与渲染；没有自动进度采集器。缺少所需能力或资料时报告。
+
+恢复时先结束旧执行，再创建新任务并记录新执行标识；沿用已有证据、源文档和仍适用的用户决定，从未完成步骤继续。最终审阅未确认或渲染未成功时保留在 Plan。

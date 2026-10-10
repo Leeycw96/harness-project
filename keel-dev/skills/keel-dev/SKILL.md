@@ -11,15 +11,13 @@ user-invocable: true
 
 ## 角色与规范
 
-下表为默认绑定，均附项目 AGENTS.md（缺失用 README.md）。A/S 可替换；主会话核对能力与引用，并在 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs、task_ref。
+下表为默认绑定。主会话选择或替换 Agent/Spec、核对能力与引用，在 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 忽略，不让 Agent 读取 Skill。
 
-| 工作 | 默认 Agent | Spec | 任务步骤 |
-| --- | --- | --- | --- |
-| 实现 | keel-builder | .codex/common/refs/keel-dev-spec.md | .agents/skills/keel-dev/SKILL.md#实现 |
-| 验收 | keel-qa | .codex/common/refs/keel-qa-spec.md | .agents/skills/keel-dev/SKILL.md#验收 |
-| 流程维护 | keel-call-chain | .codex/common/refs/keel-call-chain-spec.md | .agents/skills/keel-dev/SKILL.md#流程维护 |
-
-QA 另给 `.codex/common/refs/keel-dev-spec.md#代码与测试标准`；CallChain 另给 `.codex/common/refs/keel-business-flow-spec.md`。替换 Spec 时同步这些引用。
+| 工作 | 默认 Agent | Spec |
+| --- | --- | --- |
+| 实现 | keel-builder | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-implementation-spec`：`.codex/common/refs/keel-implementation-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md` |
+| 验收 | keel-qa | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-acceptance-spec`：`.codex/common/refs/keel-acceptance-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md` |
+| 流程维护 | keel-call-chain | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-flow-index-spec`：`.codex/common/refs/keel-flow-index-spec.md`；`keel-business-flow-spec`：`.codex/common/refs/keel-business-flow-spec.md` |
 
 ## 初始化
 
@@ -36,9 +34,11 @@ export KEEL_PROFILE
 
 ## 实现
 
-主会话按实现绑定调度 `keel-builder`，给开发 Spec、run 内计划、当前功能范围；请其完成实现、相关验证和聚焦提交，返回新 commits 与证据。小任务一次完成，确有依赖或隔离需要时按功能分片。
+主会话按实现绑定调度 `keel-builder`，任务包含 run 内快照计划、当前功能范围及交付要求：完成实现、相关验证和聚焦提交，返回新 commits、产物、验证证据和遗留项。小任务一次完成，确有依赖或隔离需要时按功能分片。
 
-| 阶段 | 本步任务 | 完成标记与产物 |
+以下阶段、完成标记与产物登记仅由主会话内部使用：
+
+| 阶段 | 本步任务 | 主会话完成标记与产物 |
 | --- | --- | --- |
 | BUILD | 实现当前功能，最后一片完成整体相关验证 | BUILD_SLICE_DONE；最后一片 BUILD_DONE；产物 plan.md |
 | FIX | 按 QA 的 fix-brief.md 修复阻断项及受影响行为 | FIX_DONE；产物 fix-brief.md |
@@ -47,20 +47,22 @@ export KEEL_PROFILE
 
 ## 验收
 
-主会话按验收绑定调度新的 `keel-qa`，给 QA Spec、开发质量标准、计划及本轮 Builder commits。请其独立验证功能与实现，按 Spec 写 qa-feedback.md，返回 APPROVED 或 REJECTED。
+主会话按验收绑定调度新的 `keel-qa`，任务包含快照计划、本轮 Builder commits、验收范围与报告要求；返修验收另附 fix-brief.md。请其独立验证功能与实现，按 Spec 写 qa-feedback.md，返回业务结论 APPROVED 或 REJECTED、验证证据和遗留项。
 
 REVIEW 覆盖全部功能；REVIEW_FIX 覆盖阻断项与受影响场景。通过后进入流程维护判定；未通过则由主会话将阻断项整理为 fix-brief.md，返回实现步骤的 FIX，再安排新 QA 复验。最多三轮返修，仍阻断则 PAUSED。
 
 ## 流程维护
 
-QA 通过后，主会话检查最终 Builder diff，按 CallChain Spec 判断是否需要调度：明确无外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时为 noop，有变化或不确定为 run。
+QA 通过后，主会话检查最终 Builder diff，按流程索引 Spec 判断是否需要调度：明确无外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时为 noop，有变化或不确定为 run。
 
-调用 `record_call_chain_prefilter "<noop|run>" "<判定证据>"`。on-demand 的 noop 调用 record_call_chain_skip 后直接交付；run 调度 `keel-call-chain`，给 CallChain Spec、共用业务流程 Spec、索引目录、最终 commits 和相关计划，请其核实并维护受影响流程，返回 call-chain-review.md。
+主会话调用 `record_call_chain_prefilter "<noop|run>" "<判定证据>"`。on-demand 的 noop 调用 record_call_chain_skip 后直接交付；run 按流程维护绑定调度 `keel-call-chain`，任务包含索引目录、最终 commits 和相关计划，请其核实并维护受影响流程，返回 call-chain-review.md、业务结论 NOOP 或 UPDATED、文档 commits 与证据。
 
-- CALL_CHAIN_NOOP：主会话调用 `record_call_chain_result noop`。
-- CALL_CHAIN_UPDATED：核对独立的流程文档 commit，调用 `record_call_chain_result updated "<commit-sha>"`。
+收到报告后，主会话先核对产物与证据，以对应内部标记调用 complete_stage；成功后才记录以下结果并推进 state：
 
-恢复旧 shadow 模式时始终调度 CallChain，Agent 独立判断且不读取预判结果；主会话改用 `record_call_chain_shadow_result "<noop|updated>"` 并记录对应文档结果。
+- NOOP：主会话映射内部标记 CALL_CHAIN_NOOP，调用 `record_call_chain_result noop`。
+- UPDATED：主会话核对独立的流程文档 commit，映射内部标记 CALL_CHAIN_UPDATED，调用 `record_call_chain_result updated "<commit-sha>"`。
+
+恢复旧 shadow 模式时始终调度 CallChain，Agent 独立判断且不读取预判结果；主会话完成上述产物校验与记录后，改用 `record_call_chain_shadow_result "<noop|updated>"` 并记录对应文档结果。
 
 ## 交付
 
@@ -68,8 +70,13 @@ QA 通过后，主会话检查最终 Builder diff，按 CallChain Spec 判断是
 
 ## 运行衔接
 
-每次使用原生 subagent；默认角色与 Spec 来自本 Skill 的绑定，具体方法由 Agent 自主选择。主会话下发任务、Spec、项目与产物路径、功能范围和所需 commits，以及 KEEL_PROFILE、stage、artifact、tag、reporter；同时给本步 task_ref 与 `.agents/skills/keel-dev/SKILL.md#运行衔接`。引用转绝对路径，带 `#二级标题` 时只读取该节及子节。
+每次使用原生 subagent，业务输入仅两段：
 
-执行依据为快照索引和当前功能及其明确引用章节。Agent 导出 KEEL_PROFILE，source `.codex/common/scripts/keel-common.sh`，用 `update_progress "<reporter>" "<stage>" "<摘要>" "<artifact>"` 报告进展，用 `complete_stage "<reporter>" "<tag>" "<摘要>" "<artifact>"` 报告完成。reporter 沿用 keel-builder / keel-qa / keel-call-chain；Agent 返回结果，主会话核对产物、tag 与 commit 后推进 state。
+- **任务**：自包含本步目标、范围、必要资料引用（含项目 AGENTS.md，缺失用 README.md）与交付要求；执行资料为快照索引、当前功能及明确引用章节。
+- **Spec**：所选规范 name 与绝对路径列表；带 `#二级标题` 时只加载该节及子节。
 
-恢复时先结束旧执行，运行 `resume_keel_run "$KEEL_PROFILE"` 并采用返回路径（兼容旧 profile）；保留提交、进度与返修计数。旧默认 task_ref 重绑到本 Skill 对应步骤，自定义 A/S 沿用。审查五分钟、实现或返修十五分钟无进展时检查，每阶段每角色最多恢复两次；产物错误定向补做一次，再失败计入恢复次数。已完成 run 不重开，超限或关键资料缺失则暂停并报告。
+调用层实际加载所选注册 Agent 的角色配置并提供项目环境，不增加第三段业务输入；尽量使用独立任务上下文，工具支持时关闭完整历史继承，不靠继承父 Skill 或对话充当角色。不下发 KEEL_PROFILE、stage、artifact、tag、reporter、task_ref 或 Skill，不把运行字段和历史对话夹入任务。Agent 自主选择方法，仅返回业务结论、产物、commits、验证证据与遗留项。
+
+主会话记录当前原生执行标识，通过原生消息跟进并手动调用脚本，没有自动进度采集器；仅接受当前执行的进展与结果，拒绝晚到的旧消息。主会话 source `.codex/common/scripts/keel-common.sh`，派发时及收到当前执行的新进展时调用 `update_progress "<reporter>" "<stage>" "<摘要>" "<artifact>"`；核对产物、提交和证据后调用 `complete_stage "<reporter>" "<tag>" "<摘要>" "<artifact>"`，再推进 state。reporter 沿用对应默认角色；阶段、登记产物和完成标记仅为主会话内部字段，实现结果映射上表，QA 结论映射 APPROVED/REJECTED，流程维护结论按上节映射。Agent 不调用运行助手或修改运行状态。
+
+恢复时主会话先结束旧执行，运行 `resume_keel_run "$KEEL_PROFILE"` 并采用返回路径（兼容旧 profile），再创建新任务并记录新执行标识；保留提交、进度与返修计数，自定义 A/S 沿用，忽略旧 task_ref。审查五分钟、实现或返修十五分钟无进展时检查，并非自动判失败；轮询、重复摘要和仅 running 不算新进展，不重置计时。每阶段每角色最多恢复两次；产物错误定向补做一次，再失败计入恢复次数。已完成 run 不重开，超限或关键资料缺失则暂停并报告。
