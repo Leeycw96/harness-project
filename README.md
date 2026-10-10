@@ -76,13 +76,17 @@ keel dev --codex /path/to/your/project
 .codex/
 ├── common/
 │   ├── refs/
-│   │   ├── keel-business-flow-spec.md # S：共用业务流程粒度
-│   │   ├── keel-code-change-spec.md   # S：Plan/Fix 共用改造点粒度
-│   │   ├── keel-plan-spec.md          # S：方案格式、范围与图表规范
-│   │   ├── keel-dev-spec.md           # S：开发约束及代码与测试标准
-│   │   ├── keel-qa-spec.md            # S：验收约束
-│   │   ├── keel-call-chain-spec.md    # S：流程文档规范
-│   │   └── keel-fix-spec.md           # S：局部修复范围、修复说明与验收依据
+│   │   ├── keel-work-spec.md          # S：通用工作要求
+│   │   ├── keel-code-quality-spec.md  # S：代码与测试质量
+│   │   ├── keel-investigation-spec.md # S：问题调查
+│   │   ├── keel-proposal-spec.md      # S：方案设计与编写
+│   │   ├── keel-fix-review-spec.md    # S：修复说明编写
+│   │   ├── keel-implementation-spec.md # S：代码实施
+│   │   ├── keel-acceptance-spec.md    # S：交付验收
+│   │   ├── keel-flow-index-spec.md    # S：流程文档维护
+│   │   ├── keel-bug-scope-spec.md     # S：局部修复边界
+│   │   ├── keel-code-change-spec.md   # S：改造点表达
+│   │   └── keel-business-flow-spec.md # S：业务流程表达
 │   └── scripts/
 ├── agents/
 │   ├── keel-planner.md
@@ -158,6 +162,8 @@ Plan 与 Fix 的改造点共用 `common/refs/keel-code-change-spec.md`：按真�
 | 局部缺陷修复 | Builder、QA | keel-fix-spec.md + 共用改造点粒度 + 开发/验收 Spec | keel-fix 的 SKILL.md：定位、分流、独立审阅、修复验收与现场复验 |
 
 Spec 位于 `common/refs/`，各 Skill 按步骤下发文件或 `#二级标题` 引用；任务说明引用所属 `SKILL.md` 的对应步骤。Plan 的主会话负责沟通和检查，调研与文档编写交给 Planner，避免重复工作。生成的 HTML 与执行 MD 使用同一份设计内容，不独立编造另一份方案。
+
+Spec 正文已按使用场景与共享标准组织，完整分类见 [Spec 目录](docs/specs/README.md)。上表中的旧名称暂为兼容入口，保留原章节并指向新规范；本轮只调整 Spec，Skill 调度与 Agent 输入组合仍沿用现有约定。
 
 开发 run 在 `state.json.aso_bindings` 中按 builder/qa/call_chain 记录 agent、spec_refs 和 task_ref；引用使用绝对路径，章节包含其子节，到下一二级标题结束。恢复沿用当前 run 的绑定并补全缺失职责。统一使用 BUILD、REVIEW、FIX、REVIEW_FIX，保留三轮修复上限、QA 门禁、按需 CallChain 和旧 profile 恢复。
 

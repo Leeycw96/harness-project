@@ -24,8 +24,37 @@ def measure_contents(label, *contents):
     print(label, sum(text.count('\n') for text in contents), sum(map(len, contents)), sep='\t')
 
 
+def expand_contents(contents, excluded=(), root_refs=()):
+    """Include rules reached through compatibility references, once per reference."""
+    result = list(contents)
+    seen = set(root_refs)
+    complete_files = {reference for reference in root_refs if '#' not in reference}
+
+    def visit(content):
+        for reference in re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', content):
+            reference = reference.replace('.codex/common/refs/', 'common/refs/', 1).strip()
+            path, _, heading = reference.partition('#')
+            if reference in seen or path in excluded or path in complete_files:
+                continue
+            seen.add(reference)
+            if not heading:
+                complete_files.add(path)
+            text = read(reference)
+            result.append(text)
+            visit(text)
+
+    for content in contents:
+        visit(content)
+    return result
+
+
 def measure(label, *references):
-    measure_contents(label, *(read(reference) for reference in references))
+    # Follow Spec aliases; a Skill mentioning a delegated Spec does not read it itself.
+    contents = [read(reference) for reference in references]
+    rule_contents = [content for reference, content in zip(references, contents)
+                     if reference.startswith('common/refs/')]
+    expanded = expand_contents(rule_contents, root_refs=references)
+    measure_contents(label, *contents, *expanded[len(rule_contents):])
 
 
 print('component\tlines\tchars')
@@ -45,11 +74,16 @@ measure('codex-fix-skill', 'keel-dev/skills/keel-fix/SKILL.md')
 measure('codex-builder-diagnosis-input', 'keel-dev/agents/keel-builder.md',
         'keel-dev/agents/keel-builder.toml', specs['dev'] + '#操作约束', specs['dev'] + '#问题定位',
         'keel-dev/skills/keel-fix/SKILL.md#接收与定位')
-measure('codex-spec', *specs.values(), flow_spec, change_spec)
+canonical_specs = [str(path.relative_to(root)) for path in sorted((root / 'common/refs').glob('*.md'))
+                   if str(path.relative_to(root)) not in specs.values()]
+measure('codex-spec', *specs.values(), *canonical_specs)
 measure('codex-business-flow-spec', flow_spec)
 measure('codex-code-change-spec', change_spec)
 for mode, path in specs.items():
     measure(f'codex-{mode}-spec', path)
+for path in canonical_specs:
+    if path not in (flow_spec, change_spec):
+        measure('codex-' + Path(path).stem.removeprefix('keel-'), path)
 measure('codex-dev-skill', 'keel-dev/skills/keel-dev/SKILL.md')
 measure('codex-dev-effective-input', orchestration)
 for role, task, mode in (
@@ -65,7 +99,8 @@ for role, task, mode in (
     scope = read(spec) + (read(flow_spec) if role == 'call-chain' else '')
     if role == 'builder':
         scope = scope[:scope.index('## 代码与测试标准\n')]
-    measure_contents(f'codex-{role}-baseline-input', read(agent + '.md'), scope,
+    scope_contents = expand_contents([scope], excluded={'common/refs/keel-code-quality-spec.md'})
+    measure_contents(f'codex-{role}-baseline-input', read(agent + '.md'), *scope_contents,
                      *(read(reference) for reference in task_refs))
     # QA uses the same development standard as implementation, plus its own operation constraints.
     spec_refs = [spec] + ([flow_spec] if role == 'call-chain' else []) + ([specs['dev'] + '#代码与测试标准'] if role == 'qa' else [])

@@ -6,7 +6,7 @@ work_dir="$(mktemp -d)"
 trap 'find "$work_dir" -depth -delete' EXIT
 
 # Check language-neutral development rules.
-rules="$repo_root/common/refs/keel-dev-spec.md"
+rules="$repo_root/common/refs/keel-code-quality-spec.md"
 orchestration="$repo_root/keel-dev/skills/keel-dev/SKILL.md"
 for marker in '别人会调用的业务能力' '函数、模块' '测试文件的名字、后缀、目录和运行方式沿用项目约定' '项目没有编译步骤'; do
   grep -Fq "$marker" "$rules" || { echo "缺少语言无关契约: $marker" >&2; exit 1; }
@@ -32,6 +32,15 @@ for required in \
   "common/refs/keel-fix-spec.md" \
   "common/refs/keel-code-change-spec.md" \
   "common/refs/keel-business-flow-spec.md" \
+  "common/refs/keel-work-spec.md" \
+  "common/refs/keel-code-quality-spec.md" \
+  "common/refs/keel-implementation-spec.md" \
+  "common/refs/keel-investigation-spec.md" \
+  "common/refs/keel-proposal-spec.md" \
+  "common/refs/keel-fix-review-spec.md" \
+  "common/refs/keel-acceptance-spec.md" \
+  "common/refs/keel-flow-index-spec.md" \
+  "common/refs/keel-bug-scope-spec.md" \
   "keel-dev/skills/keel-fix/SKILL.md" \
   "keel-dev/skills/keel-fix/assets/bug-template.md" \
   "keel-dev/skills/keel-fix/assets/investigation-template.md" \

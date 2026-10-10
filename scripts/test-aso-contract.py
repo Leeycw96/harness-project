@@ -17,6 +17,10 @@ ROLE_TASKS = {'builder': '实现', 'qa': '验收', 'call-chain': '流程维护'}
 ROLE_SPECS = {'builder': 'keel-dev-spec.md', 'qa': 'keel-qa-spec.md', 'call-chain': 'keel-call-chain-spec.md'}
 AGENT_DIRS = {role: AGENTS for role in ROLE_TASKS} | {'planner': ROOT / 'keel-plan/agents'}
 SPEC_FILES = {*ROLE_SPECS.values(), 'keel-plan-spec.md', 'keel-business-flow-spec.md', 'keel-fix-spec.md', 'keel-code-change-spec.md'}
+SCENARIO_SPECS = {'keel-work-spec.md', 'keel-code-quality-spec.md', 'keel-implementation-spec.md',
+                  'keel-investigation-spec.md', 'keel-proposal-spec.md', 'keel-fix-review-spec.md',
+                  'keel-acceptance-spec.md', 'keel-flow-index-spec.md', 'keel-bug-scope-spec.md'}
+SPEC_FILES |= SCENARIO_SPECS
 TAGS = {
     'BUILD_SLICE_DONE': ('builder', 'BUILD', 'plan.md'),
     'BUILD_DONE': ('builder', 'BUILD', 'plan.md'),
@@ -101,13 +105,22 @@ class AsoContractTests(unittest.TestCase):
         roots = list(roots)
         seen = set()
         while roots:
-            reference = roots.pop()
+            reference = roots.pop().strip()
             if reference in seen:
                 continue
             seen.add(reference)
             text = self.read_reference(reference)
-            roots.extend(re.findall(r'\.(?:codex|agents)/[\w/.-]+\.(?:md|sh|py)(?:#[\w-]+)?', text))
+            roots.extend(re.findall(r'\.(?:codex|agents)/[\w/.-]+\.(?:md|sh|py)(?:#[\w -]+)?', text))
         return seen
+
+    def test_scenario_specs_do_not_depend_on_compatibility_entries(self):
+        compatibility = {'keel-dev-spec.md', 'keel-qa-spec.md', 'keel-fix-spec.md',
+                         'keel-plan-spec.md', 'keel-call-chain-spec.md'}
+        for name in SCENARIO_SPECS:
+            with self.subTest(spec=name):
+                text = (REFS / name).read_text()
+                targets = re.findall(r'\.codex/common/refs/([\w.-]+\.md)', text)
+                self.assertTrue(compatibility.isdisjoint(targets), name)
 
     def test_deployed_orchestration_resource_graph_is_complete(self):
         roots = ['.agents/skills/keel-dev/SKILL.md',
@@ -119,7 +132,7 @@ class AsoContractTests(unittest.TestCase):
             self.assertIn(DEV_SKILL + '#' + task, seen)
         self.assertIn(DEV_SKILL + '#运行衔接', seen)
         for name in SPEC_FILES:
-            self.assertIn('.codex/common/refs/' + name, seen)
+            self.assertIn('.codex/common/refs/' + name, {reference.partition('#')[0] for reference in seen})
         self.assertIn('.codex/common/refs/keel-dev-spec.md#代码与测试标准', seen)
         self.assertIn('.codex/common/refs/keel-dev-spec.md#问题定位', seen)
         self.assertIn('.agents/skills/keel-fix/SKILL.md#接收与定位', seen)
