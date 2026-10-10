@@ -8,7 +8,7 @@ trap 'find "$work_dir" -depth -delete' EXIT
 # Check language-neutral development rules.
 rules="$repo_root/common/refs/keel-dev-spec.md"
 orchestration="$repo_root/keel-dev/skills/keel-dev/SKILL.md"
-for marker in '对外业务契约' '函数、模块' '测试命名、扩展名、位置和发现规则沿用项目约定' '不要求所有语言都有独立编译阶段'; do
+for marker in '别人会调用的业务能力' '函数、模块' '测试文件的名字、后缀、目录和运行方式沿用项目约定' '项目没有编译步骤'; do
   grep -Fq "$marker" "$rules" || { echo "缺少语言无关契约: $marker" >&2; exit 1; }
 done
 grep -Fq 'not-applicable' "$orchestration"
