@@ -10,13 +10,13 @@ description: 定位新提交的 BUG，编排局部缺陷的修复说明、用户
 
 ## 接收与定位
 
-主会话调度 `keel-builder`，任务包含现象、预期及依据、版本、已有证据、项目手册（AGENTS.md，缺失用 README.md）、代码与日志路径。Spec 为 `keel-work-spec`（`.codex/common/refs/keel-work-spec.md`）、`keel-investigation-spec`（`.codex/common/refs/keel-investigation-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#适用范围`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。
+主会话调度 `keel-builder`，任务为只读问题调查，包含现象、预期及依据、版本、已有证据、项目手册（AGENTS.md，缺失用 README.md）、代码与日志路径。Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-investigation-spec`（`.codex/common/refs/keel-investigation-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。
 
 请 Builder 定位根因，返回结论、证据、影响范围和仍需核实的信息；定位为只读任务，无需 Plan 或开发 run。主会话参照 `.agents/skills/keel-fix/assets/investigation-template.md` 在 `.keel/bugs/<id>/investigation.md` 保留调查进展，按 `.codex/common/refs/keel-bug-scope-spec.md#修复资格` 记录资格结论；尚未定位时安排有针对性的取证，收到新证据后继续分析。
 
 ## 分流
 
-主会话依据定位证据及 `.codex/common/refs/keel-bug-scope-spec.md#适用范围` 决定去向：已定位的局部实现缺陷进入修复说明；需求或设计变化说明理由并提示用户走 `/keel-plan`；证据不足继续定位。需增加日志代码等诊断能力时，也先说明改造需求并转 Plan。
+主会话依据定位证据及 `.codex/common/refs/keel-bug-scope-spec.md#分类结论` 决定去向：已定位的局部实现缺陷进入修复说明；需求或设计变化说明理由并提示用户走 `/keel-plan`；证据不足继续定位。需增加日志代码等诊断能力时，也先说明改造需求并转 Plan。
 
 ## 修复说明与确认
 
@@ -38,13 +38,13 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.
 
 ## 修复
 
-主会话调度新的 `keel-builder`，Spec 为 `keel-work-spec`（`.codex/common/refs/keel-work-spec.md`）、`keel-implementation-spec`（`.codex/common/refs/keel-implementation-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#适用范围`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。任务包含 approved.md、approved-investigation.md、必要证据和本轮范围（旧任务沿用已有资料）；请其完成已确认修复、验证和聚焦提交，返回 commits、产物、验证证据与遗留项。
+主会话调度新的 `keel-builder`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-implementation-spec`（`.codex/common/refs/keel-implementation-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。任务包含 approved.md、approved-investigation.md、必要证据和本轮范围（旧任务沿用已有资料）；请其完成已确认修复、验证和聚焦提交，返回 commits、产物、验证证据与遗留项。
 
 主会话内部阶段 BUG_BUILD 对应全部已确认修复，完成后以 approved.md 登记 BUG_BUILD_DONE；BUG_FIX 对应 fix-brief.md 的阻断项和受影响行为，完成后以该文件登记 BUG_FIX_DONE。主会话核对结果并更新 build.commits，分别进入 BUG_REVIEW 或 BUG_REVIEW_FIX；阶段与标记不下发给 Agent。
 
 ## 验收与返修
 
-主会话调度新的 `keel-qa`，Spec 为 `keel-work-spec`（`.codex/common/refs/keel-work-spec.md`）、`keel-acceptance-spec`（`.codex/common/refs/keel-acceptance-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#适用范围`、`.codex/common/refs/keel-bug-scope-spec.md#验收依据`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）、`keel-qa-scoring-spec`（`.codex/common/refs/keel-qa-scoring-spec.md`）。任务包含 approved.md、approved-investigation.md、本轮 Builder 标识和 commits、验收范围及报告目录（旧任务沿用已有资料），返修验收另附 fix-brief.md；请其按 Spec 核验本次交付并生成验收产物，返回业务结论 APPROVED 或 REJECTED、验证证据与遗留项。
+主会话调度新的 `keel-qa`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-acceptance-spec`（`.codex/common/refs/keel-acceptance-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`、`.codex/common/refs/keel-bug-scope-spec.md#验收记录`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）、`keel-qa-scoring-spec`（`.codex/common/refs/keel-qa-scoring-spec.md`）。任务包含 approved.md、approved-investigation.md、本轮 Builder 标识和 commits、验收范围及报告目录（旧任务沿用已有资料），返修验收另附 fix-brief.md；请其按 Spec 核验本次交付并生成验收产物，返回业务结论 APPROVED 或 REJECTED、验证证据与遗留项。
 
 BUG_REVIEW 覆盖全部修复目标，BUG_REVIEW_FIX 覆盖阻断项及受影响行为。通过后进入 WAITING_RETEST；未通过则由主会话整理 fix-brief.md，进入 BUG_FIX 并安排新 QA 复验。原方案内返修最多三轮且不重复确认，仍阻断则 PAUSED。
 
@@ -58,8 +58,8 @@ BUG_REVIEW 覆盖全部修复目标，BUG_REVIEW_FIX 覆盖阻断项及受影响
 
 使用原生 subagent；主会话选择或替换 Agent/Spec，在执行阶段的 state.json.aso_bindings 按 builder/qa 记录 agent、spec_refs，忽略旧 task_ref。业务输入仅两段：
 
-- **任务**：自包含本步目标、范围、必要资料引用（含项目手册）与交付要求。
-- **Spec**：所选规范 name 与绝对路径列表；带 `#二级标题` 时只加载该节及子节。
+- **任务**：自包含本步目标、范围与授权、必要资料引用（含项目手册）与交付要求。
+- **Spec**：产物规范 name 与绝对路径列表；带 `#二级标题` 时只加载该节及子节。
 
 调用层实际加载所选注册 Agent 的角色配置并提供项目环境，不增加第三段业务输入；尽量使用独立任务上下文，工具支持时关闭完整历史继承，不靠继承父 Skill 或对话充当角色。不下发 KEEL_PROFILE、stage、artifact、tag、reporter、task_ref 或 Skill，不把运行字段和历史对话夹入任务。Agent 自主工作，仅返回业务结论、产物、commits、验证证据与遗留项。
 

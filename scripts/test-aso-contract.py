@@ -17,10 +17,10 @@ ROLE_STEPS = {'builder': '实现', 'qa': '验收', 'call-chain': '流程维护'}
 ROLE_SPECS = {'builder': 'keel-implementation-spec.md', 'qa': 'keel-acceptance-spec.md',
               'call-chain': 'keel-flow-index-spec.md'}
 AGENT_DIRS = {role: AGENTS for role in ROLE_STEPS} | {'planner': ROOT / 'keel-plan/agents'}
-COMPATIBILITY_SPECS = {'keel-dev-spec.md', 'keel-qa-spec.md', 'keel-fix-spec.md',
-                       'keel-plan-spec.md', 'keel-call-chain-spec.md'}
-SPEC_FILES = COMPATIBILITY_SPECS | {'keel-business-flow-spec.md', 'keel-code-change-spec.md'}
-SCENARIO_SPECS = {'keel-work-spec.md', 'keel-code-quality-spec.md', 'keel-implementation-spec.md',
+RETIRED_SPECS = {'keel-dev-spec.md', 'keel-qa-spec.md', 'keel-fix-spec.md',
+                 'keel-plan-spec.md', 'keel-call-chain-spec.md', 'keel-work-spec.md'}
+SPEC_FILES = {'keel-business-flow-spec.md', 'keel-code-change-spec.md'}
+SCENARIO_SPECS = {'keel-delivery-spec.md', 'keel-code-quality-spec.md', 'keel-implementation-spec.md',
                   'keel-investigation-spec.md', 'keel-proposal-spec.md', 'keel-fix-review-spec.md',
                   'keel-acceptance-spec.md', 'keel-flow-index-spec.md', 'keel-bug-scope-spec.md',
                   'keel-document-writing-spec.md', 'keel-qa-scoring-spec.md'}
@@ -105,6 +105,15 @@ class AsoContractTests(unittest.TestCase):
                 text = (REFS / name).read_text()
                 self.assertNotRegex(text, r'keel-builder|keel-qa\.md|keel-call-chain\.md|\.codex/agents/|KEEL_PROFILE|state\.json|complete_stage|update_progress|\b(?:BUILD|REVIEW|FIX|PAUSED|PREFLIGHT)(?:_[A-Z]+)*\b')
 
+    def test_specs_do_not_prescribe_execution_or_permissions(self):
+        # Guard the operation clauses removed in this revision, without banning artifact terminology.
+        operational_clause = re.compile(r'^- (?:运行|执行)[ \t]+(?:`|python3\b|bash\b|source\b)|^- (?:只可写|可读取|只改并提交)|^## (?:操作约束|工作与资料边界)$', re.M)
+        for name in SPEC_FILES:
+            with self.subTest(spec=name):
+                text = (REFS / name).read_text()
+                self.assertIsNone(operational_clause.search(text), name)
+                self.assertNotIn('python3 .codex/common/scripts/keel-qa-score.py record', text)
+
     def spec_metadata(self, path):
         header = re.match(r'\A---\n(.*?)\n---(?:\n|\Z)', path.read_text(), re.S)
         self.assertIsNotNone(header, str(path))
@@ -139,12 +148,12 @@ class AsoContractTests(unittest.TestCase):
             roots.extend(re.findall(r'\.(?:codex|agents)/[\w/.-]+\.(?:md|sh|py)(?:#[\w -]+)?', text))
         return seen
 
-    def test_scenario_specs_do_not_depend_on_compatibility_entries(self):
+    def test_scenario_specs_do_not_depend_on_retired_entries(self):
         for name in SCENARIO_SPECS:
             with self.subTest(spec=name):
                 text = (REFS / name).read_text()
                 targets = re.findall(r'\.codex/common/refs/([\w.-]+\.md)', text)
-                self.assertTrue(COMPATIBILITY_SPECS.isdisjoint(targets), name)
+                self.assertTrue(RETIRED_SPECS.isdisjoint(targets), name)
 
     def test_deployed_orchestration_resource_graph_is_complete(self):
         roots = ['.agents/skills/keel-dev/SKILL.md',
@@ -152,9 +161,9 @@ class AsoContractTests(unittest.TestCase):
         seen = self.reachable_references(roots)
         for entry in ('.agents/skills/keel-plan/SKILL.md', '.agents/skills/keel-dev/SKILL.md'):
             self.assertIn('.codex/common/refs/keel-business-flow-spec.md', self.reachable_references([entry]))
-        for name in SPEC_FILES - COMPATIBILITY_SPECS:
+        for name in SPEC_FILES:
             self.assertIn('.codex/common/refs/' + name, {reference.partition('#')[0] for reference in seen})
-        self.assertTrue(COMPATIBILITY_SPECS.isdisjoint({Path(reference.partition('#')[0]).name for reference in seen}))
+        self.assertTrue(RETIRED_SPECS.isdisjoint({Path(reference.partition('#')[0]).name for reference in seen}))
         self.assertFalse(any(re.search(r'/SKILL\.md#', reference) for reference in seen))
         self.assertIn('.agents/skills/keel-fix/scripts/keel-fix.py', seen)
         self.assertIn('.codex/common/scripts/keel-qa-score.py', seen)
@@ -175,7 +184,7 @@ class AsoContractTests(unittest.TestCase):
                 for relative, original in (
                     ('.codex/agents/keel-planner.md', 'keel-plan/agents/keel-planner.md'),
                     ('.codex/agents/keel-planner.toml', 'keel-plan/agents/keel-planner.toml'),
-                    ('.codex/common/refs/keel-plan-spec.md', 'common/refs/keel-plan-spec.md'),
+                    ('.codex/common/refs/keel-proposal-spec.md', 'common/refs/keel-proposal-spec.md'),
                     ('.codex/common/refs/keel-document-writing-spec.md', 'common/refs/keel-document-writing-spec.md'),
                     ('.codex/common/refs/keel-qa-scoring-spec.md', 'common/refs/keel-qa-scoring-spec.md'),
                     ('.codex/common/scripts/keel-qa-score.py', 'common/scripts/keel-qa-score.py'),
@@ -208,8 +217,8 @@ class AsoContractTests(unittest.TestCase):
             self.assertIn('.codex/common/refs/keel-document-writing-spec.md', spec_refs)
             effective = self.reachable_references(spec_refs)
             effective_files = {Path(reference.partition('#')[0]).name for reference in effective}
-            self.assertTrue(COMPATIBILITY_SPECS.isdisjoint(effective_files))
-            self.assertIn('keel-work-spec.md', effective_files)
+            self.assertTrue(RETIRED_SPECS.isdisjoint(effective_files))
+            self.assertIn('keel-delivery-spec.md', effective_files)
             if role in {'builder', 'qa'}:
                 self.assertIn('keel-code-quality-spec.md', effective_files)
             if role == 'qa':
@@ -253,25 +262,26 @@ class AsoContractTests(unittest.TestCase):
                     self.assertIn('complete_stage', contract)
                     self.assertIn('Agent 不调用运行助手或修改运行状态', contract)
 
-    def test_fix_investigation_does_not_inherit_implementation_permissions(self):
+    def test_fix_investigation_has_readonly_task_and_output_specs(self):
         text = self.read_reference('.agents/skills/keel-fix/SKILL.md#接收与定位')
         dispatch = text.split('\n\n')[1]
         refs = re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', dispatch)
-        self.assertEqual(set(refs), {'.codex/common/refs/keel-work-spec.md',
+        self.assertEqual(set(refs), {'.codex/common/refs/keel-delivery-spec.md',
                                      '.codex/common/refs/keel-investigation-spec.md',
-                                     '.codex/common/refs/keel-bug-scope-spec.md#适用范围',
+                                     '.codex/common/refs/keel-bug-scope-spec.md#分类结论',
                                      '.codex/common/refs/keel-document-writing-spec.md'})
         effective = self.reachable_references(refs)
         names = {Path(reference.partition('#')[0]).name for reference in effective}
         self.assertNotIn('keel-implementation-spec.md', names)
-        self.assertTrue(COMPATIBILITY_SPECS.isdisjoint(names))
-        permissions = '\n'.join(self.read_reference(reference) for reference in effective)
-        self.assertIn('定位时不修改业务代码、测试、配置或数据', permissions)
-        self.assertNotIn('修改业务代码、测试，并聚焦提交', permissions)
+        self.assertTrue(RETIRED_SPECS.isdisjoint(names))
+        self.assertIn('只读问题调查', dispatch)
+        style = (AGENTS / 'keel-builder.md').read_text()
+        self.assertIn('只读调查', style)
+        self.assertIn('不改代码、测试、配置或数据', style)
 
     def test_plan_research_and_drafting_use_distinct_proposal_scope(self):
         research = self.read_reference('.agents/skills/keel-plan/SKILL.md#调研')
-        self.assertIn('.codex/common/refs/keel-proposal-spec.md#工作与资料边界', research)
+        self.assertIn('.codex/common/refs/keel-proposal-spec.md#调研结果', research)
         self.assertIn('.codex/common/refs/keel-document-writing-spec.md', research)
         self.assertNotRegex(research, r'keel-proposal-spec\.md`|keel-proposal-spec\.md[）)]')
         drafting = self.read_reference('.agents/skills/keel-plan/SKILL.md#起草与修订')
@@ -286,7 +296,7 @@ class AsoContractTests(unittest.TestCase):
             retired = ['keel-dev-coding-rules.md', 'keel-call-chain-rules.md',
                        'keel-dev-environment.md', 'keel-dev-task-protocol.md',
                        'tasks/implement.md', 'tasks/verify.md', 'tasks/maintain-flow.md',
-                       'keel-dev-orchestration.md']
+                       'keel-dev-orchestration.md', *sorted(RETIRED_SPECS)]
             manifest = project / '.codex/.keel/installed-manifest'
             manifest.parent.mkdir(parents=True)
             entries = ['.codex/common/refs/' + name for name in retired]

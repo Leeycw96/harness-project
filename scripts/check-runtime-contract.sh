@@ -28,11 +28,9 @@ for required in \
   "keel-plan/skills/keel-plan/scripts/render-plan-html.sh" \
   "keel-plan/agents/keel-planner.toml" \
   "keel-plan/agents/keel-planner.md" \
-  "common/refs/keel-plan-spec.md" \
-  "common/refs/keel-fix-spec.md" \
   "common/refs/keel-code-change-spec.md" \
   "common/refs/keel-business-flow-spec.md" \
-  "common/refs/keel-work-spec.md" \
+  "common/refs/keel-delivery-spec.md" \
   "common/refs/keel-code-quality-spec.md" \
   "common/refs/keel-document-writing-spec.md" \
   "common/refs/keel-implementation-spec.md" \

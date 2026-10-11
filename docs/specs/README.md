@@ -1,18 +1,33 @@
 # 按使用场景组织的 Spec
 
-Spec 说明工作边界、质量要求和产物标准。正文直接用条目列出规则，正确或错误示例按需添加并保留示例前缀。Skill 按步骤选择场景规范，通过“任务＋Spec”两段派发；调度和记录规则以各 Skill 为准。
+Spec 只说明产出物要满足什么：内容、格式、质量和验收结果。Agent 的做事风格约束行为，Skill 负责安排任务与协作。正文直接列简短规则，正确或错误示例按需添加。
 
-每份 Spec 开头使用 YAML 信息块：`name` 为全局唯一的规范名称，当前采用文件名去掉 `.md`；`description` 简述规范用途与使用场景。兼容入口也有独立名称，并在说明中标明兼容用途。
+每份 Spec 开头使用 YAML 信息块：`name` 全局唯一，采用文件名去掉 `.md`；`description` 简述产物要求与使用场景。
+
+## 归属判断
+
+| 要求 | 放在哪里 | 示例 |
+| --- | --- | --- |
+| 本次要完成什么、允许改什么 | 任务 | 只读调查退款失败的原因；返回结论与证据 |
+| 交付结果必须具备什么 | Spec | 调查报告包含根因、证据、影响范围和未确定事项 |
+| Agent 如何工作 | 做事风格 | 先核实证据；只读调查时不改代码 |
+| 谁接手、何时确认和推进 | Skill | 调度 Builder 调查；用户确认后安排修复 |
+
+错误示例：Spec 要求“先读代码，再运行测试，最后写报告”。
+
+正确示例：Spec 要求“报告有结论、实际验证结果和可定位证据”。
+
+文档中的栏目顺序、代码运行后的业务行为属于产物要求；Agent 的操作顺序、工具选择和修改权限属于行为或本次任务授权。
 
 ## 场景规范
 
 | 场景 | 规范 | 内容 |
 | --- | --- | --- |
-| 问题调查 | [keel-investigation-spec.md](../../common/refs/keel-investigation-spec.md) | 只读调查、证据、根因确定程度与现场缺口 |
-| 方案设计与编写 | [keel-proposal-spec.md](../../common/refs/keel-proposal-spec.md) | 方案权限、目标设计、执行文档、模型、接口与图表标准 |
-| 修复说明编写 | [keel-fix-review-spec.md](../../common/refs/keel-fix-review-spec.md) | 五项简要说明、HTML 展示、下载与旧文档兼容 |
-| 代码实施 | [keel-implementation-spec.md](../../common/refs/keel-implementation-spec.md) | 授权内实现、测试与提交，遵守已确认设计 |
-| 交付验收 | [keel-acceptance-spec.md](../../common/refs/keel-acceptance-spec.md) | 独立验收权限、统一标准、证据与报告 |
+| 问题调查 | [keel-investigation-spec.md](../../common/refs/keel-investigation-spec.md) | 调查结论、证据、根因确定程度与现场缺口 |
+| 方案设计与编写 | [keel-proposal-spec.md](../../common/refs/keel-proposal-spec.md) | 调研结果、执行文档、模型、接口与图表标准 |
+| 修复说明编写 | [keel-fix-review-spec.md](../../common/refs/keel-fix-review-spec.md) | 五项简要说明、HTML 展示与下载 |
+| 代码实施 | [keel-implementation-spec.md](../../common/refs/keel-implementation-spec.md) | 实现、测试、验证和提交的交付结果 |
+| 交付验收 | [keel-acceptance-spec.md](../../common/refs/keel-acceptance-spec.md) | 验收结论、证据与报告 |
 | 验收评分 | [keel-qa-scoring-spec.md](../../common/refs/keel-qa-scoring-spec.md) | 目标完成率、通用检查结果、初验与复验 JSON 记录 |
 | 业务流程文档维护 | [keel-flow-index-spec.md](../../common/refs/keel-flow-index-spec.md) | 按实际代码维护流程索引、状态与证据 |
 
@@ -20,17 +35,17 @@ Spec 说明工作边界、质量要求和产物标准。正文直接用条目列
 
 | 用途 | 规范 | 内容 |
 | --- | --- | --- |
-| 通用工作要求 | [keel-work-spec.md](../../common/refs/keel-work-spec.md) | 项目约定、授权、改动保护、相关资料与如实报告；不授予业务修改权限 |
+| 通用交付标准 | [keel-delivery-spec.md](../../common/refs/keel-delivery-spec.md) | 结果完整、真实、一致，改动符合授权范围 |
 | 文档表达 | [keel-document-writing-spec.md](../../common/refs/keel-document-writing-spec.md) | Markdown 用短句、直白说法和必要引用，保留设计与验证依据；作为 Agent 输入使用 |
 | 代码与测试质量 | [keel-code-quality-spec.md](../../common/refs/keel-code-quality-spec.md) | 真实实现、根因、职责、测试与项目检查 |
 | 改造点表达 | [keel-code-change-spec.md](../../common/refs/keel-code-change-spec.md) | 类、模块或文件加一句话改动，只约束说明列表 |
 | 业务流程表达 | [keel-business-flow-spec.md](../../common/refs/keel-business-flow-spec.md) | 业务阶段与变化的共用粒度 |
-| 局部修复边界 | [keel-bug-scope-spec.md](../../common/refs/keel-bug-scope-spec.md) | 修复适用范围、资格字段、批准依据与原场景复验 |
+| 局部修复边界 | [keel-bug-scope-spec.md](../../common/refs/keel-bug-scope-spec.md) | 分类结论、资格字段、批准产物与验收记录 |
 
-## 兼容引用
+## 使用与调整
 
-现有 `keel-dev-spec.md`、`keel-qa-spec.md`、`keel-fix-spec.md`、`keel-plan-spec.md`、`keel-call-chain-spec.md` 只保留原章节和新规范引用，不重复规则正文。
+Skill 按场景选择规范，通过“任务＋Spec”两段派发。任务包含目标、范围与授权、必要资料和交付要求；Spec 输入为名称与绝对路径，可引用二级章节。角色及做事风格由调用环境加载。
 
-当前 Skill 直接选用场景规范；兼容入口用于已有文件和章节引用。角色定义由调用环境加载，Agent 仅接收任务与 Spec；主会话管理审批、阶段、进度和恢复，不再下发旧任务步骤或运行字段。旧 profile、批准快照、模板和渲染接口继续兼容。
+只保留当前场景规范，旧 Dev、QA、Fix、Plan、CallChain Spec 入口及通用工作 Spec 已移除。当前引用统一使用通用交付标准和对应场景产物规范。
 
-Agent 保留换项目后仍适用的做事风格，具体检查内容集中在 Spec。直接增删 Spec 中的检查条目即可调整 QA 工作；Skill 继续编排同一组 Agent 和规范，不配置检查开关或高分减检策略。
+Agent 保留换项目后仍适用的做事风格，自主选择工作方法。直接增删 Spec 的产物要求即可调整 QA 的验收内容，Skill 无需跟着变化，不配置检查开关或自动减检。

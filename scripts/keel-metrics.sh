@@ -25,7 +25,7 @@ def measure_contents(label, *contents):
 
 
 def expand_contents(contents, excluded=(), root_refs=()):
-    """Include rules reached through compatibility references, once per reference."""
+    """Include shared standards reached through Spec references, once per reference."""
     result = list(contents)
     seen = set(root_refs)
     complete_files = {reference for reference in root_refs if '#' not in reference}
@@ -49,7 +49,7 @@ def expand_contents(contents, excluded=(), root_refs=()):
 
 
 def measure(label, *references):
-    # Follow Spec aliases; a Skill mentioning a delegated Spec does not read it itself.
+    # Follow shared Spec references; a Skill mentioning a delegated Spec does not read it itself.
     contents = [read(reference) for reference in references]
     rule_contents = [content for reference, content in zip(references, contents)
                      if reference.startswith('common/refs/')]

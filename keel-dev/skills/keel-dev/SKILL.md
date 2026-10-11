@@ -15,9 +15,9 @@ user-invocable: true
 
 | 工作 | 默认 Agent | Spec |
 | --- | --- | --- |
-| 实现 | keel-builder | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-implementation-spec`：`.codex/common/refs/keel-implementation-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
-| 验收 | keel-qa | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-acceptance-spec`：`.codex/common/refs/keel-acceptance-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md`；`keel-qa-scoring-spec`：`.codex/common/refs/keel-qa-scoring-spec.md` |
-| 流程维护 | keel-call-chain | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-flow-index-spec`：`.codex/common/refs/keel-flow-index-spec.md`；`keel-business-flow-spec`：`.codex/common/refs/keel-business-flow-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
+| 实现 | keel-builder | `keel-delivery-spec`：`.codex/common/refs/keel-delivery-spec.md`；`keel-implementation-spec`：`.codex/common/refs/keel-implementation-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
+| 验收 | keel-qa | `keel-delivery-spec`：`.codex/common/refs/keel-delivery-spec.md`；`keel-acceptance-spec`：`.codex/common/refs/keel-acceptance-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md`；`keel-qa-scoring-spec`：`.codex/common/refs/keel-qa-scoring-spec.md` |
+| 流程维护 | keel-call-chain | `keel-delivery-spec`：`.codex/common/refs/keel-delivery-spec.md`；`keel-flow-index-spec`：`.codex/common/refs/keel-flow-index-spec.md`；`keel-business-flow-spec`：`.codex/common/refs/keel-business-flow-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
 
 ## 初始化
 
@@ -34,7 +34,7 @@ export KEEL_PROFILE
 
 ## 实现
 
-主会话按实现绑定调度 `keel-builder`，任务包含 run 内快照计划、当前功能范围及交付要求：完成实现、相关验证和聚焦提交，返回新 commits、产物、验证证据和遗留项。小任务一次完成，确有依赖或隔离需要时按功能分片。
+主会话按实现绑定调度 `keel-builder`，任务包含 run 内快照计划、当前功能范围及交付要求：在业务代码与测试范围内完成实现、相关验证和聚焦提交，返回新 commits、产物、验证证据和遗留项。小任务一次完成，确有依赖或隔离需要时按功能分片。
 
 以下阶段、完成标记与产物登记仅由主会话内部使用：
 
@@ -72,8 +72,8 @@ QA 通过后，主会话检查最终 Builder diff，按流程索引 Spec 判断�
 
 每次使用原生 subagent，业务输入仅两段：
 
-- **任务**：自包含本步目标、范围、必要资料引用（含项目 AGENTS.md，缺失用 README.md）与交付要求；执行资料为快照索引、当前功能及明确引用章节。
-- **Spec**：所选规范 name 与绝对路径列表；带 `#二级标题` 时只加载该节及子节。
+- **任务**：自包含本步目标、范围与授权、必要资料引用（含项目 AGENTS.md，缺失用 README.md）与交付要求；执行资料为快照索引、当前功能及明确引用章节。
+- **Spec**：产物规范 name 与绝对路径列表；带 `#二级标题` 时只加载该节及子节。
 
 调用层实际加载所选注册 Agent 的角色配置并提供项目环境，不增加第三段业务输入；尽量使用独立任务上下文，工具支持时关闭完整历史继承，不靠继承父 Skill 或对话充当角色。不下发 KEEL_PROFILE、stage、artifact、tag、reporter、task_ref 或 Skill，不把运行字段和历史对话夹入任务。Agent 自主选择方法，仅返回业务结论、产物、commits、验证证据与遗留项。
 
