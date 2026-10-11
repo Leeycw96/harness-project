@@ -23,7 +23,7 @@ SPEC_FILES = COMPATIBILITY_SPECS | {'keel-business-flow-spec.md', 'keel-code-cha
 SCENARIO_SPECS = {'keel-work-spec.md', 'keel-code-quality-spec.md', 'keel-implementation-spec.md',
                   'keel-investigation-spec.md', 'keel-proposal-spec.md', 'keel-fix-review-spec.md',
                   'keel-acceptance-spec.md', 'keel-flow-index-spec.md', 'keel-bug-scope-spec.md',
-                  'keel-document-writing-spec.md'}
+                  'keel-document-writing-spec.md', 'keel-qa-scoring-spec.md'}
 SPEC_FILES |= SCENARIO_SPECS
 TAGS = {
     'BUILD_SLICE_DONE': ('builder', 'BUILD', 'plan.md'),
@@ -157,6 +157,7 @@ class AsoContractTests(unittest.TestCase):
         self.assertTrue(COMPATIBILITY_SPECS.isdisjoint({Path(reference.partition('#')[0]).name for reference in seen}))
         self.assertFalse(any(re.search(r'/SKILL\.md#', reference) for reference in seen))
         self.assertIn('.agents/skills/keel-fix/scripts/keel-fix.py', seen)
+        self.assertIn('.codex/common/scripts/keel-qa-score.py', seen)
         self.assertIn('.agents/skills/keel-fix/assets/bug-template.md', seen)
         self.assertIn('.agents/skills/keel-fix/assets/investigation-template.md', seen)
         self.assertIn('.agents/skills/keel-plan/assets/incremental-example.md', seen)
@@ -176,6 +177,8 @@ class AsoContractTests(unittest.TestCase):
                     ('.codex/agents/keel-planner.toml', 'keel-plan/agents/keel-planner.toml'),
                     ('.codex/common/refs/keel-plan-spec.md', 'common/refs/keel-plan-spec.md'),
                     ('.codex/common/refs/keel-document-writing-spec.md', 'common/refs/keel-document-writing-spec.md'),
+                    ('.codex/common/refs/keel-qa-scoring-spec.md', 'common/refs/keel-qa-scoring-spec.md'),
+                    ('.codex/common/scripts/keel-qa-score.py', 'common/scripts/keel-qa-score.py'),
                 ):
                     self.assertIn(relative, manifest)
                     self.assertEqual((project / relative).read_bytes(), (ROOT / original).read_bytes())
@@ -210,6 +213,7 @@ class AsoContractTests(unittest.TestCase):
             if role in {'builder', 'qa'}:
                 self.assertIn('keel-code-quality-spec.md', effective_files)
             if role == 'qa':
+                self.assertIn('.codex/common/refs/keel-qa-scoring-spec.md', spec_refs)
                 self.assertNotIn('keel-implementation-spec.md', effective_files)
             for reference in spec_refs:
                 self.read_reference(reference)
@@ -218,6 +222,11 @@ class AsoContractTests(unittest.TestCase):
             self.assertTrue((self.project / '.codex/agents' / (agent + '.toml')).is_file())
         for tag, (role, _, _) in TAGS.items():
             self.assertIn(tag, self.read_reference(DEV_SKILL + '#' + ROLE_STEPS[role]))
+        fix_qa = self.read_reference('.agents/skills/keel-fix/SKILL.md#验收与返修').split('\n\n')[1]
+        fix_specs = re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', fix_qa)
+        self.assertIn('.codex/common/refs/keel-qa-scoring-spec.md', fix_specs)
+        effective_fix_specs = self.reachable_references(fix_specs)
+        self.assertNotIn('.codex/common/refs/keel-implementation-spec.md', effective_fix_specs)
 
     def test_agent_input_is_task_and_named_specs_without_runtime_injection(self):
         contracts = [(DEV_SKILL, '运行衔接'),

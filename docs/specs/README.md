@@ -13,6 +13,7 @@ Spec 说明工作边界、质量要求和产物标准。正文直接用条目列
 | 修复说明编写 | [keel-fix-review-spec.md](../../common/refs/keel-fix-review-spec.md) | 五项简要说明、HTML 展示、下载与旧文档兼容 |
 | 代码实施 | [keel-implementation-spec.md](../../common/refs/keel-implementation-spec.md) | 授权内实现、测试与提交，遵守已确认设计 |
 | 交付验收 | [keel-acceptance-spec.md](../../common/refs/keel-acceptance-spec.md) | 独立验收权限、统一标准、证据与报告 |
+| 验收评分 | [keel-qa-scoring-spec.md](../../common/refs/keel-qa-scoring-spec.md) | 目标完成率、通用检查结果、初验与复验 JSON 记录 |
 | 业务流程文档维护 | [keel-flow-index-spec.md](../../common/refs/keel-flow-index-spec.md) | 按实际代码维护流程索引、状态与证据 |
 
 ## 共享标准与场景补充
@@ -31,3 +32,5 @@ Spec 说明工作边界、质量要求和产物标准。正文直接用条目列
 现有 `keel-dev-spec.md`、`keel-qa-spec.md`、`keel-fix-spec.md`、`keel-plan-spec.md`、`keel-call-chain-spec.md` 只保留原章节和新规范引用，不重复规则正文。
 
 当前 Skill 直接选用场景规范；兼容入口用于已有文件和章节引用。角色定义由调用环境加载，Agent 仅接收任务与 Spec；主会话管理审批、阶段、进度和恢复，不再下发旧任务步骤或运行字段。旧 profile、批准快照、模板和渲染接口继续兼容。
+
+Agent 保留换项目后仍适用的做事风格，具体检查内容集中在 Spec。直接增删 Spec 中的检查条目即可调整 QA 工作；Skill 继续编排同一组 Agent 和规范，不配置检查开关或高分减检策略。

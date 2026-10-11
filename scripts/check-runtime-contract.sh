@@ -40,6 +40,8 @@ for required in \
   "common/refs/keel-proposal-spec.md" \
   "common/refs/keel-fix-review-spec.md" \
   "common/refs/keel-acceptance-spec.md" \
+  "common/refs/keel-qa-scoring-spec.md" \
+  "common/scripts/keel-qa-score.py" \
   "common/refs/keel-flow-index-spec.md" \
   "common/refs/keel-bug-scope-spec.md" \
   "keel-dev/skills/keel-fix/SKILL.md" \
@@ -83,5 +85,6 @@ cp -R "$repo_root/keel-plan/skills/keel-plan/assets/plan-template.features" "$ru
 
 python3 "$repo_root/scripts/test-aso-contract.py"
 python3 "$repo_root/scripts/test-fix-contract.py"
+python3 "$repo_root/scripts/test-qa-score.py"
 
 echo "Codex App 单 runtime、任务＋Spec 输入与语言无关契约检查通过。"

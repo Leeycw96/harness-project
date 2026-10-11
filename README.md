@@ -84,6 +84,7 @@ keel dev --codex /path/to/your/project
 │   │   ├── keel-fix-review-spec.md    # S：修复说明编写
 │   │   ├── keel-implementation-spec.md # S：代码实施
 │   │   ├── keel-acceptance-spec.md    # S：交付验收
+│   │   ├── keel-qa-scoring-spec.md    # S：评分记录
 │   │   ├── keel-flow-index-spec.md    # S：流程文档维护
 │   │   ├── keel-bug-scope-spec.md     # S：局部修复边界
 │   │   ├── keel-code-change-spec.md   # S：改造点表达
@@ -119,16 +120,16 @@ keel dev --codex /path/to/your/project
 
 | 层次 | 应包含 | 不应包含 |
 | --- | --- | --- |
-| **A（Agent）** | 角色、能力、原则：专业职责、擅长的工作、稳定的判断方式 | 固定项目规范路径、阶段步骤、状态字段、重试次数、完成命令 |
+| **A（Agent）** | 角色、能力、做事风格：专业职责、擅长的工作、跨项目的稳定方法 | 固定项目规范路径、阶段步骤、状态字段、重试次数、完成命令 |
 | **S（Spec）** | 按场景组织的工作规范：操作边界、质量标准及其适用条件、必需产物、文档与图表格式、验收要求 | 调度哪个 Agent、什么时候问用户、阶段推进与恢复 |
-| **O（Orchestration）** | `SKILL.md` 中的高层编排：主要步骤及顺序、执行者、任务与 Spec、必要的用户决策和步骤衔接 | 重写 Agent 的角色原则，重复维护 Spec 中的标准，细管 Agent 的执行方法，堆叠限制，将编排主线拆到独立编排文档 |
+| **O（Orchestration）** | `SKILL.md` 中的高层编排：主要步骤及顺序、执行者、任务与 Spec、必要的用户决策和步骤衔接 | 重写 Agent 的做事风格，重复维护 Spec 中的标准，细管 Agent 的执行方法，堆叠限制，将编排主线拆到独立编排文档 |
 
 ### 编写与调整要求
 
-1. Agent Markdown 固定为“角色、能力、原则”。原则用能直接指导行动的句子，如最小修改、不过度设计、先看已有实现、定位不出来就明说；TOML 只做必要注册并加载角色说明。
-2. Spec 按使用场景组织，定义工作边界、质量要求、必需产物及适用条件；共享标准保持一个来源，Builder 与 QA 使用同一份代码和测试标准。本次需求与修复目标放在任务中，Spec 保留长期规则。
+1. Agent Markdown 固定为“角色、能力、做事风格”。做事风格描述换到其他项目仍适用的专业方法，如最小修改、TDD、先核实现状、用证据判断，不放项目权限或固定必检清单；TOML 只做必要注册并加载角色说明。
+2. Spec 按使用场景组织，定义具体工作边界、质量门槛、必需产物及适用条件，不重复 Agent 的通用方法；共享标准保持一个来源，Builder 与 QA 使用同一份代码和测试标准。本次需求与修复目标放在任务中，文档表达等团队产物要求仍由 Spec 规定。
 3. 每个 `SKILL.md` 说明从接收输入到最终交付的主要步骤及顺序，包括主会话承担的沟通、检查和交付。涉及 subagent 时，明确调用哪个 Agent、这一步要完成什么、依据什么 Spec，并提供必要的任务资料；仅在影响步骤衔接时补充输出、分支或恢复说明，不要求每一步套用完整字段模板。
-4. 信任 Agent 的专业能力，由其依据任务、Spec 和项目事实自主选择调研路径、工具与局部执行方法。编排聚焦目标和协作，不逐项规定模型能够自主完成的操作，不重复角色原则或 Spec，不堆叠禁止事项。仅保留授权边界、关键用户决策、必要质量门禁和跨步骤交接要求；主会话依据结果推进，已有明确决定直接沿用。
+4. 信任 Agent 的专业能力，由其依据任务、Spec 和项目事实自主选择调研路径、工具与局部执行方法。编排聚焦目标和协作，不逐项规定模型能够自主完成的操作，不重复角色风格或 Spec，不堆叠禁止事项。仅保留授权边界、关键用户决策、必要质量门禁和跨步骤交接要求；主会话依据结果推进，已有明确决定直接沿用。
 5. 编排流程、A/S 绑定及必要的推进和恢复规则统一维护在所属 `SKILL.md`，不另设 `keel-dev-orchestration.md` 一类独立编排文件。可引用场景 Spec、模板和可执行脚本；共享脚本提供机制，`SKILL.md` 只说明必要调用及结果衔接，不展开脚本内部实现，不以外部引用代替流程主线。
 6. A/S 可以独立替换，O 核对能力、引用和交付接口。缺资料、规范冲突或超出授权时说明原因，不能静默回退或扩大任务。
 7. 重组文件时保留原有目标、质量要求和门禁；同步调用方、部署、模板、校验与测试。体量统计区分主会话编排、Agent 固定输入和动态任务资料，不把搬文件当成上下文节省。
@@ -159,7 +160,7 @@ Plan 与 Fix 的改造点共用 `common/refs/keel-code-change-spec.md`：按真�
 | --- | --- | --- | --- |
 | 方案设计 | Planner | 方案编写 + 通用工作 + 业务流程/改造点表达 | keel-plan 的 SKILL.md：调研、决策沟通、起草/修订、渲染与最终确认 |
 | 开发 | Builder | 代码实施 + 通用工作 + 代码与测试质量 | keel-dev 的 SKILL.md：初始化、实现、验收、返修与交付 |
-| 验收 | QA | 交付验收 + 通用工作 + 同一代码与测试质量 | 所属 keel-dev 或 keel-fix 的 SKILL.md |
+| 验收 | QA | 交付验收 + 通用工作 + 同一代码与测试质量 + 评分记录 | 所属 keel-dev 或 keel-fix 的 SKILL.md |
 | 流程维护 | CallChain | 流程文档维护 + 通用工作 + 业务流程表达 | keel-dev 的 SKILL.md：判断是否需要维护、调度与结果处理 |
 | 局部缺陷修复 | Builder、QA | 按步选择调查/实施/验收规范 + 局部修复边界；说明编写另用修复说明与改造点表达 | keel-fix 的 SKILL.md：定位、分流、独立审阅、修复验收与现场复验 |
 
@@ -172,6 +173,26 @@ Spec 位于 `common/refs/`，按使用场景和共享标准分类，完整清单
 正文直接列出简短易懂的规则，正确或错误示例按需添加并保留前缀。旧名称保留原章节和规范引用，供已有文件使用；当前 Skill 直接选择场景规范。
 
 Planner、Builder、QA 和 CallChain 的 Spec 输入共用 `keel-document-writing-spec`：Markdown 用短句和直白说法，少写重复背景、过程和图表复述；证据用短结论加真实引用，保留必要设计、字段、SQL、图表及验证信息。它作为写作规范输入，不增加产物检查或固定字数限制。
+
+Agent 的做事风格不固化项目检查清单。需要增删某项 QA 检查时，直接修改对应 Spec；Skill 继续下发同一份规范并编排执行，不增加检查开关或自动高分策略。
+
+### QA 评分与查看
+
+QA 按当前规范记录检查结果，调用 `keel-qa-score.py` 生成 JSON。目标完成率按计划快照的功能目标计算：完成目标数 ÷ 总目标数 × 100；一个功能的全部验收条件通过才算完成，遗漏或未验证仍计入总数。其他检查按各组实际条目计分，没有检查结果时不补满分。
+
+目标总数由工具读取快照，其他组的条目由 QA 按当前规范列全；工具负责算分，不自动判断自然语言规约是否有遗漏，也不将某组满分当成整体质量满分。
+
+初验保存在本次报告目录的 `qa-score.json`，复验保存独立的 `qa-score-retest-*.json`；不会以修好后的满分覆盖初次成绩。分数、验收结论及现场复验事项分开记录；工具不操作运行状态或决定下一次检查内容。
+
+```bash
+# results.json 为 QA 的业务检查结果，可用 - 从标准输入读取
+python3 .codex/common/scripts/keel-qa-score.py record results.json --plan /path/to/run/plan.md --output-dir /path/to/run
+# Fix 使用 --fix /path/to/run/approved.md
+python3 .codex/common/scripts/keel-qa-score.py history /path/to/project --last 10
+python3 .codex/common/scripts/keel-qa-score.py history /path/to/project --builder keel-builder --include-retests --json
+```
+
+业务 JSON 包含 `schema_version: 1`、`review: initial/retest`、`verdict: APPROVED/REJECTED` 和 `blockers` 文本列表；`goal_results` 记录目标的 id、status、evidence，`checks` 记录组名 name 和 items（条目为 name、status、evidence）。未验证状态使用 `unverified` 并填写 reason，其他状态为 `passed/failed`；可补充 project、builder、commits、limitations。标准 `.keel/` 目录可自动识别所属项目，历史按项目、Builder、Dev/Fix、初验/复验分组。检查内容可以随 Spec 增删，脚本不内置质量检查种类或通过阈值。
 
 ### Skill 与 Agent 协议
 
@@ -249,6 +270,8 @@ run 目录最小结构:
   <name>.features/            # 各功能的设计 MD
   state.json
   qa-feedback.md
+  qa-score.json              # 本次初验评分
+  qa-score-retest-*.json      # 复验评分，与初验分开
   fix-brief.md
   call-chain-review.md        # 实际调用 CallChain 时才生成
   progress.tsv
@@ -271,6 +294,7 @@ bash -n keel-plan/skills/keel-plan/scripts/render-plan-html.sh
 scripts/check-runtime-contract.sh
 scripts/check-planning-contract.sh
 # check-runtime-contract 已包含 ASO 边界、部署和运行协议验证
+python3 scripts/test-qa-score.py
 scripts/keel-metrics.sh
 scripts/check-slimming-targets.sh
 scripts/check-call-chain-controlled-eval.sh

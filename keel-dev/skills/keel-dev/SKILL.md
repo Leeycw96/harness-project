@@ -16,7 +16,7 @@ user-invocable: true
 | 工作 | 默认 Agent | Spec |
 | --- | --- | --- |
 | 实现 | keel-builder | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-implementation-spec`：`.codex/common/refs/keel-implementation-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
-| 验收 | keel-qa | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-acceptance-spec`：`.codex/common/refs/keel-acceptance-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
+| 验收 | keel-qa | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-acceptance-spec`：`.codex/common/refs/keel-acceptance-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md`；`keel-qa-scoring-spec`：`.codex/common/refs/keel-qa-scoring-spec.md` |
 | 流程维护 | keel-call-chain | `keel-work-spec`：`.codex/common/refs/keel-work-spec.md`；`keel-flow-index-spec`：`.codex/common/refs/keel-flow-index-spec.md`；`keel-business-flow-spec`：`.codex/common/refs/keel-business-flow-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
 
 ## 初始化
@@ -47,7 +47,7 @@ export KEEL_PROFILE
 
 ## 验收
 
-主会话按验收绑定调度新的 `keel-qa`，任务包含快照计划、本轮 Builder commits、验收范围与报告要求；返修验收另附 fix-brief.md。请其独立验证功能与实现，按 Spec 写 qa-feedback.md，返回业务结论 APPROVED 或 REJECTED、验证证据和遗留项。
+主会话按验收绑定调度新的 `keel-qa`，任务包含快照计划、本轮 Builder 标识和 commits、验收范围及报告目录；返修验收另附 fix-brief.md。请其按 Spec 核验本次交付并生成验收产物，返回业务结论 APPROVED 或 REJECTED、验证证据和遗留项。
 
 REVIEW 覆盖全部功能；REVIEW_FIX 覆盖阻断项与受影响场景。通过后进入流程维护判定；未通过则由主会话将阻断项整理为 fix-brief.md，返回实现步骤的 FIX，再安排新 QA 复验。最多三轮返修，仍阻断则 PAUSED。
 

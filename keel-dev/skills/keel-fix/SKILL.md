@@ -44,7 +44,7 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.
 
 ## 验收与返修
 
-主会话调度新的 `keel-qa`，Spec 为 `keel-work-spec`（`.codex/common/refs/keel-work-spec.md`）、`keel-acceptance-spec`（`.codex/common/refs/keel-acceptance-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#适用范围`、`.codex/common/refs/keel-bug-scope-spec.md#验收依据`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。任务包含 approved.md、approved-investigation.md、本轮 commits 和验收范围（旧任务沿用已有资料），返修验收另附 fix-brief.md；请其独立核验目标、修复行为和实际影响，按 Spec 写 qa-feedback.md，返回业务结论 APPROVED 或 REJECTED、验证证据与遗留项。
+主会话调度新的 `keel-qa`，Spec 为 `keel-work-spec`（`.codex/common/refs/keel-work-spec.md`）、`keel-acceptance-spec`（`.codex/common/refs/keel-acceptance-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#适用范围`、`.codex/common/refs/keel-bug-scope-spec.md#验收依据`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）、`keel-qa-scoring-spec`（`.codex/common/refs/keel-qa-scoring-spec.md`）。任务包含 approved.md、approved-investigation.md、本轮 Builder 标识和 commits、验收范围及报告目录（旧任务沿用已有资料），返修验收另附 fix-brief.md；请其按 Spec 核验本次交付并生成验收产物，返回业务结论 APPROVED 或 REJECTED、验证证据与遗留项。
 
 BUG_REVIEW 覆盖全部修复目标，BUG_REVIEW_FIX 覆盖阻断项及受影响行为。通过后进入 WAITING_RETEST；未通过则由主会话整理 fix-brief.md，进入 BUG_FIX 并安排新 QA 复验。原方案内返修最多三轮且不重复确认，仍阻断则 PAUSED。
 
