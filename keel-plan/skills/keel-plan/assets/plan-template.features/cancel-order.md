@@ -30,34 +30,31 @@ ALTER TABLE orders ADD COLUMN refund_requested_at TIMESTAMP NULL;
 ```plantuml
 @startuml
 actor 用户
-participant "OrderController.cancel" as API
-participant "OrderService.requestRefund" as Service
+participant 订单接口 as API
+participant 订单服务 as Service
 database 订单库 as DB
-participant "RefundJob.dispatch" as Job
-participant 退款网关 as Gateway
-用户 -> API : POST /orders/{id}/cancel
-API -> Service : requestRefund(id, key)
-group 沿用订单查询与归属、可取消条件校验（OrderService.cancel）
-Service -> DB : 查询并校验订单
-end
-alt 已有同一请求的退款申请
-Service --> API : 原退款请求 ID 与状态
-API --> 用户 : 202 原结果
-else 首次有效请求
+participant 退款派发 as Job
+participant 退款渠道 as Gateway
+用户 -> API : 申请取消订单
+API -> Service : 处理取消申请
+Service -> DB : 沿用订单与取消条件校验
+alt 已有同一退款申请
+  Service --> API : 返回原申请结果
+  API --> 用户 : 当前退款状态
+else 首次允许取消
 group 本地事务 [修改]
-Service -> DB : [修改] PAID 条件更新为 REFUND_PENDING\n[新增] 记录 refund_requested_at 并写入退款任务
-DB --> Service : 提交成功
+  Service -> DB : 标记待退款，保存申请时间与退款任务
 end
-Service --> API : 状态与退款请求 ID
-API --> 用户 : 202 REFUND_PENDING
-Job -> DB : 读取已提交退款任务
-Job -> Gateway : 沿用既有退款派发与重试
-note over Job,Gateway
-本次任务与重试复用同一退款请求 ID
-end note
+  Service --> API : 返回退款申请结果
+  API --> 用户 : 退款处理中
+  Job -> DB : 读取已保存退款任务
+  Job -> Gateway : 沿用退款派发与重试
 end
 @enduml
 ```
+
+- 事务内按 `PAID` 条件更新为 `REFUND_PENDING`，记录 `refund_requested_at` 并写入退款任务；任一失败全部回滚，提交后才返回成功。
+- 派发与重试复用同一退款请求 ID；已有查询、归属和渠道校验规则沿用 `OrderService.cancel`。
 
 ## 接口设计
 

@@ -12,45 +12,28 @@
 ```plantuml
 @startuml
 actor 调用方 as Caller
-participant "inventory.http [新增入口]" as API
-participant "inventory.service [新增操作]" as Service
-database SQLite as DB
+participant 库存接口 as API
+participant 库存处理 as Service
+database 库存库 as DB
 Caller -> API : 确认订单预占
-API -> Service : order_id
-group 写事务 [新增]
-  Service -> DB : BEGIN IMMEDIATE
-  Service -> DB : 按 order_id 查询预占
-  alt 预占不存在
-    Service -> DB : ROLLBACK
-    Service --> API : 404 预占不存在
-  else 已为 CONFIRMED
-    Service -> DB : COMMIT，不扣减
-    Service --> API : 同一已确认记录
-  else 已为 CANCELLED
-    Service -> DB : ROLLBACK
-    Service --> API : 409 已取消，不能确认
-  else 为 RESERVED
-    Service -> DB : stock >= quantity 时扣减 quantity
-    alt 更新未成功，库存数据不一致
-      Service -> DB : ROLLBACK
-      Service --> API : 409 库存数据不一致
-    else 扣减成功
-      Service -> DB : 仅把 RESERVED 改为 CONFIRMED
-      Service -> DB : COMMIT
-      Service --> API : 已确认记录
-    end
+API -> Service : 处理确认
+group 确认事务 [新增]
+  Service -> DB : 查询预占状态
+  alt 已确认
+    Service --> API : 返回原确认结果，不再扣减
+  else 有效预占
+    Service -> DB : 一同扣减库存并标记已确认
+    Service --> API : 返回确认结果
+  else 已取消或不存在
+    Service --> API : 拒绝确认，库存不变
   end
 end
-API --> Caller : 结果或明确错误
-note over Service,DB
-扣减和状态更新一起提交；任一异常回滚，未提交前不返回成功。
-两次条件更新均须影响一行，否则回滚并返回库存数据不一致。
-与创建共用写锁等待、错误处理和连接关闭规则。
-并发确认、取消按获得写锁后的状态决定，只能进入一种终态。
-确认后 stock 和有效预占量同减，可用量不变。
-end note
+API --> Caller : 结果
 @enduml
 ```
+
+- 沿用[创建预占的写事务约束](reserve-stock.md#功能时序图)。扣减仅在 `stock >= quantity` 时执行，扣减和状态条件更新各须命中一行；任何失败全部回滚，按下文契约返回库存数据不一致。
+- 与取消并发时，以获得写锁后的状态判断，只能成功进入一种终态。确认后账面量和预占量同减，可用量不变。
 
 ## 接口设计
 

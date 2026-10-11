@@ -1,0 +1,17 @@
+{
+  "kind": "manual_output_revision",
+  "historical_evaluation_commit": "b6c4ace",
+  "before_sequence_heights": [
+    "1092px",
+    "998px",
+    "815px"
+  ],
+  "historical_scores_and_snapshots_changed": false,
+  "new_agent_evaluation": false,
+  "after_sequence_heights": [
+    "677px",
+    "554px",
+    "554px"
+  ],
+  "sequence_height_reduction_percent": 38.6
+}

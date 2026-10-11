@@ -41,51 +41,36 @@ CREATE INDEX IF NOT EXISTS idx_reservations_sku_status ON reservations(sku, stat
 ```plantuml
 @startuml
 actor 调用方 as Caller
-participant "inventory.http [新增入口]" as API
-participant "inventory.service [新增操作]" as Service
-database SQLite as DB
-Caller -> API : 创建预占
-API -> Service : 已解析的订单、商品和数量
-alt 参数无效
-  Service --> API : 400 参数错误
-else 参数有效
-  group 写事务 [新增]
-    Service -> DB : BEGIN IMMEDIATE
-    Service -> DB : 按 order_id 查询预占
-    alt 已有预占，商品和数量相同
-      Service -> DB : COMMIT，不修改记录
-      Service --> API : 原预占的当前状态
-    else 已有预占，商品或数量不同
-      Service -> DB : ROLLBACK
-      Service --> API : 409 订单预占冲突
-    else 新订单
-      Service -> DB : 查询商品及 RESERVED 数量之和
-      alt 商品不存在
-        Service -> DB : ROLLBACK
-        Service --> API : 404 商品不存在
-      else quantity 大于 stock 减有效预占量
-        Service -> DB : ROLLBACK
-        Service --> API : 409 库存不足
-      else 库存足够，包含恰好相等
-        Service -> DB : 新增 RESERVED 记录；不改 stock
-        Service -> DB : COMMIT
-        Service --> API : 已保存的预占
-      end
+participant 库存接口 as API
+participant 库存处理 as Service
+database 库存库 as DB
+Caller -> API : 申请预占商品
+API -> Service : 处理申请
+group 预占事务 [新增]
+  Service -> DB : 查询订单已有预占
+  alt 已有相同申请
+    Service --> API : 返回原预占的当前结果
+  else 同一订单的申请内容不同
+    Service --> API : 拒绝冲突申请
+  else 新订单
+    Service -> DB : 核实商品与可用库存
+    alt 商品存在且库存足够（包含等量）
+      Service -> DB : 保存有效预占，不扣账面库存
+      Service --> API : 返回预占结果
+    else 商品不存在或库存不足
+      Service --> API : 拒绝申请，库存不变
     end
   end
 end
-API --> Caller : 结果或明确错误
-note over Service,DB
-现有 db.connect 为自动提交模式，写操作须显式开启事务。
-创建、确认、取消均在获得写锁后读取和修改，连接用后关闭。
-等待写锁沿用 10 秒；超时回滚并返回 503，可重试同一订单。
-其他数据库异常回滚并返回 500；提交成功后才返回成功。
-提交后响应丢失时，重试读取同一记录，不重复占用。
-end note
+API --> Caller : 结果
 @enduml
 ```
 
-写锁选择依据：[SQLite 事务说明](https://www.sqlite.org/lang_transaction.html)。库存查询使用单条汇总查询，同时取 `stock` 和仅 `RESERVED` 的数量之和，保证三个数字来自同一快照。
+- 参数按下文接口约定校验。相同订单的申请冲突先于商品和库存判断；原记录即使已确认或取消也不重新激活。
+- 创建、确认、取消共用 `BEGIN IMMEDIATE` 写事务，先获得写锁再读取并修改。失败全部回滚，提交成功后返回，连接用后关闭；沿用 10 秒等待，超时及数据库错误按接口契约响应。
+- 库存查询用单条汇总查询同时取账面量和有效预占量，保证数字来自同一快照；响应丢失后重试读取原记录，不重复占用。
+
+事务选择依据：[SQLite 事务说明](https://www.sqlite.org/lang_transaction.html)。
 
 ## 接口设计
 

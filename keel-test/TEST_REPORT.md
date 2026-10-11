@@ -2,9 +2,11 @@
 
 Plan、Dev、Fix 的隔离试验已完成。主会话按当前 Skill 编排原生 Agent，Agent 实际加载部署角色与 Spec；没有改 Keel 规范或脚本绕过要求。
 
+下表记录原始试验。当前 Plan 展示稿随后按新表达规则手工精简时序图，技术约束保留在功能 MD；历史计划快照、评分和日志未改，未重新运行 Agent 评估。简明验收表达样例见 [QA 摘要](.keel/eval/concise-output-example/qa-feedback.md)。
+
 ## 优先审阅
 
-- [Plan HTML](.keel/plans/inventory-reservations.html)：三个目标、一个业务总览、状态机、ER 图和三个时序图，六张图全部真实渲染。
+- [Plan HTML](.keel/plans/inventory-reservations.html)：三个目标、一个业务总览、状态机、ER 图和三个精简时序图，六张图全部真实渲染。
 - [Fix HTML](.keel/bugs/BUG-001/bug.html)：问题、原因、改造点、影响点、建议验证点五章；HTML 正文约 211 个字符，源 Markdown 共 257 个字符，不展示证据代码。
 
 ## 实际结果
@@ -22,6 +24,7 @@ Plan、Dev、Fix 的隔离试验已完成。主会话按当前 Skill 编排原�
 - Plan 首稿总览拆成三张，修订后合为一张；QA 首稿偏长，精简后约减少 52%。[首稿及反馈](.keel/eval/observations.md)已保留。仅输入简洁 Spec，第一次产出仍可能有冗余。
 - QA 的其他检查组包含自身文档、评分格式等要求，不能都解释为 Builder 质量；本次业务目标完成率有独立验证支撑，不自动决定后续减检。
 - 额外启用三个历史图表集成测试：两个通过，一个旧断言仍要求模板已删除的 refund_tasks，失败日志已保留，未在本次试验中修改框架测试。
+- 后续规范与模板调整已将该旧断言同步为实际 orders 模型；原始失败日志仍作为历史证据保留。
 - 8 路突发 HTTP 有连接重置，基线与修复版本各三轮对照均出现两轮，库存始终正确。QA 将其列为原有非阻断观察，详见 Fix 报告。
 
 ## 执行说明

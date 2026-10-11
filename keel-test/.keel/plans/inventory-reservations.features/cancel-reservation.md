@@ -12,37 +12,28 @@
 ```plantuml
 @startuml
 actor 调用方 as Caller
-participant "inventory.http [新增入口]" as API
-participant "inventory.service [新增操作]" as Service
-database SQLite as DB
+participant 库存接口 as API
+participant 库存处理 as Service
+database 库存库 as DB
 Caller -> API : 取消订单预占
-API -> Service : order_id
-group 写事务 [新增]
-  Service -> DB : BEGIN IMMEDIATE
-  Service -> DB : 按 order_id 查询预占
-  alt 预占不存在
-    Service -> DB : ROLLBACK
-    Service --> API : 404 预占不存在
-  else 已为 CANCELLED
-    Service -> DB : COMMIT，不再次释放
-    Service --> API : 同一已取消记录
-  else 已为 CONFIRMED
-    Service -> DB : ROLLBACK
-    Service --> API : 409 已确认，不能取消
-  else 为 RESERVED
-    Service -> DB : 仅把 RESERVED 改为 CANCELLED；不改 stock
-    Service -> DB : COMMIT
-    Service --> API : 已取消记录
+API -> Service : 处理取消
+group 取消事务 [新增]
+  Service -> DB : 查询预占状态
+  alt 已取消
+    Service --> API : 返回原取消结果，不再释放
+  else 有效预占
+    Service -> DB : 标记已取消，恢复可用库存
+    Service --> API : 返回取消结果
+  else 已确认或不存在
+    Service --> API : 拒绝取消，库存不变
   end
 end
-API --> Caller : 结果或明确错误
-note over Service,DB
-与创建共用写锁等待、异常回滚和连接关闭规则。
-有效预占量只统计 RESERVED，因此取消后可用量自然恢复。
-重试返回同一终态；确认和取消同时到达时只允许一种终态。
-end note
+API --> Caller : 结果
 @enduml
 ```
+
+- 沿用[创建预占的写事务约束](reserve-stock.md#功能时序图)。只将 `RESERVED` 条件更新为 `CANCELLED`，不改 `stock`；状态更新须命中一行，失败回滚并返回冲突。
+- 有效预占量只统计 `RESERVED`，取消后可用量自然恢复；确认和取消按获得写锁后的状态判断，终态不互换。
 
 ## 接口设计
 

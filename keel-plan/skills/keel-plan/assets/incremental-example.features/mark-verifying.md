@@ -14,38 +14,30 @@
 
 ```plantuml
 @startuml
-participant "ExportJob.run" as Job
-participant "ExportService.execute" as Service
-participant "FileValidator.check" as Validator
+participant 导出任务 as Job
+participant 导出处理 as Service
+participant 文件校验 as Validator
 database 导出任务库 as DB
-participant "TimeoutScanner.scan" as Timer
-par 校验路径
-group 沿用领取与文件生成（ExportJob.run）
-Job -> Service : 领取任务并生成文件（沿用）
-end
-Service -> DB : [新增] 条件更新 RUNNING → VERIFYING
-note over Service,DB
-沿用原独立状态更新事务与并发保护
-未命中条件时按原规则退出
-文件生成与校验不纳入该事务
-end note
-opt 条件更新命中
-Service -> Validator : 校验文件
-alt 校验成功
-Service -> DB : [修改] VERIFYING → COMPLETED（条件更新）
-else 校验失败
-Service -> DB : [修改] VERIFYING → FAILED（条件更新）
-end
-end
-else 独立超时扫描
-Timer -> DB : 扫描超时的运行中任务
-note over Timer,DB
-[修改] 扫描范围由 RUNNING 扩为 RUNNING、VERIFYING
-end note
-Timer -> DB : 按原并发条件更新为 FAILED（覆盖 VERIFYING）
+participant 超时扫描 as Timer
+par 文件校验路径
+  Job -> Service : 沿用任务领取与文件生成
+  Service -> DB : [新增] 条件更新 RUNNING → VERIFYING
+  opt 状态更新成功
+    Service -> Validator : 校验文件
+    alt 校验成功
+      Service -> DB : [修改] VERIFYING → COMPLETED
+    else 校验失败
+      Service -> DB : [修改] VERIFYING → FAILED
+    end
+  end
+else 独立超时处理
+  Timer -> DB : [修改] 将 RUNNING、VERIFYING 中的超时任务标记失败
 end
 @enduml
 ```
+
+- 状态更新沿用原独立事务及并发保护，条件未命中时按原规则退出；文件生成与校验不进入该事务。
+- 完成、失败和超时处理仍按原条件更新；超时扫描范围新增 `VERIFYING`，其余重试和恢复规则沿用。
 
 ## 接口设计
 

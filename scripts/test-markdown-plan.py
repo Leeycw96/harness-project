@@ -801,7 +801,7 @@ if init_keel_run "$PROJECT_DIR/invalid" "$PROJECT_DIR/.keel/plans/example.md" ex
         decoded = [base64.b64decode(data).decode() for data in images]
         self.assertTrue(all("<svg" in svg for svg in decoded))
         self.assertIn("refund_requested_at", decoded[2])
-        self.assertIn("refund_tasks", decoded[2])
+        self.assertIn("orders", decoded[2])
         for color in ("#DCFCE7", "#DBEAFE", "#FEE2E2"):
             self.assertIn(color, decoded[1])
         self.assertIn("本期删除", "".join(ET.fromstring(decoded[1]).itertext()))
