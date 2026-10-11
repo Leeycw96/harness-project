@@ -55,12 +55,12 @@ REVIEW 覆盖全部功能；REVIEW_FIX 覆盖阻断项与受影响场景。通�
 
 QA 通过后，主会话检查最终 Builder diff，按流程索引 Spec 判断是否需要调度：明确无外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时为 noop，有变化或不确定为 run。
 
-主会话调用 `record_call_chain_prefilter "<noop|run>" "<判定证据>"`。on-demand 的 noop 调用 record_call_chain_skip 后直接交付；run 按流程维护绑定调度 `keel-call-chain`，任务包含索引目录、最终 commits 和相关计划，请其核实并维护受影响流程，返回 call-chain-review.md、业务结论 NOOP 或 UPDATED、文档 commits 与证据。
+主会话调用 `record_call_chain_prefilter "<noop|run>" "<判定证据>"`。on-demand 的 noop 调用 record_call_chain_skip 后直接交付；run 按流程维护绑定调度 `keel-call-chain`，任务包含索引目录、最终 commits 和相关计划，请其核实并维护受影响流程，返回 call-chain-review.md、业务结论 NOOP 或 UPDATED、更新文件与证据。
 
 收到报告后，主会话先核对产物与证据，以对应内部标记调用 complete_stage；成功后才记录以下结果并推进 state：
 
 - NOOP：主会话映射内部标记 CALL_CHAIN_NOOP，调用 `record_call_chain_result noop`。
-- UPDATED：主会话核对独立的流程文档 commit，映射内部标记 CALL_CHAIN_UPDATED，调用 `record_call_chain_result updated "<commit-sha>"`。
+- UPDATED：主会话核对更新文档与报告，映射内部标记 CALL_CHAIN_UPDATED，调用 `record_call_chain_result updated`。本步不要求 Git 提交；任务另外要求提交时，可用第二参数记录返回的 commit SHA。
 
 恢复旧 shadow 模式时始终调度 CallChain，Agent 独立判断且不读取预判结果；主会话完成上述产物校验与记录后，改用 `record_call_chain_shadow_result "<noop|updated>"` 并记录对应文档结果。
 
@@ -77,6 +77,6 @@ QA 通过后，主会话检查最终 Builder diff，按流程索引 Spec 判断�
 
 调用层实际加载所选注册 Agent 的角色配置并提供项目环境，不增加第三段业务输入；尽量使用独立任务上下文，工具支持时关闭完整历史继承，不靠继承父 Skill 或对话充当角色。不下发 KEEL_PROFILE、stage、artifact、tag、reporter、task_ref 或 Skill，不把运行字段和历史对话夹入任务。Agent 自主选择方法，仅返回业务结论、产物、commits、验证证据与遗留项。
 
-主会话记录当前原生执行标识，通过原生消息跟进并手动调用脚本，没有自动进度采集器；仅接受当前执行的进展与结果，拒绝晚到的旧消息。主会话 source `.codex/common/scripts/keel-common.sh`，派发时及收到当前执行的新进展时调用 `update_progress "<reporter>" "<stage>" "<摘要>" "<artifact>"`；核对产物、提交和证据后调用 `complete_stage "<reporter>" "<tag>" "<摘要>" "<artifact>"`，再推进 state。reporter 沿用对应默认角色；阶段、登记产物和完成标记仅为主会话内部字段，实现结果映射上表，QA 结论映射 APPROVED/REJECTED，流程维护结论按上节映射。Agent 不调用运行助手或修改运行状态。
+主会话记录当前原生执行标识，通过原生消息跟进并手动调用脚本，没有自动进度采集器；仅接受当前执行的进展与结果，拒绝晚到的旧消息。主会话 source `.codex/common/scripts/keel-common.sh`，派发时及收到当前执行的新进展时调用 `update_progress "<reporter>" "<stage>" "<摘要>" "<artifact>"`；核对产物、证据及任务要求的提交后调用 `complete_stage "<reporter>" "<tag>" "<摘要>" "<artifact>"`，再推进 state。reporter 沿用对应默认角色；阶段、登记产物和完成标记仅为主会话内部字段，实现结果映射上表，QA 结论映射 APPROVED/REJECTED，流程维护结论按上节映射。Agent 不调用运行助手或修改运行状态。
 
 恢复时主会话先结束旧执行，运行 `resume_keel_run "$KEEL_PROFILE"` 并采用返回路径（兼容旧 profile），再创建新任务并记录新执行标识；保留提交、进度与返修计数，自定义 A/S 沿用，忽略旧 task_ref。审查五分钟、实现或返修十五分钟无进展时检查，并非自动判失败；轮询、重复摘要和仅 running 不算新进展，不重置计时。每阶段每角色最多恢复两次；产物错误定向补做一次，再失败计入恢复次数。已完成 run 不重开，超限或关键资料缺失则暂停并报告。

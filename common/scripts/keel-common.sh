@@ -179,6 +179,7 @@ record_call_chain_skip() {
     end'
 }
 
+# Commit metadata is optional; verified document updates can complete without Git submission.
 record_call_chain_result() {
   local agent_decision="$1" commit="${2:-}" artifact ts
   case "$agent_decision" in
@@ -188,8 +189,8 @@ record_call_chain_result() {
       return 2
       ;;
   esac
-  if [ "$agent_decision" = "updated" ] && [[ ! "$commit" =~ ^[0-9a-f]{7,64}$ ]]; then
-    echo "错误: CallChain UPDATED 必须记录 commit sha" >&2
+  if [ -n "$commit" ] && [[ ! "$commit" =~ ^[0-9a-f]{7,64}$ ]]; then
+    echo "错误: CallChain 可选 commit SHA 格式无效" >&2
     return 2
   fi
   artifact="$(_keel_profile_value '.artifacts.call_chain_review')" || return 1

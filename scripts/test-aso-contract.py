@@ -447,19 +447,51 @@ class AsoContractTests(unittest.TestCase):
         old_log = log.read_bytes()
         report = state.parent / 'call-chain-review.md'
         # The main session validates the returned report before recording completion and the result.
-        command = 'complete_stage keel-call-chain CALL_CHAIN_UPDATED "已核验流程报告" "$3"\nrecord_call_chain_result updated "$4"'
-        self.helper(state, command, report, 'a' * 40, success=False)
+        command = 'complete_stage keel-call-chain CALL_CHAIN_UPDATED "已核验流程报告" "$3"\nrecord_call_chain_result updated'
+        self.helper(state, command, report, success=False)
         self.assertEqual(state.read_bytes(), before)
         self.assertEqual(log.read_bytes(), old_log)
         self.assertNotEqual(json.loads(state.read_text())['call_chain']['status'], 'completed')
-        report.write_text('UPDATED\n已核验的业务状态变化及流程文档提交证据。')
-        self.helper(state, command, report, 'a' * 40)
+        # The updated document is deliberately uncommitted, in a project without a Git repository.
+        self.assertFalse((self.project / '.git').exists())
+        document = self.project / '.keel/call-chain/order-lifecycle.md'
+        document.parent.mkdir(parents=True, exist_ok=True)
+        document.write_text('订单生命周期\n已补充退款确认状态与代码依据。')
+        report.write_text('UPDATED\n已更新 .keel/call-chain/order-lifecycle.md；状态变化有实际代码依据。')
+        self.helper(state, command, report)
         after = json.loads(state.read_text())
         self.assertEqual(after['phase'], 'DONE')
         self.assertEqual(after['call_chain']['status'], 'completed')
         self.assertEqual(after['call_chain']['artifact'], str(report))
+        self.assertIsNone(after['call_chain']['commit'])
+        self.assertTrue(document.is_file())
         self.assertEqual(after['fix_round'], 2)
         self.assertEqual(after['retries'], {'keel-call-chain': 2})
+
+    def test_call_chain_commit_metadata_is_optional(self):
+        cases = [('noop', None), ('updated', None), ('updated', 'b' * 40)]
+        for number, (action, commit) in enumerate(cases):
+            with self.subTest(action=action, commit=commit):
+                state = self.init_run('optional-commit-' + str(number))
+                self.helper(state, 'record_call_chain_prefilter run "核实受影响流程"')
+                (state.parent / 'call-chain-review.md').write_text(action.upper() + '\n文档与代码证据已核对。')
+                command = 'record_call_chain_result "$3"'
+                args = [action]
+                if commit is not None:
+                    command += ' "$4"'
+                    args.append(commit)
+                self.helper(state, command, *args)
+                data = json.loads(state.read_text())
+                self.assertEqual(data['phase'], 'DONE')
+                self.assertEqual(data['call_chain']['action'], action)
+                self.assertEqual(data['call_chain']['commit'], commit)
+
+    def test_invalid_optional_call_chain_commit_does_not_change_state(self):
+        state = self.init_run('invalid-optional-commit')
+        self.helper(state, 'record_call_chain_prefilter run "核实受影响流程"')
+        before = state.read_bytes()
+        self.helper(state, 'record_call_chain_result updated "$3"', 'invalid-sha', success=False)
+        self.assertEqual(state.read_bytes(), before)
 
     def test_replaceable_bindings_survive_state_updates_without_role_edits(self):
         state = self.init_run('replaceable')

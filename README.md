@@ -270,7 +270,7 @@ Codex App 的 dev run 在 Preflight 后直接由 Builder 按 Markdown 计划构�
 
 CallChain 已启用按需调度：主会话明确判断没有外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 CallChain 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
 
-CallChain 在业务流程文件中维护当前 PlantUML 状态图与流转表，记录源/目标状态、事件、条件、业务入口符号和实际状态变更符号及代码路径。图表以验收后的实现为准，历史差异交由 git 保存。
+CallChain 在业务流程文件中维护当前 PlantUML 状态图与流转表，记录源/目标状态、事件、条件、业务入口符号和实际状态变更符号及代码路径。图表以验收后的实现为准，历史差异不混入当前图表。UPDATED 以更新文档、报告和证据完成，不强制提交 Git；仅任务明确要求时提交，状态中的 commit SHA 为可选记录。
 
 本轮评审发现阻断问题时自动进入内部修复循环，最多三轮。run 完成后的新反馈使用新的 plan/dev run；范围变化重新运行 `/keel-plan`。
 
@@ -327,7 +327,7 @@ git status --short
 - [QA 摘要示例](keel-test/.keel/eval/concise-output-example/qa-feedback.md)：按三个功能目标汇报，详细证据使用引用。
 - [测试报告](keel-test/TEST_REPORT.md)：原始评估结果、首稿问题和后续表达修订。
 
-最新 Plan 展示稿和 QA 摘要为手工精简示例，尚未重跑新规范下的 Agent 首稿评估；原始快照、评分和日志保留。95 项契约测试及精简门槛已通过，真实用户对 HTML 的审阅仍待确认。再次执行完整试验仍使用临时项目。
+最新 Plan 展示稿和 QA 摘要为手工精简示例，尚未重跑新规范下的 Agent 首稿评估；原始快照、评分和日志保留。表达修订的 95 项契约验证及精简门槛已通过，真实用户对 HTML 的审阅仍待确认。再次执行完整试验仍使用临时项目。
 
 输入体量按 Agent 实际加载的角色配置和场景 Spec 统计；动态任务、项目资料和真实模型用量由行为评估记录，见 [评估说明](evals/keel/README.md)。
 
