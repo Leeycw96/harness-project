@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "project": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+  "builder": "keel-builder",
+  "review": "initial",
+  "verdict": "APPROVED",
+  "blockers": [],
+  "commits": [
+    "68e10818b5172db30a3bc2cd082ff8beab516436"
+  ],
+  "limitations": [
+    "仅评价本次隔离评估修复；真实用户对 HTML 的审阅仍待确认，不代表用户批准。",
+    "8 路突发真实 HTTP 请求出现连接重置，基线与修复版各 3 轮中的 2 轮出现；6 轮库存正确。属于已有问题，若需解决应另行调查，不纳入本次库存边界修复。证据：qa-transport.log:1-6；qa-transport-evidence.json。"
+  ],
+  "goal_results": [
+    {
+      "id": "bug",
+      "status": "passed",
+      "evidence": [
+        "approved.md：允许申请数量等于可用库存，回归不足、重复申请、确认、取消及原 10 件请求。",
+        "qa-suite-http.log:80-100,103-105：23 项非 HTTP 与 9 项 HTTP 全通过，含等量、最后一件、最大整数、幂等、冲突、确认取消、并发与失败回滚。",
+        "qa-probes.log:1-8；qa-probes.py:92-187：基线原证据逐字段一致；修复后原请求、真实进程多次重启、终态幂等及 4 路全库存并发通过。",
+        "qa-http-evidence.json scenarios.fixed_original_request：200 RESERVED，库存 10/10/0；取消后 10/0/10；确认后 0/0/0。"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "keel-code-quality-spec",
+      "items": [
+        {
+          "name": "沿用项目代码与测试约定",
+          "status": "passed",
+          "evidence": [
+            "inventory/service.py；tests/test_http.py；tests/test_reservations.py；qa-probes.py：标准库 HTTP、SQLite、unittest、临时数据库。"
+          ]
+        },
+        {
+          "name": "真实业务及关键联动可用",
+          "status": "passed",
+          "evidence": [
+            "qa-suite-http.log:1-105：真实 HTTP/SQLite；qa-probes.py:39-78,113-165；qa-http-evidence.json：真实服务进程和持久化。"
+          ]
+        },
+        {
+          "name": "修复已确认根因且无新增无用代码",
+          "status": "passed",
+          "evidence": [
+            "inventory/service.py:86；qa-checks.log：业务实现仅 >= 改为 >，无新增业务代码；qa-probes.log:1-3：基线失败与修复成功形成对照。"
+          ]
+        },
+        {
+          "name": "关键正常异常状态数据有业务测试",
+          "status": "passed",
+          "evidence": [
+            "qa-suite-http.log:80-100：等量、剩余量、无效参数、冲突、并发、终态、回滚；qa-probes.log:2-3：4 路全库存真实 HTTP 及终态重启。"
+          ]
+        },
+        {
+          "name": "入口与业务职责符合约定",
+          "status": "passed",
+          "evidence": [
+            "inventory/http.py:24-57 解析、路由与响应；inventory/service.py:65-137 库存业务；本次未改变职责边界。"
+          ]
+        },
+        {
+          "name": "测试断言业务返回与库存状态变化",
+          "status": "passed",
+          "evidence": [
+            "tests/test_http.py:88-116；tests/test_reservations.py:43-54；qa-probes.py:123-165,182-187：响应字段、库存与状态断言，无空测试。"
+          ]
+        },
+        {
+          "name": "适用语法测试启动检查可用",
+          "status": "passed",
+          "evidence": [
+            "qa-checks.log：compileall、独立探针 py_compile、CLI help、提交间 diff --check 均退出 0；qa-suite-http.log:103-105；qa-probes.log:6-8。无独立构建和类型检查。"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "keel-delivery-spec",
+      "items": [
+        {
+          "name": "目标范围和提交符合授权",
+          "status": "passed",
+          "evidence": [
+            "qa-checks.log：提交仅 inventory/service.py、tests/test_http.py、tests/test_reservations.py；HEAD 对应任务提交；git status --short 为空。QA 仅写报告证据。"
+          ]
+        },
+        {
+          "name": "结论符合实际产物与结果",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#代码验收、#原场景复验；qa-suite-http.log:103-105；qa-probes.log:6-8：修复目标完成。"
+          ]
+        },
+        {
+          "name": "未验证与待确认事项明确",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#实际验证与遗留：HTML 用户审阅待确认；8 路突发已有连接中断不纳入边界修复；未把隔离评估写为用户批准。"
+          ]
+        },
+        {
+          "name": "产物提交证据遗留项一致",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md；qa-score.json：同一 Builder、提交、bug 目标及 APPROVED；qa-http-evidence.json fix_commit 对应任务提交。"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "keel-acceptance-spec",
+      "items": [
+        {
+          "name": "指定报告包含结论范围及关联证据",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：APPROVED；引用批准说明、调查、日志和评分；关联预占幂等确认取消有结果。"
+          ]
+        },
+        {
+          "name": "修复目标全部验收条件有完成情况",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json goal_results.bug；qa-feedback.md#代码验收、#原场景复验；qa-suite-http.log:80-100：全部建议验证点完成。"
+          ]
+        },
+        {
+          "name": "通过有充分证据且无范围内必需缺口",
+          "status": "passed",
+          "evidence": [
+            "qa-suite-http.log:103-105；qa-probes.log:6-8；qa-http-evidence.json：项目 32 项、独立 3 项通过，范围内无阻断。"
+          ]
+        },
+        {
+          "name": "实际命令阻断观察及待确认项完整",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#实际验证与遗留；qa-checks.log：工作目录、命令、退出码；首次端口限制、8 路观察和 HTML 待确认均说明。"
+          ]
+        },
+        {
+          "name": "区分已有问题环境限制和本次回归",
+          "status": "passed",
+          "evidence": [
+            "qa-suite.log:35-226：9 项端口 PermissionError；qa-suite-http.log:103-105：放开端口后通过；qa-transport.log:1-6：基线与修复版均连接重置，无库存超卖。"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "keel-bug-scope-spec",
+      "items": [
+        {
+          "name": "局部修复资格与实际改动一致",
+          "status": "passed",
+          "evidence": [
+            "approved-investigation.md:3-15：已定位、缺陷、fix，五项边界无；requirements.md 与 plan.md reserve-stock 允许等量；inventory/service.py:86 修正计算边界；qa-checks.log：无状态、流转、契约、模型、事务设计改动。"
+          ]
+        },
+        {
+          "name": "实现和质量验收对应批准快照",
+          "status": "passed",
+          "evidence": [
+            "approved.md#改造点、#建议验证点；qa-suite-http.log:80-100；qa-score.json keel-code-quality-spec：根因及关联行为已核验。"
+          ]
+        },
+        {
+          "name": "代码验收原场景复验与范围外观察分开记录",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#代码验收、#原场景复验、#实际验证与遗留：隔离原请求通过；已有 8 路连接重置不标为已修复，需另行调查。"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "keel-document-writing-spec",
+      "items": [
+        {
+          "name": "短句短段结论在前",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：首段 APPROVED 与无阻断；各验收章节先写结果。"
+          ]
+        },
+        {
+          "name": "业务行为清晰字段状态准确",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#代码验收、#原场景复验：预占、账面库存、可用库存及 RESERVED 对应实际 HTTP 字段。"
+          ]
+        },
+        {
+          "name": "内容限于本次变化结果及影响",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：仅本次库存边界与关联生命周期、环境和已有观察项。"
+          ]
+        },
+        {
+          "name": "同一信息通过引用定位",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：详细检查见 qa-score.json；实际结果链接日志，不复制批准文档和代码。"
+          ]
+        },
+        {
+          "name": "证据可定位且不堆砌日志",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：关键库存结果、实际命令和短链接；细节保留 qa-suite-http.log、qa-http-evidence.json、qa-transport-evidence.json。"
+          ]
+        },
+        {
+          "name": "必需字段结果及未验证事项完整",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：Builder、提交、范围依据、两类验收、实际命令、无阻断、已有问题、HTML 待确认和评分来源。"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "keel-qa-scoring-spec",
+      "items": [
+        {
+          "name": "检查明细对应当前适用规范",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json checks：代码质量、交付、验收、局部修复、文档和评分六组；HTML 待确认与范围外现象在 limitations。"
+          ]
+        },
+        {
+          "name": "Fix 单目标来自批准快照且全条件通过",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json source.kind=fix、source.catalog id=bug；--fix approved.md 生成；goal_results.bug 引用全部验证条件。"
+          ]
+        },
+        {
+          "name": "各组分数依据明细计算且不漏报",
+          "status": "passed",
+          "evidence": [
+            "qa-score-validation.log：官方读取器无 errors；qa-score.json goal_score=1/1、check_scores 对应 passed 明细。"
+          ]
+        },
+        {
+          "name": "身份结论阻断提交字段完整",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json：schema_version=1、review=initial、verdict=APPROVED、blockers=[]、builder=keel-builder、完整提交与 limitations。"
+          ]
+        },
+        {
+          "name": "状态证据及必需未验证事项有记录",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json：目标 id、组及条目 name、status 和可定位 evidence；limitations 未将用户 HTML 审阅视为通过。"
+          ]
+        },
+        {
+          "name": "时间来源摘要及初验文件符合读取器",
+          "status": "passed",
+          "evidence": [
+            "qa-score-validation.log：官方 record/history 验证；qa-score.json recorded_at、source.sha256、data_sha256、goal_score、check_scores；首次生成不覆盖初验。"
+          ]
+        }
+      ]
+    }
+  ]
+}

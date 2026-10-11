@@ -1,0 +1,6 @@
+usage: python3.14 -m inventory.http [-h] --db DB [--port PORT]
+
+options:
+  -h, --help   show this help message and exit
+  --db DB
+  --port PORT

@@ -1,49 +1,20 @@
-# 贪吃蛇 · Keel 测试工程
+# 库存预占服务 · Keel 流程试验
 
-一个原生 HTML、CSS、JavaScript ES modules 与 Canvas 实现的单人贪吃蛇小游戏，无第三方运行依赖、构建步骤或后端。此目录也是 Keel Plan、Dev、Fix 实际流程的指定试验工程，使用父项目当前工作区版本部署的 Keel。
+商品库存支持按订单预占、确认扣减和取消释放。用这个后端任务完整试验 Keel 的 Plan、Dev、Fix 产物。
 
-## 本地试玩
+- [Plan HTML](.keel/plans/inventory-reservations.html)
+- [Fix HTML](.keel/bugs/BUG-001/bug.html)
+- [测试结论](TEST_REPORT.md)
 
-在 `keel-test` 目录执行：
+## 运行
 
-```bash
-python3 -m http.server 52001 --bind 127.0.0.1
-```
-
-在桌面浏览器中打开 <http://127.0.0.1:52001>。请通过静态服务访问，直接打开 `index.html` 可能被浏览器限制模块加载。
-
-- 点击「开始游戏」开始；初始蛇长 3 格，朝右，每 150 毫秒前进一格。
-- 使用方向键或 WASD（大小写均可）转向。每步只接受首个合法转向，不能直接掉头；长按重复事件会被忽略。
-- 吃一颗食物，蛇增长一格、分数加 1；撞墙或撞到身体即结束。
-- 不增长时可以进入本步移走的尾格。填满 20 × 20 棋盘后完成，得分为 397。
-- 运行中或结束后都可「重新开始」。刷新页面恢复待开始，不保存历史成绩。
-
-## 文件与验证
-
-- `game.mjs`：独立规则函数 `createGame`、`requestTurn`、`step`，返回新状态而不修改输入；食物随机源可注入测试。
-- `app.mjs`：Canvas 绘制、中文状态、键盘和按钮事件、唯一计时器管理。
-- `index.html`、`style.css`：中文页面与自适应正方形棋盘。
-- `tests/game.test.mjs`：使用 Node 内置测试，无需安装测试框架。
-
-在本目录执行：
+无需安装业务依赖，初始商品 DEMO 有 10 件库存。
 
 ```bash
-node --check game.mjs
-node --check app.mjs
-node --test tests/game.test.mjs
+python3 -m inventory.http --db /tmp/inventory-demo.sqlite3 --port 8080
+python3 -m unittest discover -s tests -v
 ```
 
-实际验证记录（2026-09-27）：
+接口：GET /health、GET /inventory/{sku}、POST /reservations，以及预占记录的 confirm/cancel 操作。具体契约见 Plan。
 
-- TDD：先新增规则测试，因 `game.mjs` 尚未存在而失败；完成实现后，Node v25.6.1 下 13 项测试全部通过，两个模块的语法检查通过。
-- 规则测试覆盖初始状态、随机食物、合法和反向转向、一步多次输入、普通移动、增长计分、四面撞墙、撞身、移走尾格、满盘完成、结束后停止及新局重置。
-- 在本地静态服务与真实 Chrome 153.0.8010.53 中，用 Playwright 点击按钮、发送方向键及 WASD（含大写）并读取实际 Canvas：待开始 450 毫秒不移动；开始后成功转向，走到随机食物后蛇长由 3 变 4、分数由 0 变 1；撞墙结束，停止计时器并保留棋盘和得分。
-- 结束后重开，再在运行中连续重开 15 次，实际仅保留一个 150 毫秒计时器；925 毫秒内前进 6 格，记录步间隔为 150、149、151、149、151 毫秒。验证未注入游戏状态或替换浏览器时间。
-- 刷新恢复待开始；1280 像素桌面与 375 像素窄窗口截图已检查，窄窗口棋盘等比缩为 295 × 295，无横向溢出；浏览器无页面异常或失败资源请求。满盘边界由规则测试验证，未宣称浏览器实际玩满 400 格。
-- 本轮浏览器验证脚本、证据 JSON 和截图保存在本地 `.keel/iterations/4.0.0/run-1/`，不进入源码提交。
-
-## Keel 运行约定
-
-- 所有业务源码、测试、方案和运行资料均放在本目录内；不修改父项目现有工作区改动。
-- `.agents/` 与 `.codex/` 是部署副本；计划、迭代和评估记录是本地生成产物，不提交。`.keel/call-chain/` 中的流程索引按规范独立提交。
-- 更新部署可在父项目执行 `bin/keel dev --codex keel-test`。
+Fix 使用明确标记的库存边界故障样本。自动推进仅使用隔离测试确认，真实用户对 HTML 的审阅仍待确认。

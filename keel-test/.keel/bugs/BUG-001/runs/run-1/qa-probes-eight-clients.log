@@ -1,0 +1,63 @@
+test_baseline_reproduces_recorded_http_failure (__main__.BoundaryChecks.test_baseline_reproduces_recorded_http_failure) ... ok
+test_concurrent_full_stock_http_orders_cannot_oversell (__main__.BoundaryChecks.test_concurrent_full_stock_http_orders_cannot_oversell) ... ERROR
+test_original_request_lifecycle_survives_real_process_restarts (__main__.BoundaryChecks.test_original_request_lifecycle_survives_real_process_restarts) ... ok
+
+======================================================================
+ERROR: test_concurrent_full_stock_http_orders_cannot_oversell (__main__.BoundaryChecks.test_concurrent_full_stock_http_orders_cannot_oversell)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/qa-probes.py", line 179, in test_concurrent_full_stock_http_orders_cannot_oversell
+    results = list(executor.map(reserve, range(8)))
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 639, in result_iterator
+    yield _result_or_cancel(fs.pop())
+          ~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 311, in _result_or_cancel
+    return fut.result(timeout)
+           ~~~~~~~~~~^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 443, in result
+    return self.__get_result()
+           ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/_base.py", line 395, in __get_result
+    raise self._exception
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 86, in run
+    result = ctx.run(self.task)
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py", line 73, in run
+    return fn(*args, **kwargs)
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/qa-probes.py", line 174, in reserve
+    return request(port, "POST", "/reservations", {
+        "order_id": f"full-{number}", "sku": "DEMO", "quantity": 10,
+    })
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/qa-probes.py", line 30, in request
+    connection.request(method, path, body, {"Content-Type": "application/json"})
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1358, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1404, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1353, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1113, in _send_output
+    self.send(msg)
+    ~~~~~~~~~^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1057, in send
+    self.connect()
+    ~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/client.py", line 1023, in connect
+    self.sock = self._create_connection(
+                ~~~~~~~~~~~~~~~~~~~~~~~^
+        (self.host,self.port), self.timeout, self.source_address)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socket.py", line 870, in create_connection
+    raise exceptions[0]
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socket.py", line 855, in create_connection
+    sock.connect(sa)
+    ~~~~~~~~~~~~^^^^
+ConnectionResetError: [Errno 54] Connection reset by peer
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.413s
+
+FAILED (errors=1)

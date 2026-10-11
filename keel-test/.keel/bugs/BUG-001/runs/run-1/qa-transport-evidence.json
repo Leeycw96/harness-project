@@ -1,0 +1,432 @@
+{
+  "results": [
+    {
+      "commit": "3d3609954e2c4e86674951a5fd400ae154bc6bdb",
+      "attempt": 1,
+      "quantity": 9,
+      "responses": [
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "transport_error": "ConnectionResetError: [Errno 54] Connection reset by peer"
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "order_id": "burst-6",
+            "sku": "DEMO",
+            "quantity": 9,
+            "status": "RESERVED"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        }
+      ],
+      "after": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 9,
+          "available": 1
+        }
+      }
+    },
+    {
+      "commit": "3d3609954e2c4e86674951a5fd400ae154bc6bdb",
+      "attempt": 2,
+      "quantity": 9,
+      "responses": [
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "order_id": "burst-7",
+            "sku": "DEMO",
+            "quantity": 9,
+            "status": "RESERVED"
+          }
+        }
+      ],
+      "after": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 9,
+          "available": 1
+        }
+      }
+    },
+    {
+      "commit": "3d3609954e2c4e86674951a5fd400ae154bc6bdb",
+      "attempt": 3,
+      "quantity": 9,
+      "responses": [
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "order_id": "burst-2",
+            "sku": "DEMO",
+            "quantity": 9,
+            "status": "RESERVED"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "transport_error": "ConnectionResetError: [Errno 54] Connection reset by peer"
+        },
+        {
+          "transport_error": "ConnectionResetError: [Errno 54] Connection reset by peer"
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        }
+      ],
+      "after": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 9,
+          "available": 1
+        }
+      }
+    },
+    {
+      "commit": "68e10818b5172db30a3bc2cd082ff8beab516436",
+      "attempt": 1,
+      "quantity": 9,
+      "responses": [
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "order_id": "burst-2",
+            "sku": "DEMO",
+            "quantity": 9,
+            "status": "RESERVED"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        }
+      ],
+      "after": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 9,
+          "available": 1
+        }
+      }
+    },
+    {
+      "commit": "68e10818b5172db30a3bc2cd082ff8beab516436",
+      "attempt": 2,
+      "quantity": 9,
+      "responses": [
+        {
+          "transport_error": "BrokenPipeError: [Errno 32] Broken pipe"
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "transport_error": "BrokenPipeError: [Errno 32] Broken pipe"
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "order_id": "burst-7",
+            "sku": "DEMO",
+            "quantity": 9,
+            "status": "RESERVED"
+          }
+        }
+      ],
+      "after": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 9,
+          "available": 1
+        }
+      }
+    },
+    {
+      "commit": "68e10818b5172db30a3bc2cd082ff8beab516436",
+      "attempt": 3,
+      "quantity": 9,
+      "responses": [
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 200,
+          "body": {
+            "order_id": "burst-4",
+            "sku": "DEMO",
+            "quantity": 9,
+            "status": "RESERVED"
+          }
+        },
+        {
+          "transport_error": "ConnectionResetError: [Errno 54] Connection reset by peer"
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        },
+        {
+          "status": 409,
+          "body": {
+            "error": "库存不足"
+          }
+        }
+      ],
+      "after": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 9,
+          "available": 1
+        }
+      }
+    }
+  ],
+  "server_logs": [
+    {
+      "root": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/baseline",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/3d36099-0.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/baseline",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/3d36099-1.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/baseline",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/3d36099-2.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/68e1081-0.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/68e1081-1.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /health HTTP/1.1\" 200 -\n----------------------------------------\nException occurred during processing of request from ('127.0.0.1', 58755)\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\nTraceback (most recent call last):\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py\", line 697, in process_request_thread\n    self.finish_request(request, client_address)\n    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py\", line 362, in finish_request\n    self.RequestHandlerClass(request, client_address, self)\n    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py\", line 766, in __init__\n    self.handle()\n    ~~~~~~~~~~~^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py\", line 496, in handle\n    self.handle_one_request()\n    ~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py\", line 484, in handle_one_request\n    method()\n    ~~~~~~^^\n  File \"/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/inventory/http.py\", line 29, in do_POST\n    payload = json.loads(self.read_body())\n                         ~~~~~~~~~~~~~~^^\n  File \"/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/inventory/http.py\", line 60, in read_body\n    return self.rfile.read(length)\n           ~~~~~~~~~~~~~~~^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socket.py\", line 725, in readinto\n    return self._sock.recv_into(b)\n           ~~~~~~~~~~~~~~~~~~~~^^^\nConnectionResetError: [Errno 54] Connection reset by peer\n----------------------------------------\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-transport-_ux3k29j/68e1081-2.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:20:53] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    }
+  ]
+}

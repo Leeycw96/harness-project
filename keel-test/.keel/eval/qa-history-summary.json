@@ -1,0 +1,27 @@
+{
+  "summary": [
+    {
+      "project": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "kind": "fix",
+      "builder": "keel-builder",
+      "review": "initial",
+      "records": 1,
+      "scored_records": 1,
+      "completed": 1,
+      "total": 1,
+      "percent": 100.0
+    },
+    {
+      "project": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "kind": "plan",
+      "builder": "keel-builder",
+      "review": "initial",
+      "records": 1,
+      "scored_records": 1,
+      "completed": 3,
+      "total": 3,
+      "percent": 100.0
+    }
+  ],
+  "errors": []
+}

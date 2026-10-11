@@ -309,6 +309,8 @@ git status --short
 
 对 `bin/keel` 做端到端测试时,目标目录必须用 `mktemp -d` 创建,测试结束后清理,避免污染真实项目。
 
+库存预占服务的一次隔离试验产物保存在 [keel-test](keel-test/README.md)，可直接审阅 Plan/Fix HTML、源码和评分。再次执行完整试验仍使用临时项目。
+
 输入体量按 Agent 实际加载的角色配置和场景 Spec 统计；动态任务、项目资料和真实模型用量由行为评估记录，见 [评估说明](evals/keel/README.md)。
 
 ## 部署行为

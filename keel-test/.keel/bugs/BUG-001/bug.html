@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-0wesMuKAVSl74myctRhveIy+bQia3INX302+7nS8j5E='; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>BUG-001 — 库存恰好足够却被拒绝 · Keel Fix</title><style>
+    :root { color-scheme:dark; --bg:#0d1117; --surface:#151c25; --line:#303945; --text:#e6edf3; --muted:#a6b1bf; --accent:#80baff; --code-bg:#0b1016; --inline-code:#222d3b; --status:#9be9a8; }
+    :root[data-theme="light"] { color-scheme:light; --bg:#fff; --surface:#f6f8fa; --line:#d0d7de; --text:#1f2328; --muted:#59636e; --accent:#0969da; --code-bg:#f6f8fa; --inline-code:#eaeef2; --status:#1a7f37; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; scroll-padding-top:90px; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+    a { color:var(--accent); text-underline-offset:4px; }
+    a:focus-visible,summary:focus-visible,button:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+    .topbar { border-bottom:1px solid var(--line); padding:16px 32px; display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; background:var(--bg); gap:12px 20px; }
+    .topbar-actions { display:flex; align-items:center; gap:16px; }
+    .theme-toggle { font:inherit; font-size:13px; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:6px 12px; min-height:36px; cursor:pointer; }
+    .theme-toggle:hover { border-color:var(--accent); }
+    .brand { font:600 13px/1.8 ui-monospace,monospace; letter-spacing:.1em; }
+    .status { color:var(--status); font-size:12px; }
+    .layout { display:grid; grid-template-columns:220px minmax(0,1fr); max-width:1440px; margin:auto; gap:48px; padding:42px 32px 80px; }
+    aside { position:sticky; top:24px; align-self:start; max-height:calc(100vh - 48px); overflow:auto; }
+    .nav-label,.eyebrow { color:var(--muted); font-size:12px; letter-spacing:.08em; }
+    nav { margin-top:18px; display:grid; gap:6px; }
+    nav a { color:var(--muted); text-decoration:none; border-left:2px solid var(--line); padding:7px 12px; font-size:14px; }
+    nav a:hover { color:var(--text); border-color:var(--accent); background:var(--surface); }
+    main { min-width:0; }
+    h1 { font-size:34px; line-height:1.3; margin:10px 0 18px; letter-spacing:-.025em; }
+    .lead { color:var(--muted); margin:0 0 24px; }
+    h2 { font-size:23px; padding-top:24px; margin:32px 0 16px; border-top:1px solid var(--line); }
+    h3 { font-size:18px; margin:26px 0 12px; }
+    h4,h5,h6 { font-size:16px; }
+    p,li { overflow-wrap:anywhere; }
+    p { margin:12px 0; }
+    ul,ol { padding-left:24px; }
+    li { margin:8px 0; }
+    code { font: .88em/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; background:var(--inline-code); border-radius:4px; padding:2px 5px; }
+    pre { overflow:auto; padding:18px; background:var(--code-bg); border:1px solid var(--line); border-radius:6px; }
+    pre code { background:none; padding:0; white-space:pre; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:8px; margin:18px 0; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { background:var(--surface); text-align:left; color:var(--muted); font-weight:600; }
+    th,td { padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; min-width:110px; overflow-wrap:anywhere; }
+    tr:last-child td { border-bottom:0; }
+    figure { margin:22px 0; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    .diagram { background:#fff; padding:24px; overflow:auto; text-align:center; }
+    .diagram img { max-width:100%; height:auto; vertical-align:middle; }
+    figcaption { font-size:12px; color:var(--muted); padding:9px 16px; background:var(--surface); }
+    details { padding:10px 16px; }
+    summary { color:var(--accent); cursor:pointer; font-size:13px; }
+    blockquote { border-left:3px solid var(--accent); padding:8px 16px; margin:18px 0; color:var(--muted); background:var(--surface); }
+    .source { margin-top:44px; border:1px solid var(--line); border-radius:8px; }
+    .source a { display:inline-block; margin-top:16px; }
+    footer { color:var(--muted); font-size:12px; margin-top:28px; }
+    @media(max-width:900px) { .layout { grid-template-columns:1fr; padding:24px 18px; gap:24px; } aside { position:static; max-height:none; } nav { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:28px; } .diagram { text-align:left; } .diagram img { max-width:none; } }
+    @media print { :root,:root[data-theme] { color-scheme:light; --bg:white; --text:#111; --line:#ccc; --surface:#f7f7f7; --muted:#555; --accent:#23558b; --code-bg:#f7f7f7; --inline-code:#eee; } aside,.topbar,.source { display:none; } .layout { display:block; padding:0; } figure,table { break-inside:avoid; } }
+  </style><script>
+    (() => {
+      const storageKey = 'keel-plan-theme';
+      let theme = 'dark';
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved === 'light' || saved === 'dark') theme = saved;
+      } catch (_) {}
+      document.documentElement.dataset.theme = theme;
+      document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('theme-toggle');
+        const update = () => {
+          document.documentElement.dataset.theme = theme;
+          toggle.textContent = theme === 'dark' ? '切换浅色' : '切换深色';
+          toggle.setAttribute('aria-label', toggle.textContent + '模式');
+        };
+        toggle.addEventListener('click', () => {
+          theme = theme === 'dark' ? 'light' : 'dark';
+          update();
+          try { localStorage.setItem(storageKey, theme); } catch (_) {}
+        });
+        update();
+        toggle.hidden = false;
+      });
+    })();
+  </script></head>
+<body><header class="topbar"><span class="brand">KEEL / FIX</span><div class="topbar-actions">
+<span class="status">待用户确认修复方案</span><button class="theme-toggle" id="theme-toggle" type="button" hidden>切换浅色</button></div></header>
+<div class="layout"><aside><div class="nav-label">修复说明</div><nav aria-label="修复章节"><a href="#section-1">问题</a><a href="#section-2">原因</a><a href="#section-3">改造点</a><a href="#section-4">影响点</a><a href="#section-5">建议验证点</a></nav></aside>
+<main><div class="eyebrow">BUG 修复审阅</div><h1>BUG-001 — 库存恰好足够却被拒绝</h1>
+<p class="lead">查看问题、修复方式和业务影响，再在会话中确认或提出修改。</p>
+<article id="fix-content"><h2 id="section-1">问题</h2>
+<p>可用库存 10 件，预占 10 件时却提示库存不足；预期应预占成功。</p><h2 id="section-2">原因</h2>
+<p>库存判断把“刚好足够”也算成了不足。</p><h2 id="section-3">改造点</h2>
+<ul>
+<li><code>inventory/service.py</code>：修正库存边界判断，允许预占数量等于可用库存。</li>
+</ul><h2 id="section-4">影响点</h2>
+<p>影响下单时的库存预占流程，尤其是申请最后一件库存。</p><h2 id="section-5">建议验证点</h2>
+<p>回归库存预占流程，确认恰好足够能成功、不足仍拒绝；重复申请不会重复占用，确认和取消仍正常。复验原来的 10 件预占请求。</p></article>
+<details class="source"><summary>下载修复说明</summary>
+<a download="bug.md" href="data:text/markdown;charset=utf-8;base64,IyBCVUctMDAxIOKAlCDlupPlrZjmgbDlpb3otrPlpJ/ljbTooqvmi5Lnu50KCiMjIOmXrumimAoK5Y+v55So5bqT5a2YIDEwIOS7tu+8jOmihOWNoCAxMCDku7bml7bljbTmj5DnpLrlupPlrZjkuI3otrPvvJvpooTmnJ/lupTpooTljaDmiJDlip/jgIIKCiMjIOWOn+WboAoK5bqT5a2Y5Yik5pat5oqK4oCc5Yia5aW96Laz5aSf4oCd5Lmf566X5oiQ5LqG5LiN6Laz44CCCgojIyDmlLnpgKDngrkKCi0gYGludmVudG9yeS9zZXJ2aWNlLnB5YO+8muS/ruato+W6k+WtmOi+ueeVjOWIpOaWre+8jOWFgeiuuOmihOWNoOaVsOmHj+etieS6juWPr+eUqOW6k+WtmOOAggoKIyMg5b2x5ZON54K5CgrlvbHlk43kuIvljZXml7bnmoTlupPlrZjpooTljaDmtYHnqIvvvIzlsKTlhbbmmK/nlLPor7fmnIDlkI7kuIDku7blupPlrZjjgIIKCiMjIOW7uuiurumqjOivgeeCuQoK5Zue5b2S5bqT5a2Y6aKE5Y2g5rWB56iL77yM56Gu6K6k5oGw5aW96Laz5aSf6IO95oiQ5Yqf44CB5LiN6Laz5LuN5ouS57ud77yb6YeN5aSN55Sz6K+35LiN5Lya6YeN5aSN5Y2g55So77yM56Gu6K6k5ZKM5Y+W5raI5LuN5q2j5bi444CC5aSN6aqM5Y6f5p2l55qEIDEwIOS7tumihOWNoOivt+axguOAggo=">下载 Markdown</a>
+</details>
+<footer>确认修复说明后开始修复与验收。</footer>
+</main></div></body></html>

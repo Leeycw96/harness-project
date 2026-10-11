@@ -1,0 +1,10 @@
+test_real_process_restart_preserves_all_states_and_inventory (__main__.IndependentProcessTests.test_real_process_restart_preserves_all_states_and_inventory) ... ok
+test_cancel_failed_updates_leave_reservation_unchanged (__main__.IndependentServiceTests.test_cancel_failed_updates_leave_reservation_unchanged) ... ok
+test_concurrent_duplicate_cancellations_release_once (__main__.IndependentServiceTests.test_concurrent_duplicate_cancellations_release_once) ... ok
+test_concurrent_duplicate_confirmations_deduct_once (__main__.IndependentServiceTests.test_concurrent_duplicate_confirmations_deduct_once) ... ok
+test_distinct_products_keep_separate_inventory_and_global_order_identity (__main__.IndependentServiceTests.test_distinct_products_keep_separate_inventory_and_global_order_identity) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.251s
+
+OK

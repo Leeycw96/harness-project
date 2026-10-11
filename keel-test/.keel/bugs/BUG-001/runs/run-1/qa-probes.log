@@ -1,0 +1,8 @@
+test_baseline_reproduces_recorded_http_failure (__main__.BoundaryChecks.test_baseline_reproduces_recorded_http_failure) ... ok
+test_concurrent_full_stock_http_orders_cannot_oversell (__main__.BoundaryChecks.test_concurrent_full_stock_http_orders_cannot_oversell) ... ok
+test_original_request_lifecycle_survives_real_process_restarts (__main__.BoundaryChecks.test_original_request_lifecycle_survives_real_process_restarts) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.363s
+
+OK

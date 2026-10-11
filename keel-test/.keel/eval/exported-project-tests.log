@@ -1,0 +1,105 @@
+test_create_confirm_and_query_use_real_persistent_service (test_http.HTTPTests.test_create_confirm_and_query_use_real_persistent_service) ... 127.0.0.1 - - [11/Oct/2026 10:25:40] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:40] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:40] "GET /inventory/DEMO HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:40] "POST /reservations/order/confirm HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:40] "POST /reservations/order/confirm HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:40] "POST /reservations/order/cancel HTTP/1.1" 409 -
+127.0.0.1 - - [11/Oct/2026 10:25:40] "GET /inventory/DEMO HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "GET /inventory/DEMO HTTP/1.1" 200 -
+ok
+test_create_rejects_malformed_or_nonobject_json (test_http.HTTPTests.test_create_rejects_malformed_or_nonobject_json) ... 127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:41] "GET /inventory/DEMO HTTP/1.1" 200 -
+ok
+test_create_rejects_missing_fields_and_invalid_quantities (test_http.HTTPTests.test_create_rejects_missing_fields_and_invalid_quantities) ... 127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "GET /inventory/DEMO HTTP/1.1" 200 -
+ok
+test_database_failure_is_a_json_error_and_rolls_back (test_http.HTTPTests.test_database_failure_is_a_json_error_and_rolls_back) ... 127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "POST /reservations/order/confirm HTTP/1.1" 500 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "GET /inventory/DEMO HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:42] "GET /inventory/DEMO HTTP/1.1" 200 -
+ok
+test_encoded_order_segment_and_cancel_retries (test_http.HTTPTests.test_encoded_order_segment_and_cancel_retries) ... 127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations/%20%E8%AE%A2%E5%8D%95%2Fa%25%3Fb%23c%20/cancel HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations/%20%E8%AE%A2%E5%8D%95%2Fa%25%3Fb%23c%20/cancel HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations/%20%E8%AE%A2%E5%8D%95%2Fa%25%3Fb%23c%20/confirm HTTP/1.1" 409 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "GET /inventory/DEMO HTTP/1.1" 200 -
+ok
+test_exact_stock_reservation_retries_cancel_and_confirm (test_http.HTTPTests.test_exact_stock_reservation_retries_cancel_and_confirm) ... 127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "GET /inventory/DEMO HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations HTTP/1.1" 409 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "GET /inventory/DEMO HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations/boundary-order/cancel HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations/boundary-order/cancel HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "GET /inventory/DEMO HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations/confirmed-order/confirm HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "POST /reservations/confirmed-order/confirm HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:43] "GET /inventory/DEMO HTTP/1.1" 200 -
+ok
+test_health_and_unknown_routes (test_http.HTTPTests.test_health_and_unknown_routes) ... 127.0.0.1 - - [11/Oct/2026 10:25:44] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "GET /inventory/missing HTTP/1.1" 404 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /unknown HTTP/1.1" 404 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations/order/unknown HTTP/1.1" 404 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations/raw/slash/confirm HTTP/1.1" 404 -
+ok
+test_http_errors_preserve_stock (test_http.HTTPTests.test_http_errors_preserve_stock) ... 127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations HTTP/1.1" 404 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations HTTP/1.1" 409 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations HTTP/1.1" 200 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations HTTP/1.1" 409 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations HTTP/1.1" 409 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations/missing/confirm HTTP/1.1" 404 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "POST /reservations/missing/cancel HTTP/1.1" 404 -
+127.0.0.1 - - [11/Oct/2026 10:25:44] "GET /inventory/DEMO HTTP/1.1" 200 -
+ok
+test_protocol_errors_are_explicit (test_http.HTTPTests.test_protocol_errors_are_explicit) ... 127.0.0.1 - - [11/Oct/2026 10:25:45] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:45] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:45] "POST /reservations HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:45] "POST /reservations/%20/confirm HTTP/1.1" 400 -
+127.0.0.1 - - [11/Oct/2026 10:25:45] "POST /reservations/order/cancel HTTP/1.1" 400 -
+ok
+test_existing_stock (test_inventory.InventoryTests.test_existing_stock) ... ok
+test_unknown_product (test_inventory.InventoryTests.test_unknown_product) ... ok
+test_cancel_releases_once_and_never_reactivates (test_reservations.ReservationTests.test_cancel_releases_once_and_never_reactivates) ... ok
+test_concurrent_confirm_and_cancel_reach_only_one_terminal_state (test_reservations.ReservationTests.test_concurrent_confirm_and_cancel_reach_only_one_terminal_state) ... ok
+test_concurrent_reservations_cannot_oversell (test_reservations.ReservationTests.test_concurrent_reservations_cannot_oversell) ... ok
+test_concurrent_retries_create_one_reservation (test_reservations.ReservationTests.test_concurrent_retries_create_one_reservation) ... ok
+test_confirm_checks_both_conditional_update_counts (test_reservations.ReservationTests.test_confirm_checks_both_conditional_update_counts) ... ok
+test_confirm_deducts_once_and_preserves_available_stock (test_reservations.ReservationTests.test_confirm_deducts_once_and_preserves_available_stock) ... ok
+test_confirm_rolls_back_stock_when_status_update_fails (test_reservations.ReservationTests.test_confirm_rolls_back_stock_when_status_update_fails) ... ok
+test_database_open_failure_is_reported (test_reservations.ReservationTests.test_database_open_failure_is_reported) ... ok
+test_identifiers_are_preserved_exactly (test_reservations.ReservationTests.test_identifiers_are_preserved_exactly) ... ok
+test_inconsistent_stock_cannot_be_confirmed (test_reservations.ReservationTests.test_inconsistent_stock_cannot_be_confirmed) ... ok
+test_invalid_reservation_inputs_do_not_write (test_reservations.ReservationTests.test_invalid_reservation_inputs_do_not_write) ... ok
+test_inventory_without_reservations (test_reservations.ReservationTests.test_inventory_without_reservations) ... ok
+test_maximum_integer_quantity_is_supported (test_reservations.ReservationTests.test_maximum_integer_quantity_is_supported) ... ok
+test_migration_preserves_existing_products_and_enforces_constraints (test_reservations.ReservationTests.test_migration_preserves_existing_products_and_enforces_constraints) ... ok
+test_reinitialize_preserves_stock_and_all_reservation_states (test_reservations.ReservationTests.test_reinitialize_preserves_stock_and_all_reservation_states) ... ok
+test_reserve_exact_available_stock_and_reject_overbooking (test_reservations.ReservationTests.test_reserve_exact_available_stock_and_reject_overbooking) ... ok
+test_reserve_last_available_unit_with_existing_reservation (test_reservations.ReservationTests.test_reserve_last_available_unit_with_existing_reservation) ... ok
+test_retries_are_idempotent_and_conflicts_take_precedence (test_reservations.ReservationTests.test_retries_are_idempotent_and_conflicts_take_precedence) ... ok
+test_unknown_or_invalid_order_cannot_transition (test_reservations.ReservationTests.test_unknown_or_invalid_order_cannot_transition) ... ok
+test_unknown_product_and_insufficient_stock_leave_no_reservation (test_reservations.ReservationTests.test_unknown_product_and_insufficient_stock_leave_no_reservation) ... ok
+test_write_lock_timeout_returns_retryable_error_without_writes (test_reservations.ReservationTests.test_write_lock_timeout_returns_retryable_error_without_writes) ... ok
+
+----------------------------------------------------------------------
+Ran 32 tests in 15.956s
+
+OK

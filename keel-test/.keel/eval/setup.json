@@ -1,0 +1,69 @@
+{
+  "workspace": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4",
+  "project": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+  "backup": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-test-before-qdhqy4d0",
+  "target": "/Users/yangchengwu/developer/harness/harness-project/keel-test",
+  "source_commit": "6966d13",
+  "case": "inventory-reservations",
+  "role_transport": "native collaboration subagents, fork_turns=none; deployed TOML/Markdown loaded from task environment",
+  "real_user_review": "pending",
+  "approval_input": "isolated evaluation fixture only",
+  "plantuml": {
+    "version": "1.2026.8",
+    "url": "https://github.com/plantuml/plantuml/releases/tag/v1.2026.8",
+    "sha256": "5e1ecfa8ecd32c90b03bbf3b1eb6f020943f98ab0fcf4032be31a0002ee2c462"
+  },
+  "native_agents": [
+    {
+      "step": "plan-research",
+      "id": "/root/inventory_planner_research"
+    },
+    {
+      "step": "plan-draft",
+      "id": "/root/inventory_planner_draft"
+    },
+    {
+      "step": "dev-build",
+      "id": "/root/inventory_builder"
+    },
+    {
+      "step": "dev-qa",
+      "id": "/root/inventory_qa"
+    },
+    {
+      "step": "dev-call-chain",
+      "id": "/root/inventory_call_chain"
+    },
+    {
+      "step": "fix-investigation",
+      "id": "/root/inventory_fix_investigation"
+    },
+    {
+      "step": "fix-build",
+      "id": "/root/inventory_fix_builder"
+    },
+    {
+      "step": "fix-qa",
+      "id": "/root/inventory_fix_qa"
+    }
+  ],
+  "baseline": {
+    "commit": "fbad27c",
+    "tests_passed": 2
+  },
+  "dev_run": ".keel/iterations/codex/inventory-e2e/run-1",
+  "qa_report_revision_count": 1,
+  "fix_run": ".keel/bugs/BUG-001/runs/run-1",
+  "case_result": "completed",
+  "dev_goal_score": {
+    "completed": 3,
+    "total": 3,
+    "percent": 100
+  },
+  "fix_goal_score": {
+    "completed": 1,
+    "total": 1,
+    "percent": 100
+  },
+  "original_scenario_retest": "passed"
+}

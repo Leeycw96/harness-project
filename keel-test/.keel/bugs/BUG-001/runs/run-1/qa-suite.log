@@ -1,0 +1,226 @@
+test_create_confirm_and_query_use_real_persistent_service (test_http.HTTPTests.test_create_confirm_and_query_use_real_persistent_service) ... ERROR
+test_create_rejects_malformed_or_nonobject_json (test_http.HTTPTests.test_create_rejects_malformed_or_nonobject_json) ... ERROR
+test_create_rejects_missing_fields_and_invalid_quantities (test_http.HTTPTests.test_create_rejects_missing_fields_and_invalid_quantities) ... ERROR
+test_database_failure_is_a_json_error_and_rolls_back (test_http.HTTPTests.test_database_failure_is_a_json_error_and_rolls_back) ... ERROR
+test_encoded_order_segment_and_cancel_retries (test_http.HTTPTests.test_encoded_order_segment_and_cancel_retries) ... ERROR
+test_exact_stock_reservation_retries_cancel_and_confirm (test_http.HTTPTests.test_exact_stock_reservation_retries_cancel_and_confirm) ... ERROR
+test_health_and_unknown_routes (test_http.HTTPTests.test_health_and_unknown_routes) ... ERROR
+test_http_errors_preserve_stock (test_http.HTTPTests.test_http_errors_preserve_stock) ... ERROR
+test_protocol_errors_are_explicit (test_http.HTTPTests.test_protocol_errors_are_explicit) ... ERROR
+test_existing_stock (test_inventory.InventoryTests.test_existing_stock) ... ok
+test_unknown_product (test_inventory.InventoryTests.test_unknown_product) ... ok
+test_cancel_releases_once_and_never_reactivates (test_reservations.ReservationTests.test_cancel_releases_once_and_never_reactivates) ... ok
+test_concurrent_confirm_and_cancel_reach_only_one_terminal_state (test_reservations.ReservationTests.test_concurrent_confirm_and_cancel_reach_only_one_terminal_state) ... ok
+test_concurrent_reservations_cannot_oversell (test_reservations.ReservationTests.test_concurrent_reservations_cannot_oversell) ... ok
+test_concurrent_retries_create_one_reservation (test_reservations.ReservationTests.test_concurrent_retries_create_one_reservation) ... ok
+test_confirm_checks_both_conditional_update_counts (test_reservations.ReservationTests.test_confirm_checks_both_conditional_update_counts) ... ok
+test_confirm_deducts_once_and_preserves_available_stock (test_reservations.ReservationTests.test_confirm_deducts_once_and_preserves_available_stock) ... ok
+test_confirm_rolls_back_stock_when_status_update_fails (test_reservations.ReservationTests.test_confirm_rolls_back_stock_when_status_update_fails) ... ok
+test_database_open_failure_is_reported (test_reservations.ReservationTests.test_database_open_failure_is_reported) ... ok
+test_identifiers_are_preserved_exactly (test_reservations.ReservationTests.test_identifiers_are_preserved_exactly) ... ok
+test_inconsistent_stock_cannot_be_confirmed (test_reservations.ReservationTests.test_inconsistent_stock_cannot_be_confirmed) ... ok
+test_invalid_reservation_inputs_do_not_write (test_reservations.ReservationTests.test_invalid_reservation_inputs_do_not_write) ... ok
+test_inventory_without_reservations (test_reservations.ReservationTests.test_inventory_without_reservations) ... ok
+test_maximum_integer_quantity_is_supported (test_reservations.ReservationTests.test_maximum_integer_quantity_is_supported) ... ok
+test_migration_preserves_existing_products_and_enforces_constraints (test_reservations.ReservationTests.test_migration_preserves_existing_products_and_enforces_constraints) ... ok
+test_reinitialize_preserves_stock_and_all_reservation_states (test_reservations.ReservationTests.test_reinitialize_preserves_stock_and_all_reservation_states) ... ok
+test_reserve_exact_available_stock_and_reject_overbooking (test_reservations.ReservationTests.test_reserve_exact_available_stock_and_reject_overbooking) ... ok
+test_reserve_last_available_unit_with_existing_reservation (test_reservations.ReservationTests.test_reserve_last_available_unit_with_existing_reservation) ... ok
+test_retries_are_idempotent_and_conflicts_take_precedence (test_reservations.ReservationTests.test_retries_are_idempotent_and_conflicts_take_precedence) ... ok
+test_unknown_or_invalid_order_cannot_transition (test_reservations.ReservationTests.test_unknown_or_invalid_order_cannot_transition) ... ok
+test_unknown_product_and_insufficient_stock_leave_no_reservation (test_reservations.ReservationTests.test_unknown_product_and_insufficient_stock_leave_no_reservation) ... ok
+test_write_lock_timeout_returns_retryable_error_without_writes (test_reservations.ReservationTests.test_write_lock_timeout_returns_retryable_error_without_writes) ... ok
+
+======================================================================
+ERROR: test_create_confirm_and_query_use_real_persistent_service (test_http.HTTPTests.test_create_confirm_and_query_use_real_persistent_service)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_create_rejects_malformed_or_nonobject_json (test_http.HTTPTests.test_create_rejects_malformed_or_nonobject_json)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_create_rejects_missing_fields_and_invalid_quantities (test_http.HTTPTests.test_create_rejects_missing_fields_and_invalid_quantities)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_database_failure_is_a_json_error_and_rolls_back (test_http.HTTPTests.test_database_failure_is_a_json_error_and_rolls_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_encoded_order_segment_and_cancel_retries (test_http.HTTPTests.test_encoded_order_segment_and_cancel_retries)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_exact_stock_reservation_retries_cancel_and_confirm (test_http.HTTPTests.test_exact_stock_reservation_retries_cancel_and_confirm)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_health_and_unknown_routes (test_http.HTTPTests.test_health_and_unknown_routes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_http_errors_preserve_stock (test_http.HTTPTests.test_http_errors_preserve_stock)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+======================================================================
+ERROR: test_protocol_errors_are_explicit (test_http.HTTPTests.test_protocol_errors_are_explicit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 21, in setUp
+    self.start_server()
+    ~~~~~~~~~~~~~~~~~^^
+  File "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/tests/test_http.py", line 25, in start_server
+    self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.database))
+                  ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py", line 148, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 1] Operation not permitted
+
+----------------------------------------------------------------------
+Ran 32 tests in 10.694s
+
+FAILED (errors=9)

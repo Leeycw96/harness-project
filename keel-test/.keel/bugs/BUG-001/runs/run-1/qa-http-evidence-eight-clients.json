@@ -1,0 +1,220 @@
+{
+  "baseline_commit": "3d3609954e2c4e86674951a5fd400ae154bc6bdb",
+  "fix_commit": "68e10818b5172db30a3bc2cd082ff8beab516436",
+  "scenarios": {
+    "baseline_original_request": {
+      "source_commit": "3d3609954e2c4e86674951a5fd400ae154bc6bdb",
+      "kind": "real_local_http",
+      "before": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 0,
+          "available": 10
+        }
+      },
+      "request": {
+        "method": "POST",
+        "path": "/reservations",
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10
+        }
+      },
+      "actual": {
+        "status": 409,
+        "body": {
+          "error": "库存不足"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "body_status": "RESERVED"
+      },
+      "after_failed_request": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 0,
+          "available": 10
+        }
+      },
+      "control_quantity_9": {
+        "status": 200,
+        "body": {
+          "order_id": "control-order",
+          "sku": "DEMO",
+          "quantity": 9,
+          "status": "RESERVED"
+        }
+      }
+    },
+    "fixed_original_request": {
+      "before": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 0,
+          "available": 10
+        }
+      },
+      "request": {
+        "method": "POST",
+        "path": "/reservations",
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10
+        }
+      },
+      "actual": {
+        "status": 200,
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "RESERVED"
+        }
+      },
+      "after_original_request": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 10,
+          "available": 0
+        }
+      },
+      "after_restart": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 10,
+          "available": 0
+        }
+      },
+      "retry": {
+        "status": 200,
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "RESERVED"
+        }
+      },
+      "quantity_conflict": {
+        "status": 409,
+        "body": {
+          "error": "订单预占冲突"
+        }
+      },
+      "sku_conflict": {
+        "status": 409,
+        "body": {
+          "error": "订单预占冲突"
+        }
+      },
+      "overbooking": {
+        "status": 409,
+        "body": {
+          "error": "库存不足"
+        }
+      },
+      "cancel": {
+        "status": 200,
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "CANCELLED"
+        }
+      },
+      "after_cancel": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 0,
+          "available": 10
+        }
+      },
+      "confirm": {
+        "status": 200,
+        "body": {
+          "order_id": "confirmed-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "CONFIRMED"
+        }
+      },
+      "after_confirm": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 0,
+          "reserved": 0,
+          "available": 0
+        }
+      },
+      "confirmed_after_restart": {
+        "status": 200,
+        "body": {
+          "order_id": "confirmed-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "CONFIRMED"
+        }
+      }
+    }
+  },
+  "server_logs": [
+    {
+      "root": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-boundary-baseline-m_bll18k",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-boundary-baseline-m_bll18k/baseline.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:19:35] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-boundary-concurrent-70mk010q/concurrent.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:19:35] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:35] \"POST /reservations HTTP/1.1\" 409 -\n"
+    },
+    {
+      "root": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-boundary-fixed-4t0qruna/fixed.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-boundary-fixed-4t0qruna/fixed.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations/boundary-order/cancel HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations/boundary-order/cancel HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations/boundary-order/confirm HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-boundary-fixed-4t0qruna/fixed.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations/confirmed-order/confirm HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations/confirmed-order/confirm HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations/confirmed-order/cancel HTTP/1.1\" 409 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n"
+    },
+    {
+      "root": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+      "database": "/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/qa-boundary-fixed-4t0qruna/fixed.sqlite3",
+      "exit_code": -15,
+      "log": "127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /health HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"GET /inventory/DEMO HTTP/1.1\" 200 -\n127.0.0.1 - - [11/Oct/2026 10:19:36] \"POST /reservations HTTP/1.1\" 409 -\n"
+    }
+  ]
+}

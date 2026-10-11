@@ -1,0 +1,7 @@
+{
+  "kind": "evaluation_fixture",
+  "html_sha256": "3d0531800ad11d94499fcb0b370802023f5b552916f35f5de563a8b130ade0c1",
+  "decision": "隔离评估预设确认：按 requirements.md 验证完整 Plan、Dev、Fix 流程；非真实用户批准。",
+  "real_user_review": "pending",
+  "revision_count": 1
+}

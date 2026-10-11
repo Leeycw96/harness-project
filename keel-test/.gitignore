@@ -1,9 +1,7 @@
-# Keel 部署副本与本地运行记录
+__pycache__/
+*.pyc
+*.sqlite3
+*.sqlite3-*
 .agents/
 .codex/
-.keel/*
-!.keel/call-chain/
-
-# 本地工具和系统文件
-.DS_Store
-node_modules/
+.keel/

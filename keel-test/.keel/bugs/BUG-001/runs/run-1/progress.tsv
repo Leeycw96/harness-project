@@ -1,0 +1,5 @@
+2026-10-11T10:14:33+0800	progress	keel-builder	BUG_BUILD	派发已明确测试确认的库存边界修复	/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/approved.md
+2026-10-11T10:16:45+0800	complete	keel-builder	BUG_BUILD_DONE	边界修复完成；32 项测试通过	/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/approved.md
+2026-10-11T10:16:45+0800	progress	keel-qa	BUG_REVIEW	派发边界修复独立验收与评分	/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/qa-feedback.md
+2026-10-11T10:23:24+0800	complete	keel-qa	APPROVED	边界修复验收通过；1/1 目标完成，100 分，32+3 项验证通过	/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/qa-feedback.md
+2026-10-11T10:24:18+0800	progress	main	RETEST	原场景及关联流程独立 HTTP 重放通过	/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/eval/original-scenario-retest.json

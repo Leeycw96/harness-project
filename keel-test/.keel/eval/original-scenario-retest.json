@@ -1,0 +1,192 @@
+{
+  "kind": "independent_main_session_real_http_replay",
+  "result": "passed",
+  "requests": [
+    {
+      "method": "POST",
+      "path": "/reservations",
+      "request": {
+        "order_id": "boundary-order",
+        "sku": "DEMO",
+        "quantity": 10
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "RESERVED"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations",
+      "request": {
+        "order_id": "boundary-order",
+        "sku": "DEMO",
+        "quantity": 10
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "RESERVED"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/DEMO",
+      "request": null,
+      "response": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 10,
+          "available": 0
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations",
+      "request": {
+        "order_id": "extra",
+        "sku": "DEMO",
+        "quantity": 1
+      },
+      "response": {
+        "status": 409,
+        "body": {
+          "error": "库存不足"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/DEMO",
+      "request": null,
+      "response": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 10,
+          "available": 0
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations/boundary-order/cancel",
+      "request": null,
+      "response": {
+        "status": 200,
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "CANCELLED"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations/boundary-order/cancel",
+      "request": null,
+      "response": {
+        "status": 200,
+        "body": {
+          "order_id": "boundary-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "CANCELLED"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/DEMO",
+      "request": null,
+      "response": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 10,
+          "reserved": 0,
+          "available": 10
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations",
+      "request": {
+        "order_id": "confirmed-order",
+        "sku": "DEMO",
+        "quantity": 10
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "order_id": "confirmed-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "RESERVED"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations/confirmed-order/confirm",
+      "request": null,
+      "response": {
+        "status": 200,
+        "body": {
+          "order_id": "confirmed-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "CONFIRMED"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/reservations/confirmed-order/confirm",
+      "request": null,
+      "response": {
+        "status": 200,
+        "body": {
+          "order_id": "confirmed-order",
+          "sku": "DEMO",
+          "quantity": 10,
+          "status": "CONFIRMED"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/inventory/DEMO",
+      "request": null,
+      "response": {
+        "status": 200,
+        "body": {
+          "sku": "DEMO",
+          "name": "示例商品",
+          "stock": 0,
+          "reserved": 0,
+          "available": 0
+        }
+      }
+    }
+  ],
+  "real_user_html_review": "pending"
+}

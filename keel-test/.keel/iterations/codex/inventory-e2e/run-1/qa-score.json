@@ -1,0 +1,351 @@
+{
+  "schema_version": 1,
+  "project": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+  "builder": "keel-builder",
+  "review": "initial",
+  "verdict": "APPROVED",
+  "blockers": [],
+  "commits": [
+    "54433356b72081445ef6b0d82804d37a38ae1ffe"
+  ],
+  "limitations": [
+    "仅评价隔离评估实现；真实用户对 Plan HTML 的审阅仍待确认，本记录不表示用户批准。"
+  ],
+  "source": {
+    "kind": "plan",
+    "path": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/iterations/codex/inventory-e2e/run-1/plan.md",
+    "sha256": "fa799f0ed404ce0de0350cdf193750c1f2e71a5d3468237e0dd2a0cf03db962c",
+    "catalog": [
+      {
+        "id": "reserve-stock",
+        "target": "按订单预留商品库存，并让查询显示账面库存、预占量和可用量。"
+      },
+      {
+        "id": "confirm-reservation",
+        "target": "将有效预占确认为成交，并且只扣减一次账面库存。"
+      },
+      {
+        "id": "cancel-reservation",
+        "target": "取消有效预占，恢复可用库存，并且只释放一次。"
+      }
+    ]
+  },
+  "goal_results": [
+    {
+      "id": "reserve-stock",
+      "status": "passed",
+      "evidence": [
+        "qa-feedback.md#功能完成情况：reserve-stock 六条条件全部通过。",
+        "qa-suite.log:69-70,75,77-83,85：正常、边界、错误、幂等、并发及迁移持久化通过。",
+        "qa-probes.log:1,5；qa-probes.py:61,135：跨商品隔离、全部状态的真实进程重启通过。"
+      ],
+      "reason": ""
+    },
+    {
+      "id": "confirm-reservation",
+      "status": "passed",
+      "evidence": [
+        "qa-feedback.md#功能完成情况：confirm-reservation 四条条件全部通过。",
+        "qa-suite.log:68,71-73,76,84：扣减一次、竞争、无效状态和异常回滚通过。",
+        "qa-probes.log:4；qa-probes.py:55：8 路同时重复确认只扣减一次。"
+      ],
+      "reason": ""
+    },
+    {
+      "id": "cancel-reservation",
+      "status": "passed",
+      "evidence": [
+        "qa-feedback.md#功能完成情况：cancel-reservation 四条条件全部通过。",
+        "qa-suite.log:37-43,56,67-68,72,84：释放一次、不重新预占、终态冲突和未知预占通过。",
+        "qa-probes.log:2-3；qa-probes.py:58,74：8 路重复取消及更新失败保持记录通过。"
+      ],
+      "reason": ""
+    }
+  ],
+  "checks": [
+    {
+      "name": "keel-code-quality-spec",
+      "items": [
+        {
+          "name": "沿用项目代码与测试约定",
+          "status": "passed",
+          "evidence": [
+            "inventory/service.py；tests/test_reservations.py；qa-probes.py：Python 标准库、SQLite、unittest、临时数据库。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "真实业务及关键联动可用",
+          "status": "passed",
+          "evidence": [
+            "qa-suite.log:1-64,89-91：真实 HTTP 和 SQLite；qa-probes.log:1,8-10：真实进程重启。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "业务正常异常状态数据有关键测试",
+          "status": "passed",
+          "evidence": [
+            "tests/test_reservations.py:35-246；tests/test_http.py:57-135；qa-probes.py:39-152；35 项实际通过。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "入口与业务职责符合约定",
+          "status": "passed",
+          "evidence": [
+            "inventory/http.py:24-49 解析与响应；inventory/service.py:65,96,119 业务规则；无业务逻辑放在 HTTP。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "测试断言业务结果与数据变化",
+          "status": "passed",
+          "evidence": [
+            "tests/test_reservations.py:20-30；tests/test_http.py:34-55；qa-probes.py:29-53：响应、库存、状态和行数断言。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "适用语法测试启动检查可用",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#实际验证：compileall、py_compile、30+5 测试、CLI help、真实服务启动和差异检查均退出 0；无独立构建及类型检查。"
+          ],
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "name": "keel-delivery-spec",
+      "items": [
+        {
+          "name": "目标范围与提交符合授权",
+          "status": "passed",
+          "evidence": [
+            "git diff --name-status fbad27c..54433356b72081445ef6b0d82804d37a38ae1ffe：仅 7 个 inventory、tests、README 文件；QA 未改实现或提交。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "结论符合实际产物与结果",
+          "status": "passed",
+          "evidence": [
+            "qa-suite.log:89-91；qa-probes.log:8-10；qa-feedback.md：APPROVED 对应全部目标通过。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "未验证与待确认事项明确",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#阻断、观察与待确认事项：HTML 用户审阅待确认；默认沙箱限制已解除。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "产物提交证据遗留项一致",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#范围与依据、#实际验证、#评分记录；qa-score.json：同一 Builder、提交、目标和结论。"
+          ],
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "name": "keel-acceptance-spec",
+      "items": [
+        {
+          "name": "指定报告包含结论范围关联证据",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#范围与依据、#功能完成情况、#代码、测试与关联影响：结论 APPROVED。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "每个功能全部条件均有完成情况",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#功能完成情况：reserve-stock 6 条、confirm-reservation 4 条、cancel-reservation 4 条；3/3 完成。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "通过有充分证据且无必需缺口",
+          "status": "passed",
+          "evidence": [
+            "qa-suite.log:89-91；qa-probes.log:8-10：35 项通过；未发现阻断或冲突。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "报告包含命令阻断观察待复验项",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#实际验证、#阻断、观察与待确认事项。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "区分环境问题与本次回归",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#阻断、观察与待确认事项：8 个默认沙箱绑定错误是环境限制；获准重跑 30 项全部通过。"
+          ],
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "name": "keel-document-writing-spec",
+      "items": [
+        {
+          "name": "短句短段结论在前",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：首段 APPROVED；各检查结果先写通过，再给证据。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "行为说明清晰字段状态准确",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#功能完成情况：账面库存、预占量、可用量与 stock、reserved、available 对应；终态名准确。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "内容限于本次目标变化影响证据",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#范围与依据、#代码、测试与关联影响：仅库存预占与独立 QA 范围。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "同一信息引用既有来源",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：引用 plan.md、qa-suite.log、qa-probes.log 与 qa-score.json，没有复制完整计划和实现。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "证据可定位且不堆砌日志",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md#功能完成情况、#实际验证：测试名、源码行号、日志行号与命令结果；不重复 SQL 或时序图。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "必要字段结果和未验证事项齐全",
+          "status": "passed",
+          "evidence": [
+            "qa-feedback.md：结论、范围、Builder、提交、全部功能、检查、命令、阻断、观察、待确认与评分。"
+          ],
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "name": "keel-qa-scoring-spec",
+      "items": [
+        {
+          "name": "检查明细对应当前规范",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json：三个目标及五个适用规范组；未将 HTML 用户审阅纳入通过范围。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "目标来自快照且全条件通过",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json source.catalog：reserve-stock、confirm-reservation、cancel-reservation；goal_score 为 3/3。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "状态证据字段完整",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json goal_results/checks：id/name、passed 与可定位 evidence；无应检未检项。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "初验身份与产物字段完整",
+          "status": "passed",
+          "evidence": [
+            "qa-score.json：schema_version=1、review=initial、verdict=APPROVED、blockers=[]、builder、commits、limitations。"
+          ],
+          "reason": ""
+        },
+        {
+          "name": "记录含时间来源摘要且可被读取器校验",
+          "status": "passed",
+          "evidence": [
+            ".codex/common/scripts/keel-qa-score.py record/history：生成 recorded_at、source.sha256、data_sha256、goal_score、check_scores，并校验记录。"
+          ],
+          "reason": ""
+        }
+      ]
+    }
+  ],
+  "recorded_at": "2026-10-11T02:08:33.250188+00:00",
+  "data_sha256": "af8c45b1254eb43776f6f1cdc7d76f5f848ce982c78580d83c444ee050222045",
+  "goal_score": {
+    "completed": 3,
+    "total": 3,
+    "failed": 0,
+    "unverified": 0,
+    "percent": 100.0
+  },
+  "check_scores": [
+    {
+      "name": "keel-code-quality-spec",
+      "completed": 6,
+      "total": 6,
+      "failed": 0,
+      "unverified": 0,
+      "percent": 100.0
+    },
+    {
+      "name": "keel-delivery-spec",
+      "completed": 4,
+      "total": 4,
+      "failed": 0,
+      "unverified": 0,
+      "percent": 100.0
+    },
+    {
+      "name": "keel-acceptance-spec",
+      "completed": 5,
+      "total": 5,
+      "failed": 0,
+      "unverified": 0,
+      "percent": 100.0
+    },
+    {
+      "name": "keel-document-writing-spec",
+      "completed": 6,
+      "total": 6,
+      "failed": 0,
+      "unverified": 0,
+      "percent": 100.0
+    },
+    {
+      "name": "keel-qa-scoring-spec",
+      "completed": 5,
+      "total": 5,
+      "failed": 0,
+      "unverified": 0,
+      "percent": 100.0
+    }
+  ]
+}

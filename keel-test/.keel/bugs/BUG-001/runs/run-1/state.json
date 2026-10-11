@@ -1,0 +1,87 @@
+{
+  "mode": "fix",
+  "project_dir": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project",
+  "output_dir": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1",
+  "bug_path": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/bug.md",
+  "fix_path": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/approved.md",
+  "phase": "DONE",
+  "approval": {
+    "source_sha256": "32911e5b13443d5a8ba9d9e543c39803025608533cc415afbd854fd866bd67ea",
+    "html_sha256": "a6f9fe552c39f69e4c629483175710c2c2575fbd51e9fca129619d059bb184fc",
+    "qualification_sha256": "177b39dc6aa88962db56c7546cc7871b2e18c329254c66dd5bf8d612de0a5c35",
+    "decision": "隔离评估测试确认：按本次五段式修复说明恢复已有库存规则，仅允许在测试工程实施；不是用户对 HTML 的真实批准。",
+    "confirmed_at": "2026-10-11T02:14:33.236745+00:00",
+    "investigation_sha256": "11644973e76ac0d3d4362223df62c4e932b14c1c63a5c8a18831dacaa751a783"
+  },
+  "artifacts": {
+    "qa_feedback": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/qa-feedback.md",
+    "fix_brief": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/fix-brief.md"
+  },
+  "limits": {
+    "fix_rounds": 3,
+    "stage_recoveries": 2
+  },
+  "fix_round": 0,
+  "retries": {},
+  "thresholds": {
+    "short_stage_no_progress_seconds": 300,
+    "long_stage_no_progress_seconds": 900
+  },
+  "build": {
+    "commits": [
+      "68e10818b5172db30a3bc2cd082ff8beab516436"
+    ]
+  },
+  "review": {
+    "qa": {
+      "status": "approved",
+      "artifact": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/qa-feedback.md",
+      "blocking_count": 0
+    }
+  },
+  "preflight": {
+    "main_compile": {
+      "status": "passed",
+      "summary": [
+        "python3 -m compileall -q inventory tests；故障边界已有失败证据"
+      ]
+    },
+    "test_compile": {
+      "status": "not-applicable",
+      "summary": [
+        "Python 无独立测试编译步骤"
+      ],
+      "user_decision": null
+    }
+  },
+  "investigation_path": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/bugs/BUG-001/runs/run-1/approved-investigation.md",
+  "aso_bindings": {
+    "builder": {
+      "agent": "keel-builder",
+      "spec_refs": [
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-delivery-spec.md",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-implementation-spec.md",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-code-quality-spec.md",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-bug-scope-spec.md#分类结论",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-document-writing-spec.md"
+      ]
+    },
+    "qa": {
+      "agent": "keel-qa",
+      "spec_refs": [
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-delivery-spec.md",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-acceptance-spec.md",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-code-quality-spec.md",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-bug-scope-spec.md#分类结论",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-bug-scope-spec.md#验收记录",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-document-writing-spec.md",
+        "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.codex/common/refs/keel-qa-scoring-spec.md"
+      ]
+    }
+  },
+  "retest": {
+    "status": "passed",
+    "kind": "isolated_original_http_scenario",
+    "evidence": "/private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project/.keel/eval/original-scenario-retest.json"
+  }
+}

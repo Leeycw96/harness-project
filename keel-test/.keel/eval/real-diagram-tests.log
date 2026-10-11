@@ -1,0 +1,17 @@
+test_contract_example_diagrams_render_with_real_plantuml (__main__.MarkdownPlanTests.test_contract_example_diagrams_render_with_real_plantuml) ... ok
+test_incremental_diagrams_render_with_real_plantuml (__main__.MarkdownPlanTests.test_incremental_diagrams_render_with_real_plantuml) ... ok
+test_real_diagrams_and_syntax_failure (__main__.MarkdownPlanTests.test_real_diagrams_and_syntax_failure) ... FAIL
+
+======================================================================
+FAIL: test_real_diagrams_and_syntax_failure (__main__.MarkdownPlanTests.test_real_diagrams_and_syntax_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/yangchengwu/developer/harness/harness-project/scripts/test-markdown-plan.py", line 804, in test_real_diagrams_and_syntax_failure
+    self.assertIn("refund_tasks", decoded[2])
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'refund_tasks' not found in '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" data-diagram-type="CLASS" style="width:343px;height:103px;background:#FFFFFF;" width="343px" height="103px" viewBox="0 0 343 103" zoomAndPan="magnify" preserveAspectRatio="none" contentStyleType="text/css"><?plantuml 1.2026.8?><defs/><g font-family="sans-serif" lengthAdjust="spacing"><!--class orders--><g class="entity" data-qualified-name="orders" id="ent0001" data-source-line="3"><rect x="6" y="12" width="320.608" height="75.465" fill="#F1F1F1" style="stroke:#181818;stroke-width:0.5;" rx="2.5" ry="2.5"/><text x="116.402" y="30.535" fill="#000" font-size="14" textLength="99.805">orders（订单）</text><line x1="7" y1="38.488" x2="325.608" y2="38.488" style="stroke:#181818;stroke-width:0.5;"/><g data-visibility-modifier="IE_MANDATORY"><ellipse cx="17" cy="52.232" rx="3" ry="3" fill="#000" style="stroke:#000;stroke-width:1;"/></g><text x="26" y="56.023" fill="#000" font-size="14" textLength="138.961">id : varchar(64) «PK»</text><line x1="7" y1="62.977" x2="325.608" y2="62.977" style="stroke:#181818;stroke-width:1;"/><text x="12" y="80.512" fill="#000" font-size="14" textLength="308.608">refund_requested_at : timestamp [新增，可空]</text></g><?plantuml-src KomeIapFJLJ8IQpCBorHACvDBKdCI-JAo4n9LKZEB4hEIULApIl9BAbKKCelIaajAdw_f-F5kaLFUwU-tzEff91Oh00HLgZcKb3GKiXCKR1IA4iiIiv8BD8mCz5KiB49yBQp0yhfwWA9ejIqqhoK-ABKmjBKufBKbFZ44g3wainS82ynjq0X-jcq3KyNpNk_f-Tf__hdAtV5SjK20000?></g></svg>'
+
+----------------------------------------------------------------------
+Ran 3 tests in 6.874s
+
+FAILED (failures=1)

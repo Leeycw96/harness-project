@@ -1,0 +1,52 @@
+{
+  "source_commit": "3d3609954e2c4e86674951a5fd400ae154bc6bdb",
+  "kind": "real_local_http",
+  "before": {
+    "status": 200,
+    "body": {
+      "sku": "DEMO",
+      "name": "示例商品",
+      "stock": 10,
+      "reserved": 0,
+      "available": 10
+    }
+  },
+  "request": {
+    "method": "POST",
+    "path": "/reservations",
+    "body": {
+      "order_id": "boundary-order",
+      "sku": "DEMO",
+      "quantity": 10
+    }
+  },
+  "actual": {
+    "status": 409,
+    "body": {
+      "error": "库存不足"
+    }
+  },
+  "expected": {
+    "status": 200,
+    "body_status": "RESERVED"
+  },
+  "after_failed_request": {
+    "status": 200,
+    "body": {
+      "sku": "DEMO",
+      "name": "示例商品",
+      "stock": 10,
+      "reserved": 0,
+      "available": 10
+    }
+  },
+  "control_quantity_9": {
+    "status": 200,
+    "body": {
+      "order_id": "control-order",
+      "sku": "DEMO",
+      "quantity": 9,
+      "status": "RESERVED"
+    }
+  }
+}

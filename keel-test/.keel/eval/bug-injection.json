@@ -1,0 +1,13 @@
+{
+  "kind": "deliberate_evaluation_fixture",
+  "scope": "one existing condition, no design changes",
+  "clean_commit": "6027483bda0877fab1c479fbdf3bca2083a41623",
+  "source_before_sha256": "cf920feb5db7e0b48f839301e245b93cb314c76a325a7e2e0ae8f39e88cca534",
+  "source_after_sha256": "854538b382a238ffe80d35e298e86ea819e90696e1317e70e1053b23ae1d0a78",
+  "change": {
+    "path": "inventory/service.py",
+    "before": "if quantity > product[\"stock\"] - reserved:",
+    "after": "if quantity >= product[\"stock\"] - reserved:"
+  },
+  "not_builder_failure": true
+}

@@ -1,0 +1,31 @@
+{
+  "plan": {
+    "content_text_chars": 2943,
+    "sections": [
+      "背景",
+      "功能目标",
+      "业务流程总览",
+      "状态机",
+      "数据模型设计",
+      "功能时序图",
+      "接口设计",
+      "代码改造点"
+    ],
+    "rendered_images": 6,
+    "all_images_loaded_in_browser": true,
+    "real_user_review": "pending"
+  },
+  "fix": {
+    "content_text_chars": 211,
+    "sections": [
+      "问题",
+      "原因",
+      "改造点",
+      "影响点",
+      "建议验证点"
+    ],
+    "code_blocks": 0,
+    "tables": 0,
+    "real_user_review": "pending"
+  }
+}

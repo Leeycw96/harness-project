@@ -1,0 +1,25 @@
+cwd: /private/var/folders/4y/0v4n5r7d5pz0xlp9s1kt81j40000gn/T/keel-backend-e2e-1xrmqpy4/project
+command: python3 -m compileall -q inventory tests
+exit: 0
+command: python3 -m py_compile .keel/bugs/BUG-001/runs/run-1/qa-probes.py .keel/bugs/BUG-001/runs/run-1/qa-transport-probe.py
+exit: 0
+command: python3 -m inventory.http --help
+exit: 0
+usage: python3.14 -m inventory.http [-h] --db DB [--port PORT]
+
+options:
+  -h, --help   show this help message and exit
+  --db DB
+  --port PORT
+command: git diff --check 3d3609954e2c4e86674951a5fd400ae154bc6bdb 68e10818b5172db30a3bc2cd082ff8beab516436
+exit: 0
+command: git diff --name-status 3d3609954e2c4e86674951a5fd400ae154bc6bdb 68e10818b5172db30a3bc2cd082ff8beab516436
+exit: 0
+M	inventory/service.py
+M	tests/test_http.py
+M	tests/test_reservations.py
+command: git rev-parse HEAD
+exit: 0
+68e10818b5172db30a3bc2cd082ff8beab516436
+command: git status --short
+exit: 0
