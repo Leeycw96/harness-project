@@ -12,7 +12,7 @@ if rg -n 'implementation-plan|implementation_plan|plan-template\.xml|<plan>|xmll
 fi
 for source_file in \
   "$repo_root/common/refs/keel-flow-index-spec.md"; do
-  for marker in 'PlantUML' '状态流转表' '实际执行状态变化' '流转条件' '证据路径'; do
+  for marker in 'PlantUML' '状态流转表' '实际执行状态变化' '流转条件' '代码路径'; do
     grep -Fq "$marker" "$source_file" || { echo "CallChain 缺少状态机契约: $marker" >&2; exit 1; }
   done
 done

@@ -34,7 +34,6 @@ evidence_code_should_stay_private = 10.05 * 0.9
 ## 修复资格
 
 - 预期依据：项目已确认的金额舍入规则。
-- 证据：已核对现有金额计算与舍入测试，调查专用证据标记。
 - 分流依据：只恢复已有金额舍入约定。
 - 定位结论：已定位
 - 事项分类：缺陷
@@ -91,6 +90,14 @@ class FixContractTests(unittest.TestCase):
         self.assertIn('theme-toggle', page)
         self.assertFalse((self.project / '.keel/plans').exists())
 
+    def test_investigation_without_evidence_renders_approves_and_checks(self):
+        template = (SKILL / 'assets/investigation-template.md').read_text()
+        self.assertNotRegex(template, r'(?m)^- 证据：')
+        self.assertNotRegex(self.investigation.read_text(), r'(?m)^- 证据：')
+        self.assert_concise_review(fix.render(self.bug).read_text())
+        state_path = fix.approve(self.bug, '确认不附证据的修复方案')
+        self.assertEqual(fix.check(state_path)['mode'], 'fix')
+
     def test_untrusted_markdown_is_escaped(self):
         self.bug.write_text(EXAMPLE.replace('折扣金额多保留了一位小数', '<img src=x onerror=alert(1)>') + '\n<script>alert(2)</script>\n')
         page = fix.render(self.bug).read_text()
@@ -110,7 +117,9 @@ class FixContractTests(unittest.TestCase):
                     fix.validate(self.bug)
 
     def test_investigation_qualification_requires_complete_unfenced_fields(self):
-        for source in (INVESTIGATION.replace('- 证据：', '- 资料：'),
+        for source in (INVESTIGATION.replace('- 预期依据：', '- 资料：'),
+                       INVESTIGATION.replace('- 分流依据：', '- 资料：'),
+                       INVESTIGATION.replace('- 高风险设计：无\n', ''),
                        INVESTIGATION.replace('- 事项分类：缺陷', '```text\n- 事项分类：缺陷\n```'),
                        INVESTIGATION.replace('## 修复资格', '## 调查结论'),
                        INVESTIGATION.replace('- 处理路径：fix', '- 处理路径：unknown'),
@@ -129,6 +138,7 @@ class FixContractTests(unittest.TestCase):
                    ('事项分类：缺陷', '事项分类：需求变更'),
                    ('事项分类：缺陷', '事项分类：待判断'),
                    ('处理路径：fix', '处理路径：plan'),
+                   ('处理路径：fix', '处理路径：待判断'),
                    ('处理路径：fix', '处理路径：待补证据')]
         changes += [(key + '：无', key + '：' + value)
                     for key in fix.BOUNDARIES for value in ('有', '待确认')]
@@ -204,10 +214,10 @@ class FixContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             fix.check(state_path)
 
-    def test_evidence_and_investigation_progress_do_not_change_qualification_or_reset_run(self):
+    def test_optional_historical_evidence_and_progress_do_not_change_qualification_or_reset_run(self):
         fix.render(self.bug)
         original_review = self.bug.with_suffix('.review.json').read_bytes()
-        updated = INVESTIGATION.replace('调查专用证据标记', '另有金额边界测试已通过') + '\n## 补充调查\n\n补充日志与回归进展。\n'
+        updated = INVESTIGATION.replace('- 分流依据：', '- 证据：调查专用证据标记，历史字段可保留。\n- 分流依据：') + '\n## 补充调查\n\n补充日志与回归进展。\n'
         self.investigation.write_text(updated)
         # Only the eight qualification declarations bind the user-visible review.
         state_path = fix.approve(self.bug, '确认此修复方案')
@@ -224,6 +234,7 @@ class FixContractTests(unittest.TestCase):
         self.assertEqual(Path(state['investigation_path']).read_bytes(), approved_investigation)
         self.assertEqual(self.bug.with_suffix('.review.json').read_bytes(), original_review)
         fix.render(self.bug)
+        self.assert_concise_review(self.bug.with_suffix('.html').read_text())
         self.assertEqual(self.bug.with_suffix('.review.json').read_bytes(), original_review)
         self.assertEqual(fix.approve(self.bug, '确认补充调查后的同一方案'), state_path)
         self.assertEqual(fix.check(state_path)['fix_round'], 2)
@@ -241,11 +252,12 @@ class FixContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             fix.check(first)
 
-    def test_legacy_markdown_still_validates_and_renders_core_content_without_evidence(self):
+    def test_legacy_without_evidence_still_renders_approves_and_checks(self):
         self.investigation.unlink()
-        legacy = LEGACY.replace('核对 `src/pricing.py::discount` 与已有舍入测试', '调查专用证据标记')
+        legacy = re.sub(r'(?m)^- 证据：.*\n', '', LEGACY)
         legacy += '\n```python\nevidence_code_should_stay_private = 1\n```\n'
         self.bug.write_text(legacy)
+        self.assertNotRegex(legacy, r'(?m)^- 证据：')
         self.assertTrue(fix.validate(self.bug)['eligible'])
         self.assert_concise_review(fix.render(self.bug).read_text())
         state_path = fix.approve(self.bug, '确认旧格式修复方案')
@@ -257,7 +269,10 @@ class FixContractTests(unittest.TestCase):
 
     def test_legacy_invalid_or_ineligible_fields_keep_their_original_gate(self):
         self.investigation.unlink()
-        for source in (LEGACY.replace('- 证据：', '- 资料：'),
+        for source in (LEGACY.replace('- 根因：', '- 资料：'),
+                       LEGACY.replace('- 预期行为：', '- 资料：'),
+                       LEGACY.replace('- 预期依据：', '- 资料：'),
+                       LEGACY.replace('- 高风险设计：无\n', ''),
                        LEGACY.replace('- 事项分类：缺陷', '```text\n- 事项分类：缺陷\n```'),
                        LEGACY.replace('- 事项分类：缺陷\n', '').replace('## 修复方案', '## 修复方案\n\n- 事项分类：缺陷'),
                        LEGACY.replace('## 影响与验证', '## 修复方案'),

@@ -108,7 +108,7 @@ update_progress() {
   printf '%s\n' "$progress_file"
 }
 
-# Called by the main session after checking returned artifacts, commits and evidence.
+# Called by the main session after checking returned artifacts, commits and results.
 complete_stage() {
   local agent="$1" tag="$2" message="$3" artifact="${4:-}"
   if [ -z "$agent" ] || [ -z "$tag" ] || [ -z "$message" ]; then

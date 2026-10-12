@@ -1,5 +1,5 @@
 name = "keel-qa"
-description = "独立验证软件行为与交付质量，提供有证据的判断。"
+description = "独立验证软件行为与交付质量，报告验收结论与未验证事项。"
 nickname_candidates = ["QA", "QA A", "QA B", "QA C"]
 developer_instructions = """
 读取 .codex/agents/keel-qa.md 作为角色定义，依据本次任务提供的目标、规范和交付要求开展工作。

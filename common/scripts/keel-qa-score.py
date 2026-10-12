@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record QA business results and inspect scores without controlling a run."""
+"""Record item scores and inspect them without controlling acceptance or a run."""
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -51,8 +51,6 @@ def result_item(raw, key):
     reason = raw.get('reason', '')
     if not isinstance(reason, str):
         raise ValueError(f'{identity} 的原因须为文本')
-    if status in {'passed', 'failed'} and not evidence:
-        raise ValueError(f'{identity} 缺少验证证据')
     if status == 'unverified' and not reason.strip():
         raise ValueError(f'{identity} 须说明未验证原因')
     return {key: identity, 'status': status, 'evidence': evidence, 'reason': reason.strip()}
@@ -120,7 +118,7 @@ def align_goals(raw, source):
             'reason': '未报告验证结果', 'evidence': []}) for goal in source['catalog']]
 
 
-def prepare(raw, source):
+def prepare_legacy(raw, source):
     if not isinstance(raw, dict) or type(raw.get('schema_version')) is not int or raw['schema_version'] != 1:
         raise ValueError('结果须使用 schema_version: 1')
     review, verdict = raw.get('review'), raw.get('verdict')
@@ -149,16 +147,13 @@ def prepare(raw, source):
             'goal_results': align_goals(raw.get('goal_results'), source), 'checks': checks}
 
 
-def scores(core):
+def legacy_scores(core):
     goals = core['goal_results']
     return (totals(goals) if goals is not None else None,
             [{'name': check['name'], **totals(check['items'])} for check in core['checks']])
 
 
-def read_record(path):
-    if path.is_symlink():
-        raise ValueError('评分记录不能使用符号链接')
-    record = json.loads(path.read_text(encoding='utf-8'))
+def read_legacy(record):
     if not isinstance(record, dict) or any(key not in record for key in CORE_FIELDS):
         raise ValueError('评分记录字段不完整')
     source = record['source']
@@ -174,10 +169,10 @@ def read_record(path):
         nonempty(goal.get('target'), '目标说明')
     if source['kind'] != 'none' and (not catalog or not re.fullmatch(r'[0-9a-f]{64}', str(source.get('sha256')))):
         raise ValueError('目标来源摘要无效')
-    core = prepare({key: record[key] for key in CORE_FIELDS}, source)
+    core = prepare_legacy({key: record[key] for key in CORE_FIELDS}, source)
     if digest(core) != record.get('data_sha256'):
         raise ValueError('评分记录内容与摘要不一致')
-    goal_score, check_scores = scores(core)
+    goal_score, check_scores = legacy_scores(core)
     if record.get('goal_score') != goal_score or record.get('check_scores') != check_scores:
         raise ValueError('评分数字与实际结果不一致')
     timestamp = datetime.fromisoformat(nonempty(record.get('recorded_at'), '记录时间'))
@@ -186,45 +181,124 @@ def read_record(path):
     return record
 
 
-def record_result(raw, output_dir, plan=None, fix=None):
+def score_map(raw, label):
+    if not isinstance(raw, dict):
+        raise ValueError(f'{label} 须为条目名与评分的对象')
+    items = {}
+    for key, value in raw.items():
+        name = nonempty(key, label + '条目名')
+        if name in items:
+            raise ValueError('检查项重复：' + name)
+        if type(value) is not int or value not in {0, 100}:
+            raise ValueError(f'{name} 评分须为 0 或 100')
+        items[name] = value
+    return items
+
+
+def compact(raw):
+    if raw.get('schema_version') == 1:
+        checks = {}
+        for group in raw['checks']:
+            for item in group['items']:
+                name = group['name'] + '/' + item['name']
+                if name in checks:
+                    raise ValueError('检查项重复：' + name)
+                checks[name] = 100 if item['status'] == 'passed' else 0
+        return {'goals': {item['id']: 100 if item['status'] == 'passed' else 0
+                          for item in raw['goal_results'] or []}, 'checks': checks}
+    return {'goals': score_map(raw.get('goals', {}), 'goals'),
+            'checks': score_map(raw.get('checks', {}), 'checks')}
+
+
+def prepare(raw, source):
+    if not isinstance(raw, dict):
+        raise ValueError('评分须为对象')
+    if 'schema_version' in raw:
+        core = compact(prepare_legacy(raw, source))
+    else:
+        if set(raw) - {'goals', 'checks'}:
+            raise ValueError('评分只需 goals 和 checks')
+        core = compact(raw)
+    known = [goal['id'] for goal in source['catalog']]
+    if core['goals'] and not known:
+        raise ValueError('目标评分需要计划或批准的修复说明')
+    unknown = set(core['goals']) - set(known)
+    if unknown:
+        raise ValueError('未知目标：' + '、'.join(sorted(unknown)))
+    if known:
+        core['goals'] = {identity: core['goals'].get(identity, 0) for identity in known}
+    return core
+
+
+def score_totals(items):
+    total = len(items)
+    completed = sum(value == 100 for value in items.values())
+    return {'completed': completed, 'total': total,
+            'percent': round(100 * completed / total, 2) if total else None}
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('JSON 字段重复：' + key)
+        result[key] = value
+    return result
+
+
+def load_json(text):
+    return json.loads(text, object_pairs_hook=unique_object)
+
+
+def read_record(path):
+    if path.is_symlink():
+        raise ValueError('评分记录不能使用符号链接')
+    record = load_json(path.read_text(encoding='utf-8'))
+    if isinstance(record, dict) and 'schema_version' in record:
+        return read_legacy(record)
+    if not isinstance(record, dict) or set(record) != {'goals', 'checks'}:
+        raise ValueError('评分记录须仅包含 goals 和 checks')
+    core = compact(record)
+    location = path.resolve()
+    keel = next((parent for parent in location.parents if parent.name == '.keel'), None)
+    kind = 'unknown' if core['goals'] else 'none'
+    if keel is not None and core['goals']:
+        mode = location.relative_to(keel).parts[0]
+        kind = {'iterations': 'plan', 'bugs': 'fix'}.get(mode, kind)
+    return {**core, 'project': str(keel.parent) if keel else None, 'builder': 'unknown',
+            'review': 'initial' if path.name == 'qa-score.json' else 'retest',
+            'recorded_at': datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
+            'source': {'kind': kind},
+            'goal_score': score_totals(core['goals']) if core['goals'] else None,
+            'check_scores': [{'name': '通用检查', **score_totals(core['checks'])}] if core['checks'] else []}
+
+
+def record_result(raw, output_dir, plan=None, fix=None, retest=False):
     directory = Path(output_dir)
     if directory.is_symlink():
         raise ValueError('报告目录不能使用符号链接')
-    source = goal_source(plan, fix)
-    if isinstance(raw, dict) and raw.get('project') is None:
-        raw = dict(raw)
-        locations = [directory.resolve()]
-        if source['path']:
-            locations.append(Path(source['path']))
-        for location in locations:
-            project = next((parent.parent for parent in (location, *location.parents) if parent.name == '.keel'), None)
-            if project is not None:
-                raw['project'] = str(project)
-                break
-    core = prepare(raw, source)
+    core = prepare(raw, goal_source(plan, fix))
     fingerprint = digest(core)
     directory.mkdir(parents=True, exist_ok=True)
-    name = 'qa-score.json' if core['review'] == 'initial' else f'qa-score-retest-{fingerprint[:12]}.json'
+    retest = retest or raw.get('review') == 'retest'
+    name = f'qa-score-retest-{fingerprint[:12]}.json' if retest else 'qa-score.json'
     target = directory / name
     if target.exists() or target.is_symlink():
-        if read_record(target)['data_sha256'] == fingerprint:
+        if compact(read_record(target)) == core:
             return target
         raise ValueError('已有首次评分，不能用新结果覆盖')
-    goal_score, check_scores = scores(core)
-    record = {**core, 'recorded_at': datetime.now(timezone.utc).isoformat(), 'data_sha256': fingerprint,
-              'goal_score': goal_score, 'check_scores': check_scores}
     temp_path = None
     try:
         with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=directory, delete=False) as temp:
             temp_path = Path(temp.name)
-            json.dump(record, temp, ensure_ascii=False, indent=2, allow_nan=False)
+            json.dump(core, temp, ensure_ascii=False, indent=2, allow_nan=False)
             temp.write('\n')
             temp.flush()
             os.fsync(temp.fileno())
         try:
             os.link(temp_path, target)
         except FileExistsError:
-            if read_record(target)['data_sha256'] != fingerprint:
+            if compact(read_record(target)) != core:
                 raise ValueError('已有评分，不能用新结果覆盖')
     finally:
         if temp_path is not None:
@@ -270,9 +344,10 @@ def history(directory, last=10, builder=None, include_retests=False):
 def main():
     parser = argparse.ArgumentParser(description='记录并查看 QA 评分，不决定验收或下一次检查。')
     commands = parser.add_subparsers(dest='command', required=True)
-    write = commands.add_parser('record', help='计算评分并保存业务记录')
-    write.add_argument('input', help='检查结果 JSON；- 表示标准输入')
+    write = commands.add_parser('record', help='保存条目评分')
+    write.add_argument('input', help='条目评分 JSON；- 表示标准输入')
     write.add_argument('--output-dir', required=True, help='本次报告目录')
+    write.add_argument('--retest', action='store_true', help='保留初验评分，另存本次复验')
     basis = write.add_mutually_exclusive_group()
     basis.add_argument('--plan', help='本次计划索引快照')
     basis.add_argument('--fix', help='本次批准的修复说明')
@@ -285,8 +360,8 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == 'record':
-            raw = json.loads(sys.stdin.read() if args.input == '-' else Path(args.input).read_text(encoding='utf-8'))
-            print(record_result(raw, args.output_dir, args.plan, args.fix))
+            raw = load_json(sys.stdin.read() if args.input == '-' else Path(args.input).read_text(encoding='utf-8'))
+            print(record_result(raw, args.output_dir, args.plan, args.fix, args.retest))
         else:
             data = history(args.directory, args.last, args.builder, args.include_retests)
             if args.json:
@@ -298,12 +373,10 @@ def main():
                     score = record['goal_score']
                     grade = f"{score['percent']:.2f} 分（{score['completed']}/{score['total']}）" if score else '目标未评分'
                     review = '初验' if record['review'] == 'initial' else '复验'
-                    print(f"{record['recorded_at']} | {record['builder']} | {record['source']['kind']} | {review} | {grade} | {record['verdict']}")
+                    print(f"{record['recorded_at']} | {record['builder']} | {record['source']['kind']} | {review} | {grade}")
                     for check in record['check_scores']:
                         value = f"{check['percent']:.2f} 分" if check['percent'] is not None else '未评分'
                         print(f"  {check['name']}：{value}（{check['completed']}/{check['total']}）")
-                    if record['limitations']:
-                        print('  未验证事项：' + '；'.join(record['limitations']))
                 for group in data['summary']:
                     value = f"{group['percent']:.2f}%" if group['percent'] is not None else '未评分'
                     review = '初验' if group['review'] == 'initial' else '复验'

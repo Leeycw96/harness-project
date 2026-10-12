@@ -12,6 +12,13 @@
 
 - 将版本标识升级至 4.0.4，同步 `VERSION` 与 README。
 - 在 `keel-fix/SKILL.md` 补充 `user-invocable: true`，移除该 Skill 的 `agents/openai.yaml` 调用策略配置。
+- 移除全部现行 Spec 的强制证据、引用与日志存档要求，同步 Skill、Agent、调查模板和 Fix 审批校验；保留真实验证、修复资格与确认快照要求。
+- QA 评分 JSON 简化为 `goals`、`checks` 两组检查项与分数，不再保存逐项理由或证据；保留初验、复验独立记录和旧评分读取，验收报告只简述结果及未完成事项。
+
+### 验证
+
+- runtime、Fix 与评分契约、临时部署及原有指令精简门槛通过。
+- 规划契约 40 项通过，3 项真实图表测试因缺少本地 PlantUML 跳过。
 
 ## 4.0.3
 

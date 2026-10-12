@@ -112,7 +112,7 @@ keel dev --codex /path/to/your/project
 
 ## 阶段职责
 
-借鉴 [Karpathy 启发的四项原则](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/README.zh.md)，按 Keel 阶段职责整合：Plan 在制定计划时核实假设、调研歧义并请用户完成关键取舍；Dev 按已确认方案落实简洁优先、精准修改与目标驱动，Builder 实现，QA 对照目标与证据验收。仅实际代码偏差或关键遗漏返回 Plan，验证修复仍遵守既有次数上限。
+借鉴 [Karpathy 启发的四项原则](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/README.zh.md)，按 Keel 阶段职责整合：Plan 在制定计划时核实假设、调研歧义并请用户完成关键取舍；Dev 按已确认方案落实简洁优先、精准修改与目标驱动，Builder 实现，QA 对照目标与实际结果验收。仅实际代码偏差或关键遗漏返回 Plan，验证修复仍遵守既有次数上限。
 
 ## ASO 设计规范
 
@@ -120,13 +120,13 @@ keel dev --codex /path/to/your/project
 
 | 层次 | 应包含 | 不应包含 |
 | --- | --- | --- |
-| **A（Agent）** | 角色、能力、做事风格：专业方法、行为边界、证据判断 | 固定项目规范路径、公司协作流程、状态字段、重试次数、完成命令 |
+| **A（Agent）** | 角色、能力、做事风格：专业方法、行为边界、事实判断 | 固定项目规范路径、公司协作流程、状态字段、重试次数、完成命令 |
 | **S（Spec）** | 产物的内容、格式、质量及适用条件：代码、文档、图表、报告、评分 JSON | Agent 的工作步骤、工具选择、操作权限、调度和恢复 |
 | **O（Orchestration）** | `SKILL.md` 中的高层编排：主要步骤及顺序、执行者、任务与 Spec、必要的用户决策和步骤衔接 | 重写 Agent 的做事风格，重复维护 Spec 中的标准，细管 Agent 的执行方法，堆叠限制，将编排主线拆到独立编排文档 |
 
 ### 编写与调整要求
 
-1. Agent Markdown 固定为“角色、能力、做事风格”。风格约束行为，如最小修改、TDD、先核实证据、只读调查不改代码、独立验收；换项目仍成立，不放项目路径或固定检查清单。TOML 只注册并加载角色说明。
+1. Agent Markdown 固定为“角色、能力、做事风格”。风格约束行为，如最小修改、TDD、先核实事实、只读调查不改代码、独立验收；换项目仍成立，不放项目路径或固定检查清单。TOML 只注册并加载角色说明。
 2. Spec 按使用场景组织，只定义产物的内容、格式、质量和适用条件。Builder 与 QA 使用同一份代码和测试标准。本次目标与授权范围放在任务中；如何调查、实现或验收由 Agent 自主决定。
 3. 每个 `SKILL.md` 说明从接收输入到最终交付的主要步骤及顺序，包括主会话承担的沟通、检查和交付。涉及 subagent 时，明确调用哪个 Agent、这一步要完成什么、依据什么 Spec，并提供必要的任务资料；仅在影响步骤衔接时补充输出、分支或恢复说明，不要求每一步套用完整字段模板。
 4. 信任 Agent 的专业能力，由其依据任务、Spec 和项目事实自主选择调研路径、工具与局部执行方法。编排聚焦目标和协作，不逐项规定模型能够自主完成的操作，不重复角色风格或 Spec，不堆叠禁止事项。仅保留授权边界、关键用户决策、必要质量门禁和跨步骤交接要求；主会话依据结果推进，已有明确决定直接沿用。
@@ -134,7 +134,7 @@ keel dev --codex /path/to/your/project
 6. A/S 可以独立替换，O 核对能力、引用和交付接口。缺资料、规范冲突或超出授权时说明原因，不能静默回退或扩大任务。
 7. 重组文件时保留目标、质量要求和门禁，同步调用方、部署、模板、校验与测试；旧 Spec 接口不保留。体量统计区分编排、固定输入和动态任务资料，不把搬文件当成上下文节省。
 
-归属示例：任务说明“只读调查退款失败”；做事风格说明“先核实证据，不擅自改代码”；Spec 说明“报告包含根因、证据、影响和未确定事项”。文档栏目顺序属于产物格式，“先读代码再运行测试”属于工作方法。
+归属示例：任务说明“只读调查退款失败”；做事风格说明“先核实事实，不擅自改代码”；Spec 说明“报告包含根因、影响和未确定事项”。文档栏目顺序属于产物格式，“先读代码再运行测试”属于工作方法。
 
 ### 方案从简设计
 
@@ -174,7 +174,7 @@ Spec 位于 `common/refs/`，按使用场景和共享标准分类，完整清单
 
 正文直接列简短易懂的产物要求，正确或错误示例按需添加并保留前缀。当前 Skill 直接选择场景规范，旧名称与章节入口已移除。
 
-Planner、Builder、QA 和 CallChain 的 Spec 输入共用 `keel-document-writing-spec`：Markdown 用短句和直白说法，少写重复背景、过程和图表复述；证据用短结论加真实引用，保留必要设计、字段、SQL、图表及验证信息。它作为写作规范输入，不增加产物检查或固定字数限制。
+Planner、Builder、QA 和 CallChain 的 Spec 输入共用 `keel-document-writing-spec`：Markdown 用短句和直白说法，少写重复背景、过程和图表复述；只保留必要设计、字段、SQL、图表及验证结果，不要求整理证据或保存验证日志。它作为写作规范输入，不增加产物检查或固定字数限制。
 
 Agent 的做事风格不固化项目检查清单。需要增删某项 QA 检查时，直接修改对应 Spec；Skill 继续下发同一份规范并编排执行，不增加检查开关或自动高分策略。
 
@@ -184,27 +184,36 @@ Agent 的做事风格不固化项目检查清单。需要增删某项 QA 检查�
 | --- | --- | --- |
 | Plan 业务总览 | 同一个业务的完整生命周期，通常一张图覆盖触发、主要阶段、关键分支和结果 | 对应功能的执行设计；总览不按接口拆图或展开技术处理 |
 | Plan 时序图 | 关键交互、业务分支，以及必须一起成功或失败的操作 | 功能 MD 的必要说明和接口设计，保留 SQL、锁、错误码等约束 |
-| QA 报告 | 每个功能目标的完成情况、关键结果和证据引用 | 评分 JSON 与日志保留逐项检查和完整命令，正文按检查类型归并 |
+| QA 报告 | 总体结论、功能目标结果与必要的未完成说明 | 评分 JSON 只保留检查项和对应分数，不要求逐项解释、证据引用或日志存档 |
 
 通过项简要说明，失败、遗漏或未验证事项包含必要的原因与影响。完整性按模型、图与说明、接口共同判断；图外约束保留在下载 MD 和开发快照中，不要求全部塞入图里，也不设统一字数上限。具体要求见方案和验收 Spec，Skill 的编排及 Agent 的工作方法保持各自职责。
 
 ### QA 评分与查看
 
-QA 交付当前规范要求的检查结果与评分 JSON，可用 `keel-qa-score.py` 生成和查看。Spec 规定记录格式与算分规则，Agent 自主选择生成方法。目标完成率为完成目标数 ÷ 快照总目标数 × 100；全部验收条件通过才算完成，遗漏或未验证仍计入总数。其他检查按各组实际条目计分，没有结果时不补满分。
+QA 交付当前规范要求的检查结果与评分 JSON，可用 `keel-qa-score.py` 生成和查看。Spec 规定记录格式与算分规则，Agent 自主选择生成方法。目标完成率为完成目标数 ÷ 快照总目标数 × 100；全部验收条件通过才算完成，遗漏或未验证仍计入总数。其他检查按实际条目计分，没有结果时不补满分。
 
-目标总数由工具读取快照，其他组的条目由 QA 按当前规范列全；工具负责算分，不自动判断自然语言规约是否有遗漏，也不将某组满分当成整体质量满分。
+目标总数由工具读取快照，遗漏目标补 0 分；其他检查由 QA 按当前规范列全。每项已验证通过记 100，其余记 0，工具负责汇总，不将检查平均分当成验收结论。
 
 初验保存在本次报告目录的 `qa-score.json`，复验保存独立的 `qa-score-retest-*.json`；不会以修好后的满分覆盖初次成绩。分数、验收结论及现场复验事项分开记录；工具不操作运行状态或决定下一次检查内容。
 
 ```bash
 # results.json 为 QA 的业务检查结果，可用 - 从标准输入读取
 python3 .codex/common/scripts/keel-qa-score.py record results.json --plan /path/to/run/plan.md --output-dir /path/to/run
-# Fix 使用 --fix /path/to/run/approved.md
+# Fix 使用 --fix /path/to/run/approved.md；复验增加 --retest
 python3 .codex/common/scripts/keel-qa-score.py history /path/to/project --last 10
-python3 .codex/common/scripts/keel-qa-score.py history /path/to/project --builder keel-builder --include-retests --json
+python3 .codex/common/scripts/keel-qa-score.py history /path/to/project --include-retests --json
 ```
 
-业务 JSON 包含 `schema_version: 1`、`review: initial/retest`、`verdict: APPROVED/REJECTED` 和 `blockers` 文本列表；`goal_results` 记录目标的 id、status、evidence，`checks` 记录组名 name 和 items（条目为 name、status、evidence）。未验证状态使用 `unverified` 并填写 reason，其他状态为 `passed/failed`；可补充 project、builder、commits、limitations。标准 `.keel/` 目录可自动识别所属项目，历史按项目、Builder、Dev/Fix、初验/复验分组。检查内容可以随 Spec 增删，脚本不内置质量检查种类或通过阈值。
+评分 JSON 只有 `goals` 和 `checks` 两组，每项为名称与分数，不包含逐项理由、证据、日志、来源摘要或其他元数据。`goals` 使用计划中的 feature slug，Fix 使用 `bug`；`checks` 使用本次检查项名称，例如：
+
+```json
+{
+  "goals": {"cancel-order": 100, "confirm-refund": 0},
+  "checks": {"关键分支测试": 100, "异常处理": 0}
+}
+```
+
+APPROVED/REJECTED、失败或未验证事项的必要原因和影响只在 `qa-feedback.md` 简述。历史工具兼容旧评分，简版记录从路径和文件时间识别项目、Dev/Fix 与初验/复验；简版不记录 Builder 身份，旧记录仍可按 Builder 筛选。检查内容可以随 Spec 增删，工具不内置质量检查种类或通过阈值。
 
 ### Skill 与 Agent 协议
 
@@ -213,9 +222,9 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 - **任务**：本步目标、范围与授权、必要资料引用（含项目手册）和交付要求。
 - **Spec**：产物规范的 name 与绝对路径列表；`#二级标题` 引用包含子节，到下一二级标题结束。
 
-调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 依据任务与 Spec 工作，返回业务结论、产物、commits、验证证据和遗留项；QA 使用 APPROVED/REJECTED，流程维护使用 NOOP/UPDATED。
+调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 依据任务与 Spec 工作，返回业务结论、产物、commits、验证结果和遗留项；QA 使用 APPROVED/REJECTED，流程维护使用 NOOP/UPDATED。
 
-主会话选择 Agent/Spec，负责用户确认、阶段、进度与恢复；根据当前执行的新消息记录进度，核对产物、提交和证据后记录完成，再推进状态。运行字段、内部完成标记和 Skill 不下发给 Agent；Agent 不调用运行助手或修改运行状态，现有脚本也没有自动进度采集器。
+主会话选择 Agent/Spec，负责用户确认、阶段、进度与恢复；根据当前执行的新消息记录进度，核对产物、提交和结果后记录完成，再推进状态。运行字段、内部完成标记和 Skill 不下发给 Agent；Agent 不调用运行助手或修改运行状态，现有脚本也没有自动进度采集器。
 
 开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 保留但忽略。恢复先结束旧执行，再启动新任务，晚到的旧进展和结果不用于新执行。审查五分钟、实现或返修十五分钟无进展时检查，轮询、重复摘要或仅 running 不重置计时。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 CallChain、批准快照与旧 profile 恢复。
 
@@ -229,11 +238,11 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 /keel-dev <plan-path>
 ```
 
-`keel-fix` 编排 Builder 根据问题、代码、配置与日志定位根因，本地复现是可选证据来源。Builder 必须区分已定位、候选原因与暂未定位；主会话根据证据缺口向用户请求必要日志或现场验证，不能把日志语句当作本次运行记录，也不能靠猜测修改代码。
+`keel-fix` 编排 Builder 根据问题、代码、配置与日志定位根因，本地复现是可选定位方法。Builder 必须区分已定位、候选原因与暂未定位；主会话按定位需要请求现有资料或现场验证，不能把日志语句当作本次运行记录，也不能靠猜测修改代码。
 
-定位后由主会话分流：明确、局部且不改变既定设计的缺陷走独立 fix；需求变更或涉及业务状态/流程、接口、数据模型、迁移及高风险设计的修复，说明原因并提示用户走 `/keel-plan`。证据不足继续调查，不误判为需求。fix 只编排 Builder 和 QA，不调用 Plan/Dev Skill 或 CallChain。
+定位后由主会话分流：明确、局部且不改变既定设计的缺陷走独立 fix；需求变更或涉及业务状态/流程、接口、数据模型、迁移及高风险设计的修复，说明原因并提示用户走 `/keel-plan`。尚未定位时继续调查，不误判为需求。fix 只编排 Builder 和 QA，不调用 Plan/Dev Skill 或 CallChain。
 
-`.keel/bugs/<id>/bug.md` 与同名 HTML 仅简述“问题、原因、改造点、影响点、建议验证点”五章，影响和建议回归按业务流程表达。调查证据、预期依据、分流结论与设计边界保留在同目录 `investigation.md` 的“修复资格”章节，其他章节记录调查进展；HTML 不展示证据代码或重复的完整源文档，保留 Markdown 下载。
+`.keel/bugs/<id>/bug.md` 与同名 HTML 仅简述“问题、原因、改造点、影响点、建议验证点”五章，影响和建议回归按业务流程表达。预期依据、分流结论与设计边界保留在同目录 `investigation.md` 的“修复资格”章节，其他章节记录调查进展；HTML 不展示调查代码或重复的完整源文档，保留 Markdown 下载。
 
 用户确认后，审批脚本核对 MD、HTML 和修复资格，保存 approved.md、approved-investigation.md 快照及独立 fix state，供 Builder/QA 执行与验收。派发、恢复及记录完成前复核批准版本；仅补充调查日志无需重新批准，资格或审阅内容实质变化须重渲染并重新确认。旧三章文档继续兼容，既有已批准任务沿用原快照与 HTML，无需迁移或重新渲染；代码验收通过后仍待原场景复验。
 
@@ -243,7 +252,7 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.m
 python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.md --decision '用户确认原文'
 ```
 
-Codex App 的 Plan 编排 Planner 核对相关 CallChain 和实际代码，返回带 slug 的候选功能与证据，再由主会话让用户选择哪些功能生成 PlantUML 时序图（部分、全部或不生成）；已有明确选择时不重复询问。其余只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项，内容可推导时直接起草，不逐章确认。
+Codex App 的 Plan 编排 Planner 核对相关 CallChain 和实际代码，返回带 slug 的候选功能与调研结果，再由主会话让用户选择哪些功能生成 PlantUML 时序图（部分、全部或不生成）；已有明确选择时不重复询问。其余只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项，内容可推导时直接起草，不逐章确认。
 
 Planner 按本期变化设计方案：时序图表达关键交互、业务分支和原子操作，必要实现约束在功能 MD 中用少量文字保留；模型、图与说明、接口共同支撑完整设计。确实无模型/接口变更时在 MD 写“本期不涉及变更，沿用现有实现”，HTML 继续省略对应可选栏目。仅增加内部状态的完整小方案见 `keel-plan/skills/keel-plan/assets/incremental-example.md` 及关联文件。合约开发的完整示例见 `keel-plan/skills/keel-plan/assets/contract-example.md` 及关联文件。主会话检查范围与简洁程度，负责渲染和最终用户确认，不重复 Planner 的调研与文档编写。
 
@@ -270,7 +279,7 @@ Codex App 的 dev run 在 Preflight 后直接由 Builder 按 Markdown 计划构�
 
 CallChain 已启用按需调度：主会话明确判断没有外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 CallChain 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
 
-CallChain 在业务流程文件中维护当前 PlantUML 状态图与流转表，记录源/目标状态、事件、条件、业务入口符号和实际状态变更符号及代码路径。图表以验收后的实现为准，历史差异不混入当前图表。UPDATED 以更新文档、报告和证据完成，不强制提交 Git；仅任务明确要求时提交，状态中的 commit SHA 为可选记录。
+CallChain 在业务流程文件中维护当前 PlantUML 状态图与流转表，记录源/目标状态、事件、条件、业务入口符号和实际状态变更符号及代码路径。图表以验收后的实现为准，历史差异不混入当前图表。UPDATED 以更新文档和简短报告完成，不强制提交 Git；仅任务明确要求时提交，状态中的 commit SHA 为可选记录。
 
 本轮评审发现阻断问题时自动进入内部修复循环，最多三轮。run 完成后的新反馈使用新的 plan/dev run；范围变化重新运行 `/keel-plan`。
 

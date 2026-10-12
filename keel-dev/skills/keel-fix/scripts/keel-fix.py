@@ -64,7 +64,7 @@ def qualification(content):
     values = {label: field(content, label) for label in ('定位结论', '事项分类', '处理路径', *BOUNDARIES)}
     if (values['定位结论'] not in {'已定位', '候选原因', '暂未定位'} or
             values['事项分类'] not in {'缺陷', '需求变更', '待判断'} or
-            values['处理路径'] not in {'fix', 'plan', '待补证据'}):
+            values['处理路径'] not in {'fix', 'plan', '待判断', '待补证据'}):
         raise ValueError('定位结论、事项分类或处理路径无效')
     if any(values[label] not in {'无', '有', '待确认'} for label in BOUNDARIES):
         raise ValueError('影响边界只能填写无、有或待确认')
@@ -85,7 +85,7 @@ def investigation(source):
     content = markdown.prose(markdown.section_blocks(parts)['修复资格'])
     if re.search(r'\b(?:TBD|TODO|FIXME)\b', content, re.I):
         raise ValueError('修复资格仍有未决占位符')
-    for label in ('预期依据', '证据', '分流依据'):
+    for label in ('预期依据', '分流依据'):
         field(content, label)
     values, eligible = qualification(content)
     signature = json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
@@ -114,7 +114,7 @@ def validate(path):
     details = None
     if legacy:
         problem, changes, impact = (text[name] for name in LEGACY_SECTIONS)
-        for label in ('当前现象', '预期行为', '预期依据', '根因', '证据', '分流依据'):
+        for label in ('当前现象', '预期行为', '预期依据', '根因', '分流依据'):
             field(problem, label)
         for label in ('定位结论', '事项分类', '处理路径'):
             field(problem, label)
@@ -134,7 +134,7 @@ def validate(path):
         }
     else:
         if any(lang is not None for lang, _ in parts):
-            raise ValueError('简要修复说明不包含代码块，调查证据保留在 investigation.md')
+            raise ValueError('简要修复说明不包含代码块，调查详情保留在 investigation.md')
         if any(not text[name].strip() for name in SECTIONS):
             raise ValueError('修复说明各章须有简要内容')
         if not re.search(r'^- .*`[^`]+`.*[：:].+', text['改造点'], re.M):
@@ -148,7 +148,7 @@ def validate(path):
 
 def require_fix(document):
     if not document['eligible']:
-        raise ValueError('只有已定位且不涉及设计变化的局部缺陷可进入 fix；其余继续取证或提示用户走 keel-plan')
+        raise ValueError('只有已定位且不涉及设计变化的局部缺陷可进入 fix；其余继续定位或提示用户走 keel-plan')
 
 
 def render(source):
@@ -166,7 +166,7 @@ def render(source):
         content.append(markdown.prose_html('## ' + name + '\n\n' + document['summary'][name], sections))
     nav = ''.join(f'<a href="#section-{i}">{html.escape(name)}</a>' for i, name in enumerate(sections, 1))
     title = html.escape(document['title'])
-    status = '待用户确认修复方案' if document['eligible'] else '证据或范围未满足，不能进入修复'
+    status = '待用户确认修复方案' if document['eligible'] else '定位或范围未满足，不能进入修复'
     source64 = base64.b64encode(document['raw']).decode()
     page = f'''<!doctype html>
 <html lang="zh-CN" data-theme="dark"><head><meta charset="utf-8">
@@ -211,10 +211,10 @@ def check(state_path):
         raise ValueError('HTML 已变化或缺失，必须重新审阅确认')
     if document['investigation']:
         details = document['investigation']
-        evidence_snapshot = state_path.parent / 'approved-investigation.md'
+        investigation_snapshot = state_path.parent / 'approved-investigation.md'
         if (approval.get('qualification_sha256') != details['qualification_sha256'] or
-                state.get('investigation_path') != str(evidence_snapshot) or evidence_snapshot.is_symlink() or
-                approval.get('investigation_sha256') != digest(evidence_snapshot.read_bytes())):
+                state.get('investigation_path') != str(investigation_snapshot) or investigation_snapshot.is_symlink() or
+                approval.get('investigation_sha256') != digest(investigation_snapshot.read_bytes())):
             raise ValueError('修复资格已变化或调查快照不一致，必须重新审阅确认')
     elif 'qualification_sha256' in approval:
         raise ValueError('修复资格来源已变化，必须重新审阅确认')
@@ -265,9 +265,9 @@ def approve(source, decision):
              'preflight': {'main_compile': {'status': 'pending', 'summary': []},
                            'test_compile': {'status': 'pending', 'summary': [], 'user_decision': None}}}
     if details:
-        evidence_snapshot = run / 'approved-investigation.md'
-        atomic_write(evidence_snapshot, details['raw'])
-        state['investigation_path'] = str(evidence_snapshot)
+        investigation_snapshot = run / 'approved-investigation.md'
+        atomic_write(investigation_snapshot, details['raw'])
+        state['investigation_path'] = str(investigation_snapshot)
         state['approval']['investigation_sha256'] = details['sha256']
     write_json(run / 'state.json', state)
     atomic_write(run / 'progress.tsv', b'')
@@ -289,7 +289,7 @@ def main():
             print(check(args.path)['fix_path'])
         else:
             document = validate(args.path)
-            print('可审阅的局部缺陷' if document['eligible'] else '继续取证或提示转 Plan，不可进入 fix')
+            print('可审阅的局部缺陷' if document['eligible'] else '继续定位或提示转 Plan，不可进入 fix')
     except (OSError, ValueError, KeyError) as error:
         print('错误: ' + str(error), file=sys.stderr)
         return 1
