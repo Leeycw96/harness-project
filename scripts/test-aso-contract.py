@@ -258,7 +258,7 @@ class AsoContractTests(unittest.TestCase):
                 if heading == '运行衔接':
                     self.assertIn('忽略旧 task_ref', contract)
                     self.assertIn('主会话', contract)
-                    self.assertIn('update_progress', contract)
+                    self.assertIn('进展通过原生消息跟进，不另存进度文件', contract)
                     self.assertIn('complete_stage', contract)
                     self.assertIn('Agent 不调用运行助手或修改运行状态', contract)
 
@@ -335,6 +335,8 @@ class AsoContractTests(unittest.TestCase):
         self.assertIsNone(data['call_chain']['prefilter']['decision'])
         self.assertIsNone(data['preflight']['test_compile']['user_decision'])
         self.assertNotIn('fast', data)
+        self.assertNotIn('progress', data)
+        self.assertFalse((state.parent / 'progress.tsv').exists())
         self.assertFalse((self.project / '.agents/skills/keel-dev-fast/SKILL.md').exists())
         self.shell('export PROJECT_DIR="$1"\nsource "$2"\nif declare -F init_keel_fast_run >/dev/null; then exit 1; fi', self.project, self.init)
 
@@ -403,7 +405,7 @@ class AsoContractTests(unittest.TestCase):
         self.resume(state, success=False)
         self.assertEqual(state.read_bytes(), before)
 
-    def test_resume_legacy_profile_retains_configured_progress(self):
+    def test_resume_legacy_profile_preserves_history_without_creating_progress_events(self):
         state, old = self.legacy_fast('profile-fast', 'FIX_FAST')
         profile = state.parent / 'profile.json'
         old['progress'] = {'events': str(state.parent / 'progress.events')}
@@ -412,30 +414,42 @@ class AsoContractTests(unittest.TestCase):
         self.assertEqual(self.resume(profile).stdout.strip(), str(profile))
         self.assertEqual(profile.read_bytes(), before)
         self.assertEqual(json.loads(state.read_text())['phase'], 'FIX')
+        old_progress = (state.parent / 'progress.tsv').read_bytes()
         self.helper(profile, 'update_progress keel-builder FIX "继续修复"')
-        self.assertTrue((state.parent / 'progress.events').is_file())
+        self.assertFalse((state.parent / 'progress.events').exists())
+        self.assertEqual((state.parent / 'progress.tsv').read_bytes(), old_progress)
+        self.assertEqual(profile.read_bytes(), before)
 
-    def test_main_session_records_agent_results_with_existing_public_tags(self):
+    def test_progress_helpers_return_public_tags_without_writing_runtime_files(self):
         state = self.init_run('events')
         data = json.loads(state.read_text())
         data.update(phase='REVIEW_FIX', fix_round=2, retries={'keel-qa': 2})
         state.write_text(json.dumps(data))
         original_state = state.read_bytes()
-        log = state.parent / 'progress.tsv'
-        for tag, (role, stage, artifact_name) in TAGS.items():
+        for _, (_, _, artifact_name) in TAGS.items():
             artifact = state.parent / artifact_name
             if not artifact.exists():
                 artifact.write_text('current task evidence')
-            self.helper(state, 'update_progress "$3" "$4" "正在执行" "$5"\ncomplete_stage "$3" "$6" "已完成" "$5"', 'keel-' + role, stage, artifact, tag)
-        events = [line.split('\t') for line in log.read_text().splitlines()]
-        self.assertEqual({event[3] for event in events if event[1] == 'complete'}, set(TAGS))
-        self.assertEqual(len(events), 2 * len(TAGS))
-        # Recording a return is distinct from the main session's business verdict and state transition.
+        original_files = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}
+        for tag, (role, stage, artifact_name) in TAGS.items():
+            artifact = state.parent / artifact_name
+            result = self.helper(state, 'update_progress "$3" "$4" "正在执行" "$5"\ncomplete_stage "$3" "$6" "已完成" "$5"', 'keel-' + role, stage, artifact, tag)
+            self.assertEqual(result.stdout.splitlines(), [
+                f'keel-{role} | {stage} | 正在执行 | artifact: {artifact}',
+                f'{tag} | 已完成 | artifact: {artifact}',
+            ])
+        # Compatibility output is distinct from the main session's verdict and state transition.
         self.assertEqual(state.read_bytes(), original_state)
-        before = log.read_text()
         self.helper(state, 'complete_stage keel-qa APPROVED "不能通过" "$3"', state.parent / 'missing.md', success=False)
-        self.assertEqual(log.read_text(), before)
         self.assertEqual(state.read_bytes(), original_state)
+        self.assertEqual({p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}, original_files)
+
+    def test_progress_output_requires_no_runtime_profile_and_keeps_argument_guards(self):
+        result = self.shell('unset KEEL_PROFILE\nsource "$1"\nupdate_progress builder BUILD "正在执行"\ncomplete_stage keel-builder BUILD_DONE "已完成"', self.helpers)
+        self.assertEqual(result.stdout.splitlines(), ['keel-builder | BUILD | 正在执行', 'BUILD_DONE | 已完成'])
+        for command in ('update_progress "" BUILD "正在执行"', 'complete_stage keel-builder "" "已完成"'):
+            with self.subTest(command=command):
+                self.shell('unset KEEL_PROFILE\nsource "$1"\n' + command, self.helpers, success=False)
 
     def test_old_completion_logs_and_missing_return_cannot_complete_call_chain(self):
         state = self.init_run('missing-call-chain-return')
@@ -467,6 +481,7 @@ class AsoContractTests(unittest.TestCase):
         self.assertTrue(document.is_file())
         self.assertEqual(after['fix_round'], 2)
         self.assertEqual(after['retries'], {'keel-call-chain': 2})
+        self.assertEqual(log.read_bytes(), old_log)
 
     def test_call_chain_commit_metadata_is_optional(self):
         cases = [('noop', None), ('updated', None), ('updated', 'b' * 40)]
@@ -532,15 +547,22 @@ class AsoContractTests(unittest.TestCase):
         self.assertIsNone(data['call_chain']['artifact'])
         self.assertFalse(Path(data['artifacts']['call_chain_review']).exists())
 
-    def test_legacy_profile_uses_its_configured_progress_and_state(self):
+    def test_legacy_profile_updates_state_without_modifying_configured_progress(self):
         state = self.init_run('legacy')
         profile = state.parent / 'profile.json'
         old = json.loads(state.read_text())
         old['progress'] = {'events':str(state.parent / 'progress.events')}
         profile.write_text(json.dumps(old))
-        result = self.helper(profile, 'keel_state_file\nupdate_progress keel-builder BUILD "恢复"\nrecord_call_chain_prefilter noop "无变化"')
+        events = state.parent / 'progress.events'
+        events.write_text('historical progress\n')
+        before_profile, before_events = profile.read_bytes(), events.read_bytes()
+        before_paths = {p for p in state.parent.rglob('*') if p.is_file()}
+        result = self.helper(profile, 'keel_state_file\nupdate_progress keel-builder BUILD "恢复"\ncomplete_stage keel-builder BUILD_DONE "已完成"\nrecord_call_chain_prefilter noop "无变化"')
         self.assertIn(str(state), result.stdout)
-        self.assertTrue((state.parent / 'progress.events').is_file())
+        self.assertEqual(profile.read_bytes(), before_profile)
+        self.assertEqual(events.read_bytes(), before_events)
+        self.assertEqual({p for p in state.parent.rglob('*') if p.is_file()}, before_paths)
+        self.assertFalse((state.parent / 'progress.tsv').exists())
         self.assertEqual(json.loads(state.read_text())['call_chain']['prefilter']['decision'], 'noop')
 
 

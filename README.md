@@ -244,7 +244,7 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 
 `.keel/bugs/<id>/bug.md` 与同名 HTML 仅简述“问题、原因、改造点、影响点、建议验证点”五章，影响和建议回归按业务流程表达。预期依据、分流结论与设计边界保留在同目录 `investigation.md` 的“修复资格”章节，其他章节记录调查进展；HTML 不展示调查代码或重复的完整源文档，保留 Markdown 下载。
 
-用户确认后，审批脚本核对 MD、HTML 和修复资格，保存 approved.md、approved-investigation.md 快照及独立 fix state，供 Builder/QA 执行与验收。派发、恢复及记录完成前复核批准版本；仅补充调查日志无需重新批准，资格或审阅内容实质变化须重渲染并重新确认。旧三章文档继续兼容，既有已批准任务沿用原快照与 HTML，无需迁移或重新渲染；代码验收通过后仍待原场景复验。
+用户确认后，首次审批检查局部修复资格，保存 approved.md、approved-investigation.md 及独立 fix state，供 Builder/QA 执行与验收。不再生成 bug.review.json、内嵌校验信息或绑定文档哈希；确认后不校验 MD、HTML 或调查文档的变化。同一 BUG 重复确认恢复已有任务，阶段和返修次数保留；已结束任务的新反馈另开 BUG。旧三章文档和已有批准任务继续兼容；代码验收通过后仍待原场景复验。
 
 ```bash
 python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.md
@@ -295,14 +295,13 @@ run 目录最小结构:
   qa-score-retest-*.json      # 复验评分，与初验分开
   fix-brief.md
   call-chain-review.md        # 实际调用 CallChain 时才生成
-  progress.tsv
 ```
 
 旧 `keel-dev-fast` 已合并；重新部署会按 manifest 清理其旧 Skill 文件，不删除未被跟踪的用户文件。运行数据的 `mode: full` 保留为兼容值，不再代表多个开发入口。
 
-恢复未完成的旧 fast run 时，先结束旧执行并调用 `resume_keel_run`，核对已有提交、报告和历史完成标记后续作。转换保留计划快照、Preflight、返修/恢复次数、用户规范绑定及进度，不重置执行记录；已完成的旧任务保持原样。旧 `profile.json` 配置的进度文件仍可使用。
+恢复未完成的旧 fast run 时，先结束旧执行并调用 `resume_keel_run`，核对已有提交、报告和历史完成标记后续作。转换保留计划快照、Preflight、返修/恢复次数、用户规范绑定及进度，不重置执行记录；已完成的旧任务保持原样。旧 `profile.json` 配置的历史进度文件保留，不再追加记录。
 
-新 run 的静态契约和运行状态统一保存在 `state.json`，其中 `plan_path` 指向 run 内功能索引；主会话将当前 Agent 执行的新进展和经核验的完成结果追加到 `progress.tsv`。旧格式（包括单份大 MD）的 run 不兼容本流程，需要重新运行 `/keel-plan` 并新建 run；不自动拼接历史输入。
+新 run 的静态契约和运行状态统一保存在 `state.json`，其中 `plan_path` 指向 run 内功能索引；主会话通过原生消息跟进当前 Agent，不再生成或追加进度文件。旧格式（包括单份大 MD）的 run 不兼容本流程，需要重新运行 `/keel-plan` 并新建 run；不自动拼接历史输入。
 
 ## 开发与验证
 

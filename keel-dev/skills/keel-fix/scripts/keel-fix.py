@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render a local bug review and bind a user's approval to its immutable snapshot."""
+"""Render a local bug review and record the user's approval for a fix run."""
 import argparse
 import base64
 from datetime import datetime, timezone
@@ -27,10 +27,6 @@ spec.loader.exec_module(markdown)
 SECTIONS = ('问题', '原因', '改造点', '影响点', '建议验证点')
 LEGACY_SECTIONS = ('问题与根因', '修复方案', '影响与验证')
 BOUNDARIES = ('业务状态调整', '业务流程调整', '接口契约调整', '数据模型或迁移', '高风险设计')
-
-
-def digest(data):
-    return hashlib.sha256(data).hexdigest()
 
 
 def atomic_write(path, data):
@@ -87,9 +83,8 @@ def investigation(source):
         raise ValueError('修复资格仍有未决占位符')
     for label in ('预期依据', '分流依据'):
         field(content, label)
-    values, eligible = qualification(content)
-    signature = json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
-    return {'raw': raw, 'sha256': digest(raw), 'qualification_sha256': digest(signature), 'eligible': eligible}
+    _, eligible = qualification(content)
+    return {'raw': raw, 'eligible': eligible}
 
 
 def validate(path):
@@ -143,7 +138,7 @@ def validate(path):
         eligible = details['eligible']
         summary = {name: text[name].strip() for name in SECTIONS}
     return {'raw': raw, 'source': source, 'title': titles[0], 'parts': parts, 'summary': summary,
-            'eligible': eligible, 'sha256': digest(raw), 'investigation': details}
+            'eligible': eligible, 'investigation': details}
 
 
 def require_fix(document):
@@ -186,10 +181,6 @@ def render(source):
 </main></div></body></html>'''
     output = source.with_suffix('.html')
     atomic_write(output, page.encode())
-    review = {'source_sha256': document['sha256'], 'html_sha256': digest(page.encode())}
-    if document['investigation']:
-        review['qualification_sha256'] = document['investigation']['qualification_sha256']
-    write_json(source.with_suffix('.review.json'), review)
     return output
 
 
@@ -198,26 +189,19 @@ def check(state_path):
     state = json.loads(state_path.read_text())
     if state.get('mode') != 'fix':
         raise ValueError('不是独立 fix 运行记录')
-    source = Path(state['bug_path'])
-    document = validate(source)
-    require_fix(document)
-    approval = state['approval']
+    approval = state.get('approval')
+    if (not isinstance(approval, dict) or not isinstance(approval.get('decision'), str) or
+            not approval['decision'].strip() or not isinstance(approval.get('confirmed_at'), str) or
+            not approval['confirmed_at'].strip()):
+        raise ValueError('fix 运行记录缺少用户确认原文或批准时间')
     snapshot = state_path.parent / 'approved.md'
-    if (document['sha256'] != approval['source_sha256'] or
-            digest(snapshot.read_bytes()) != approval['source_sha256'] or
-            state['fix_path'] != str(snapshot) or not approval['decision'].strip()):
-        raise ValueError('方案已变化或确认快照不一致，必须重新审阅确认')
-    if digest(source.with_suffix('.html').read_bytes()) != approval['html_sha256']:
-        raise ValueError('HTML 已变化或缺失，必须重新审阅确认')
-    if document['investigation']:
-        details = document['investigation']
+    if state.get('fix_path') != str(snapshot) or snapshot.is_symlink() or not snapshot.is_file():
+        raise ValueError('fix 执行输入 approved.md 缺失或路径无效')
+    if 'investigation_path' in state:
         investigation_snapshot = state_path.parent / 'approved-investigation.md'
-        if (approval.get('qualification_sha256') != details['qualification_sha256'] or
-                state.get('investigation_path') != str(investigation_snapshot) or investigation_snapshot.is_symlink() or
-                approval.get('investigation_sha256') != digest(investigation_snapshot.read_bytes())):
-            raise ValueError('修复资格已变化或调查快照不一致，必须重新审阅确认')
-    elif 'qualification_sha256' in approval:
-        raise ValueError('修复资格来源已变化，必须重新审阅确认')
+        if (state['investigation_path'] != str(investigation_snapshot) or
+                investigation_snapshot.is_symlink() or not investigation_snapshot.is_file()):
+            raise ValueError('fix 执行输入 approved-investigation.md 缺失或路径无效')
     return state
 
 
@@ -229,35 +213,30 @@ def approve(source, decision):
         raise ValueError('确认来源须为 <project>/.keel/bugs/<id>/bug.md')
     if any(path.is_symlink() for path in (source, source.parent, source.parent.parent, source.parent.parent.parent)):
         raise ValueError('BUG 路径不能使用符号链接')
-    document = validate(source)
-    require_fix(document)
-    review = json.loads(source.with_suffix('.review.json').read_text())
-    if (review.get('source_sha256') != document['sha256'] or
-            review.get('html_sha256') != digest(source.with_suffix('.html').read_bytes())):
-        raise ValueError('HTML 与当前 Markdown 不一致，须重新渲染并请用户确认')
-    details = document['investigation']
-    signature = details['qualification_sha256'] if details else None
-    if review.get('qualification_sha256') != signature:
-        raise ValueError('修复资格已变化，须重新渲染并请用户确认')
     runs = source.parent / 'runs'
     if runs.is_symlink():
         raise ValueError('运行目录不能使用符号链接')
-    runs.mkdir(exist_ok=True)
     existing = sorted((path for path in runs.glob('run-*') if re.fullmatch(r'run-\d+', path.name)), key=lambda path: int(path.name[4:]))
     if existing:
         latest = existing[-1] / 'state.json'
-        previous = json.loads(latest.read_text())
-        if (previous.get('approval', {}).get('source_sha256') == document['sha256'] and
-                previous.get('approval', {}).get('html_sha256') == review['html_sha256'] and
-                previous.get('approval', {}).get('qualification_sha256') == signature):
-            check(latest)
-            return latest  # Repeating approval must not reset the repair limit or progress.
-    run = runs / f'run-{int(existing[-1].name[4:]) + 1 if existing else 1}'
+        previous = check(latest)
+        if previous.get('bug_path') != str(source):
+            raise ValueError('已有 fix 运行记录不属于当前 BUG')
+        return latest  # Repeating approval must not reset the repair limit or progress.
+    document = validate(source)
+    require_fix(document)
+    page = source.with_suffix('.html')
+    if page.is_symlink():
+        raise ValueError('HTML 不能使用符号链接')
+    page.read_bytes()
+    details = document['investigation']
+    runs.mkdir(exist_ok=True)
+    run = runs / 'run-1'
     run.mkdir()
     atomic_write(run / 'approved.md', document['raw'])
     state = {'mode': 'fix', 'project_dir': str(source.parents[3]), 'output_dir': str(run),
              'bug_path': str(source), 'fix_path': str(run / 'approved.md'), 'phase': 'PREFLIGHT',
-             'approval': {**review, 'decision': decision, 'confirmed_at': datetime.now(timezone.utc).isoformat()},
+             'approval': {'decision': decision, 'confirmed_at': datetime.now(timezone.utc).isoformat()},
              'artifacts': {'qa_feedback': str(run / 'qa-feedback.md'), 'fix_brief': str(run / 'fix-brief.md')},
              'limits': {'fix_rounds': 3, 'stage_recoveries': 2}, 'fix_round': 0, 'retries': {},
              'thresholds': {'short_stage_no_progress_seconds': 300, 'long_stage_no_progress_seconds': 900},
@@ -268,9 +247,7 @@ def approve(source, decision):
         investigation_snapshot = run / 'approved-investigation.md'
         atomic_write(investigation_snapshot, details['raw'])
         state['investigation_path'] = str(investigation_snapshot)
-        state['approval']['investigation_sha256'] = details['sha256']
     write_json(run / 'state.json', state)
-    atomic_write(run / 'progress.tsv', b'')
     return run / 'state.json'
 
 

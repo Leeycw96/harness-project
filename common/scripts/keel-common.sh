@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Keel Codex App main-session helpers.
-# The main session records native Agent messages and verified results through these APIs.
+# The main session follows native Agent messages and verifies results through these APIs.
 # Agent business inputs are task + Spec; runtime fields stay with the main session.
-# Disk contract: state.json + progress.tsv. KEEL_PROFILE retains legacy path compatibility.
+# Disk contract: state.json. KEEL_PROFILE retains legacy profile path compatibility.
 
 SCRIPT_PATH="${BASH_SOURCE[0]-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
@@ -62,31 +62,7 @@ _keel_state_jq() {
   fi
 }
 
-keel_progress_file() {
-  local configured output_dir
-  configured="$(_keel_profile_value '.progress.events')" || return 1
-  if [ -n "$configured" ]; then
-    printf '%s\n' "$configured"
-    return
-  fi
-  output_dir="$(keel_output_dir)" || return 1
-  [ -n "$output_dir" ] || return 1
-  printf '%s/progress.tsv\n' "$output_dir"
-}
-
-append_progress_event() {
-  local kind="$1" agent="$2" stage="$3" message="$4" artifact="${5:-}"
-  local events ts clean_message
-  events="$(keel_progress_file)" || return 1
-  mkdir -p "$(dirname "$events")"
-  ts="$(date +%FT%T%z)"
-  clean_message="$(printf '%s' "$message" | tr '\n\t' '  ')"
-  printf '%s\t%s\t%s\t%s\t%s' "$ts" "$kind" "$agent" "$stage" "$clean_message" >> "$events"
-  [ -n "$artifact" ] && printf '\t%s' "$artifact" >> "$events"
-  printf '\n' >> "$events"
-}
-
-# Called by the main session when dispatching or receiving new native progress.
+# Compatibility output for the main session; native Agent messages carry progress.
 update_progress() {
   local agent="$1" stage="$2" message="$3" artifact="${4:-}"
   if [ -z "$agent" ] || [ -z "$stage" ] || [ -z "$message" ]; then
@@ -94,9 +70,7 @@ update_progress() {
     return 2
   fi
 
-  local progress_file display_agent
-  progress_file="$(keel_progress_file)" || return 1
-
+  local display_agent
   case "$agent" in
     keel-builder|builder) display_agent="keel-builder" ;;
     keel-qa|qa) display_agent="keel-qa" ;;
@@ -104,8 +78,9 @@ update_progress() {
     *) display_agent="$agent" ;;
   esac
 
-  append_progress_event "progress" "$display_agent" "$stage" "$message" "$artifact"
-  printf '%s\n' "$progress_file"
+  printf '%s | %s | %s' "$display_agent" "$stage" "$message"
+  [ -n "$artifact" ] && printf ' | artifact: %s' "$artifact"
+  printf '\n'
 }
 
 # Called by the main session after checking returned artifacts, commits and results.
@@ -120,7 +95,6 @@ complete_stage() {
     return 1
   fi
 
-  append_progress_event "complete" "$agent" "$tag" "$message" "$artifact"
   printf '%s | %s' "$tag" "$message"
   [ -n "$artifact" ] && printf ' | artifact: %s' "$artifact"
   printf '\n'

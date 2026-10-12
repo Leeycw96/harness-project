@@ -119,7 +119,6 @@ init_keel_run() {
       retries: {}
     }' > "$state_file"
 
-  : > "$output_dir/progress.tsv"
   export KEEL_PROFILE="$state_file"
   printf '%s\n' "$state_file"
 }

@@ -81,8 +81,9 @@ class FixContractTests(unittest.TestCase):
         output = fix.render(self.bug)
         page = output.read_text()
         self.assert_concise_review(page)
-        review = json.loads(self.bug.with_suffix('.review.json').read_text())
-        self.assertRegex(review['qualification_sha256'], r'^[a-f0-9]{64}$')
+        self.assertNotIn('keel-fix-review', page)
+        self.assertNotIn('application/json', page)
+        self.assertFalse(self.bug.with_suffix('.review.json').exists())
         script = re.search(r'<script>(.*?)</script>', page, re.S)[1]
         expected = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
         self.assertIn("script-src 'sha256-" + expected + "'", page)
@@ -150,36 +151,28 @@ class FixContractTests(unittest.TestCase):
                     fix.approve(self.bug, '确认')
                 self.assertFalse((self.bug.parent / 'runs').exists())
 
-    def test_changed_source_or_html_requires_new_review(self):
+    def test_approval_does_not_compare_source_or_html_versions(self):
         fix.render(self.bug)
         self.bug.write_text(REVISED_EXAMPLE)
-        with self.assertRaises(ValueError):
-            fix.approve(self.bug, '确认')
-        fix.render(self.bug)
-        self.bug.with_suffix('.html').write_text('edited HTML')
-        with self.assertRaises(ValueError):
-            fix.approve(self.bug, '确认')
-        self.assertFalse((self.bug.parent / 'runs').exists())
+        page = self.bug.with_suffix('.html')
+        page.write_text(page.read_text().replace('查看问题、修复方式和业务影响', '已查看问题与影响'))
+        state_path = fix.approve(self.bug, '确认')
+        self.assertEqual(Path(fix.check(state_path)['fix_path']).read_text(), REVISED_EXAMPLE)
+        self.assertEqual(set(fix.check(state_path)['approval']), {'decision', 'confirmed_at'})
 
-    def test_qualification_changes_block_before_and_after_approval(self):
+    def test_qualification_gate_applies_before_first_approval_only(self):
         fix.render(self.bug)
-        review = json.loads(self.bug.with_suffix('.review.json').read_text())
         self.investigation.write_text(INVESTIGATION.replace('业务流程调整：无', '业务流程调整：待确认'))
         with self.assertRaises(ValueError):
             fix.approve(self.bug, '确认旧方案')
-        fix.render(self.bug)
-        changed = json.loads(self.bug.with_suffix('.review.json').read_text())
-        self.assertNotEqual(changed['qualification_sha256'], review['qualification_sha256'])
         self.investigation.write_text(INVESTIGATION)
         state_path = self.approve()
         self.investigation.write_text(INVESTIGATION.replace('事项分类：缺陷', '事项分类：需求变更'))
-        with self.assertRaises(ValueError):
-            fix.check(state_path)
-        with self.assertRaises(ValueError):
-            fix.approve(self.bug, '再次确认旧方案')
+        self.assertEqual(fix.check(state_path)['mode'], 'fix')
+        self.assertEqual(fix.approve(self.bug, '再次确认旧方案'), state_path)
         self.assertEqual(len(list((self.bug.parent / 'runs').glob('run-*'))), 1)
 
-    def test_approval_binds_document_html_qualification_and_full_investigation_snapshot(self):
+    def test_approval_records_execution_inputs_without_document_version_checks(self):
         state_path = self.approve()
         state = fix.check(state_path)
         self.assertEqual(state['mode'], 'fix')
@@ -194,32 +187,39 @@ class FixContractTests(unittest.TestCase):
         self.assertEqual(snapshot.read_bytes(), self.bug.read_bytes())
         self.assertEqual(investigation_snapshot.read_bytes(), self.investigation.read_bytes())
         approval = state['approval']
-        review = json.loads(self.bug.with_suffix('.review.json').read_text())
-        self.assertEqual(approval['qualification_sha256'], review['qualification_sha256'])
-        self.assertEqual(approval['investigation_sha256'], hashlib.sha256(self.investigation.read_bytes()).hexdigest())
+        self.assertEqual(set(approval), {'decision', 'confirmed_at'})
+        self.assertEqual(approval['decision'], '确认此修复方案，请按此实施。')
+        self.assertTrue(approval['confirmed_at'])
+        self.assertFalse(self.bug.with_suffix('.review.json').exists())
+        self.assertFalse((state_path.parent / 'progress.tsv').exists())
         mutations = [(snapshot, b'tampered approved document'),
                      (investigation_snapshot, b'tampered investigation'),
                      (self.bug, REVISED_EXAMPLE.encode()),
+                     (self.investigation, b'updated investigation without qualification fields'),
                      (self.bug.with_suffix('.html'), b'tampered approved HTML')]
         for path, replacement in mutations:
             with self.subTest(path=path.name):
                 original = path.read_bytes()
                 path.write_bytes(replacement)
+                self.assertEqual(fix.check(state_path), state)
+                path.write_bytes(original)
+        for source in (self.bug, self.bug.with_suffix('.html'), self.investigation):
+            source.unlink()
+        self.assertEqual(fix.check(state_path), state)
+        self.assertEqual(fix.approve(self.bug, '再次确认'), state_path)
+        for input_path in (snapshot, investigation_snapshot):
+            with self.subTest(missing=input_path.name):
+                original = input_path.read_bytes()
+                input_path.unlink()
                 with self.assertRaises(ValueError):
                     fix.check(state_path)
-                path.write_bytes(original)
-                fix.check(state_path)
-        state['approval']['qualification_sha256'] = '0' * 64
-        state_path.write_text(json.dumps(state))
-        with self.assertRaises(ValueError):
-            fix.check(state_path)
+                input_path.write_bytes(original)
 
     def test_optional_historical_evidence_and_progress_do_not_change_qualification_or_reset_run(self):
         fix.render(self.bug)
-        original_review = self.bug.with_suffix('.review.json').read_bytes()
+        original_html = self.bug.with_suffix('.html').read_bytes()
         updated = INVESTIGATION.replace('- 分流依据：', '- 证据：调查专用证据标记，历史字段可保留。\n- 分流依据：') + '\n## 补充调查\n\n补充日志与回归进展。\n'
         self.investigation.write_text(updated)
-        # Only the eight qualification declarations bind the user-visible review.
         state_path = fix.approve(self.bug, '确认此修复方案')
         state = fix.check(state_path)
         state['fix_round'] = 2
@@ -232,25 +232,31 @@ class FixContractTests(unittest.TestCase):
         self.assertEqual(fix.approve(self.bug, '再次确认同一方案'), state_path)
         self.assertEqual(fix.check(state_path)['fix_round'], 2)
         self.assertEqual(Path(state['investigation_path']).read_bytes(), approved_investigation)
-        self.assertEqual(self.bug.with_suffix('.review.json').read_bytes(), original_review)
+        self.assertEqual(self.bug.with_suffix('.html').read_bytes(), original_html)
         fix.render(self.bug)
         self.assert_concise_review(self.bug.with_suffix('.html').read_text())
-        self.assertEqual(self.bug.with_suffix('.review.json').read_bytes(), original_review)
+        self.assertEqual(self.bug.with_suffix('.html').read_bytes(), original_html)
         self.assertEqual(fix.approve(self.bug, '确认补充调查后的同一方案'), state_path)
         self.assertEqual(fix.check(state_path)['fix_round'], 2)
 
-    def test_new_document_version_keeps_old_snapshots_and_starts_new_run(self):
+    def test_document_changes_and_finished_phases_do_not_start_or_reset_runs(self):
         first = self.approve()
         original_investigation = self.investigation.read_bytes()
         self.bug.write_text(REVISED_EXAMPLE)
         self.investigation.write_text(INVESTIGATION + '\n新增排查记录。\n')
         second = self.approve()
-        self.assertNotEqual(first, second)
+        self.assertEqual(first, second)
         self.assertEqual((first.parent / 'approved.md').read_text(), EXAMPLE)
         self.assertEqual((first.parent / 'approved-investigation.md').read_bytes(), original_investigation)
-        self.assertEqual(fix.check(second)['fix_round'], 0)
-        with self.assertRaises(ValueError):
-            fix.check(first)
+        for phase in ('DONE', 'PAUSED', 'NEEDS_PLAN'):
+            with self.subTest(phase=phase):
+                state = fix.check(first)
+                state.update(phase=phase, fix_round=3)
+                first.write_text(json.dumps(state))
+                original_state = first.read_bytes()
+                self.assertEqual(fix.approve(self.bug, '再次确认同一 BUG'), first)
+                self.assertEqual(first.read_bytes(), original_state)
+        self.assertEqual(len(list((self.bug.parent / 'runs').glob('run-*'))), 1)
 
     def test_legacy_without_evidence_still_renders_approves_and_checks(self):
         self.investigation.unlink()
@@ -294,9 +300,8 @@ class FixContractTests(unittest.TestCase):
         page = self.bug.with_suffix('.html')
         original_html = b'<html>Previously approved three-section legacy HTML</html>'
         page.write_bytes(original_html)
-        review = {'source_sha256': hashlib.sha256(self.bug.read_bytes()).hexdigest(),
-                  'html_sha256': hashlib.sha256(original_html).hexdigest()}
-        self.bug.with_suffix('.review.json').write_text(json.dumps(review))
+        review = {'source_sha256': 'ignored old source hash', 'html_sha256': 'ignored old HTML hash',
+                  'qualification_sha256': 'ignored old qualification hash', 'investigation_sha256': 'ignored old investigation hash'}
         run = self.bug.parent / 'runs/run-1'
         run.mkdir(parents=True)
         (run / 'approved.md').write_bytes(self.bug.read_bytes())
@@ -312,8 +317,12 @@ class FixContractTests(unittest.TestCase):
         self.assertEqual(page.read_bytes(), original_html)
         self.assertEqual(state_path.read_bytes(), original_state)
         self.assertFalse((run / 'approved-investigation.md').exists())
+        self.assertFalse(self.bug.with_suffix('.review.json').exists())
 
     def test_missing_confirmation_or_render_failure_does_not_approve_or_replace_review(self):
+        with self.assertRaises(OSError):
+            fix.approve(self.bug, '确认')
+        self.assertFalse((self.bug.parent / 'runs').exists())
         page = fix.render(self.bug)
         original = page.read_bytes()
         with self.assertRaises(ValueError):
@@ -351,19 +360,18 @@ class FixContractTests(unittest.TestCase):
         result = subprocess.run(['bash', '-c', record, *args], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         log = state.parent / 'progress.tsv'
-        self.assertIn('BUG_BUILD_DONE', log.read_text())
+        self.assertFalse(log.exists())
         self.assertEqual(state.read_bytes(), before_state)
         self.assertEqual(fix.check(state)['fix_round'], 2)
-        before_log = log.read_bytes()
         missing = subprocess.run(['bash', '-c', 'set -euo pipefail\nexport KEEL_PROFILE="$1"\nsource "$2"\ncomplete_stage keel-qa APPROVED "缺少验收报告" "$3"',
                                   'fix-test', str(state), str(helper), str(state.parent / 'missing-feedback.md')], capture_output=True, text=True)
         self.assertNotEqual(missing.returncode, 0)
-        self.assertEqual(log.read_bytes(), before_log)
+        self.assertFalse(log.exists())
         self.assertEqual(state.read_bytes(), before_state)
         self.bug.write_text(REVISED_EXAMPLE)
         changed = subprocess.run(['bash', '-c', record, *args], capture_output=True, text=True)
-        self.assertNotEqual(changed.returncode, 0)
-        self.assertEqual(log.read_bytes(), before_log)
+        self.assertEqual(changed.returncode, 0, changed.stderr)
+        self.assertFalse(log.exists())
         self.assertEqual(state.read_bytes(), before_state)
         self.assertFalse((self.project / '.keel/plans').exists())
 
