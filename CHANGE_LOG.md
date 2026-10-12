@@ -10,7 +10,8 @@
 
 ### 调整
 
-- 将版本标识升级至 4.0.4，同步 `VERSION` 与 README；功能沿用 4.0.3。
+- 将版本标识升级至 4.0.4，同步 `VERSION` 与 README。
+- 在 `keel-fix/SKILL.md` 补充 `user-invocable: true`，移除该 Skill 的 `agents/openai.yaml` 调用策略配置。
 
 ## 4.0.3
 

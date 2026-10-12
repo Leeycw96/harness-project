@@ -1,6 +1,7 @@
 ---
 name: keel-fix
 description: 定位新提交的 BUG，编排局部缺陷的修复说明、用户确认、实现与验收；涉及需求或设计变化时转交 keel-plan，已有开发 run 的返修沿用原流程。
+user-invocable: true
 ---
 
 # Keel Fix
