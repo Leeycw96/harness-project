@@ -30,10 +30,10 @@ description: 规定局部修复的分类、资格声明与验收记录，用于�
 
 - 有效局部修复声明为“已定位、缺陷、fix”且五项边界均“无”，符合已确认业务约定。无需为资格字段附加代码、日志或复现存档；调查进展位于其他章节。
 
-- 批准产物包括首次确认时复制的修复说明 `approved.md` 与调查说明 `approved-investigation.md`，作为本次执行输入；不要求文档哈希、资格摘要或后续内容一致性校验。
+- 修复说明 `bug.md` 与同目录调查说明 `investigation.md` 直接作为执行输入，不复制批准快照，不要求文档哈希、资格摘要或后续内容一致性校验。
 
 ## 验收记录
 
-- 实现和验收结果对应已确认的 `approved.md`、`approved-investigation.md`，质量结果符合 `.codex/common/refs/keel-code-quality-spec.md#代码与测试标准`。
+- 实现和验收结果对应已确认任务的 `bug.md`、`investigation.md`，质量结果符合 `.codex/common/refs/keel-code-quality-spec.md#代码与测试标准`。
 
 - 代码验收与原场景复验分别说明，报告简述已验证行为、关联回归与现场缺口；超出局部修复范围的结果不能记通过，说明影响与所需设计。

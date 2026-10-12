@@ -194,14 +194,19 @@ def check(state_path):
             not approval['decision'].strip() or not isinstance(approval.get('confirmed_at'), str) or
             not approval['confirmed_at'].strip()):
         raise ValueError('fix 运行记录缺少用户确认原文或批准时间')
-    snapshot = state_path.parent / 'approved.md'
-    if state.get('fix_path') != str(snapshot) or snapshot.is_symlink() or not snapshot.is_file():
-        raise ValueError('fix 执行输入 approved.md 缺失或路径无效')
+    bug_path = state.get('bug_path')
+    if not isinstance(bug_path, str) or not bug_path.strip():
+        raise ValueError('fix 运行记录缺少 bug.md 来源路径')
+    source = Path(bug_path)
+    if not source.is_absolute() or source.name != 'bug.md' or source.is_symlink() or not source.is_file():
+        raise ValueError('fix 执行输入 bug.md 缺失或路径无效')
+    # Old runs may still name approval snapshots; always use the current source files.
+    state['fix_path'] = str(source)
     if 'investigation_path' in state:
-        investigation_snapshot = state_path.parent / 'approved-investigation.md'
-        if (state['investigation_path'] != str(investigation_snapshot) or
-                investigation_snapshot.is_symlink() or not investigation_snapshot.is_file()):
-            raise ValueError('fix 执行输入 approved-investigation.md 缺失或路径无效')
+        investigation_path = source.with_name('investigation.md')
+        if investigation_path.is_symlink() or not investigation_path.is_file():
+            raise ValueError('fix 执行输入 investigation.md 缺失或路径无效')
+        state['investigation_path'] = str(investigation_path)
     return state
 
 
@@ -222,7 +227,7 @@ def approve(source, decision):
         previous = check(latest)
         if previous.get('bug_path') != str(source):
             raise ValueError('已有 fix 运行记录不属于当前 BUG')
-        return latest  # Repeating approval must not reset the repair limit or progress.
+        return latest  # Repeating approval must not reset the repair limit or run state.
     document = validate(source)
     require_fix(document)
     page = source.with_suffix('.html')
@@ -233,9 +238,8 @@ def approve(source, decision):
     runs.mkdir(exist_ok=True)
     run = runs / 'run-1'
     run.mkdir()
-    atomic_write(run / 'approved.md', document['raw'])
     state = {'mode': 'fix', 'project_dir': str(source.parents[3]), 'output_dir': str(run),
-             'bug_path': str(source), 'fix_path': str(run / 'approved.md'), 'phase': 'PREFLIGHT',
+             'bug_path': str(source), 'fix_path': str(source), 'phase': 'PREFLIGHT',
              'approval': {'decision': decision, 'confirmed_at': datetime.now(timezone.utc).isoformat()},
              'artifacts': {'qa_feedback': str(run / 'qa-feedback.md'), 'fix_brief': str(run / 'fix-brief.md')},
              'limits': {'fix_rounds': 3, 'stage_recoveries': 2}, 'fix_round': 0, 'retries': {},
@@ -244,9 +248,7 @@ def approve(source, decision):
              'preflight': {'main_compile': {'status': 'pending', 'summary': []},
                            'test_compile': {'status': 'pending', 'summary': [], 'user_decision': None}}}
     if details:
-        investigation_snapshot = run / 'approved-investigation.md'
-        atomic_write(investigation_snapshot, details['raw'])
-        state['investigation_path'] = str(investigation_snapshot)
+        state['investigation_path'] = str(source.with_name('investigation.md'))
     write_json(run / 'state.json', state)
     return run / 'state.json'
 

@@ -199,7 +199,7 @@ QA 交付当前规范要求的检查结果与评分 JSON，可用 `keel-qa-score
 ```bash
 # results.json 为 QA 的业务检查结果，可用 - 从标准输入读取
 python3 .codex/common/scripts/keel-qa-score.py record results.json --plan /path/to/run/plan.md --output-dir /path/to/run
-# Fix 使用 --fix /path/to/run/approved.md；复验增加 --retest
+# Fix 使用 --fix /path/to/bugs/BUG-001/bug.md；复验增加 --retest
 python3 .codex/common/scripts/keel-qa-score.py history /path/to/project --last 10
 python3 .codex/common/scripts/keel-qa-score.py history /path/to/project --include-retests --json
 ```
@@ -226,7 +226,7 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 
 主会话选择 Agent/Spec，负责用户确认、阶段、进度与恢复；根据当前执行的新消息记录进度，核对产物、提交和结果后记录完成，再推进状态。运行字段、内部完成标记和 Skill 不下发给 Agent；Agent 不调用运行助手或修改运行状态，现有脚本也没有自动进度采集器。
 
-开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 保留但忽略。恢复先结束旧执行，再启动新任务，晚到的旧进展和结果不用于新执行。审查五分钟、实现或返修十五分钟无进展时检查，轮询、重复摘要或仅 running 不重置计时。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 CallChain、批准快照与旧 profile 恢复。
+开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 保留但忽略。恢复先结束旧执行，再启动新任务，晚到的旧进展和结果不用于新执行。审查五分钟、实现或返修十五分钟无进展时检查，轮询、重复摘要或仅 running 不重置计时。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 CallChain、用户确认与旧 profile 恢复。
 
 ## 使用
 
@@ -244,7 +244,7 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 
 `.keel/bugs/<id>/bug.md` 与同名 HTML 仅简述“问题、原因、改造点、影响点、建议验证点”五章，影响和建议回归按业务流程表达。预期依据、分流结论与设计边界保留在同目录 `investigation.md` 的“修复资格”章节，其他章节记录调查进展；HTML 不展示调查代码或重复的完整源文档，保留 Markdown 下载。
 
-用户确认后，首次审批检查局部修复资格，保存 approved.md、approved-investigation.md 及独立 fix state，供 Builder/QA 执行与验收。不再生成 bug.review.json、内嵌校验信息或绑定文档哈希；确认后不校验 MD、HTML 或调查文档的变化。同一 BUG 重复确认恢复已有任务，阶段和返修次数保留；已结束任务的新反馈另开 BUG。旧三章文档和已有批准任务继续兼容；代码验收通过后仍待原场景复验。
+用户确认后，首次审批检查局部修复资格，只保存独立 fix state，Builder/QA 直接读取 bug.md 和 investigation.md，不生成批准快照。不再生成 bug.review.json、内嵌校验信息或绑定文档哈希；确认后不校验 MD、HTML 或调查文档的变化。同一 BUG 重复确认恢复已有任务，阶段和返修次数保留；已结束任务的新反馈另开 BUG。旧三章文档和已有批准任务继续兼容；代码验收通过后仍待原场景复验。
 
 ```bash
 python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.md

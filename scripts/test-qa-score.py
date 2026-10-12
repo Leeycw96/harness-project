@@ -23,7 +23,7 @@ class QaScoreTests(unittest.TestCase):
         self.plan = self.project / 'plan.md'
         shutil.copyfile(ASSETS / 'plan-template.md', self.plan)
         shutil.copytree(ASSETS / 'plan-template.features', self.project / 'plan-template.features')
-        self.fix = self.project / 'approved.md'
+        self.fix = self.project / 'bug.md'
         shutil.copyfile(ROOT / 'keel-dev/skills/keel-fix/assets/bug-template.md', self.fix)
         self.input = self.project / 'qa-input.json'
 

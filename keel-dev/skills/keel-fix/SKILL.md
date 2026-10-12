@@ -33,19 +33,19 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.m
 python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.md --decision '<用户确认原文>'
 ```
 
-首次审批检查局部修复资格并记录用户确认，保存 approved.md 及独立 fix state.json；新格式另保存 approved-investigation.md。采用返回路径作为 KEEL_PROFILE；同一 BUG 重复确认恢复既有任务，阶段和计数保留。确认后不再校验文档变化或要求重新确认。确认根因或补充日志不等于批准修复方案。
+首次审批检查局部修复资格并记录用户确认，只保存独立 fix state.json；执行直接读取 bug.md 和同目录 investigation.md，不复制批准快照。采用返回路径作为 KEEL_PROFILE；同一 BUG 重复确认恢复既有任务，阶段和计数保留。确认后不再校验文档变化或要求重新确认。确认根因或补充日志不等于批准修复方案。
 
 主会话按项目配置完成适用的构建、类型/语法或启动检查，失败暂停；测试无独立准备记 not-applicable，无法运行不算不适用。既有准备失败经用户明确允许才记 failed_allowed，简述失败情况并继续验证本次改动。
 
 ## 修复
 
-主会话调度新的 `keel-builder`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-implementation-spec`（`.codex/common/refs/keel-implementation-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。任务包含 approved.md、approved-investigation.md、必要资料和本轮范围（旧任务沿用已有资料）；请其完成已确认修复、验证和聚焦提交，返回 commits、产物、验证结果与遗留项。
+主会话调度新的 `keel-builder`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-implementation-spec`（`.codex/common/refs/keel-implementation-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。任务包含 bug.md、investigation.md、必要资料和本轮范围（旧任务沿用已有资料）；请其完成已确认修复、验证和聚焦提交，返回 commits、产物、验证结果与遗留项。
 
-主会话内部阶段 BUG_BUILD 对应全部已确认修复，完成后以 approved.md 登记 BUG_BUILD_DONE；BUG_FIX 对应 fix-brief.md 的阻断项和受影响行为，完成后以该文件登记 BUG_FIX_DONE。主会话核对结果并更新 build.commits，分别进入 BUG_REVIEW 或 BUG_REVIEW_FIX；阶段与标记不下发给 Agent。
+主会话内部阶段 BUG_BUILD 对应全部已确认修复，完成后以 bug.md 登记 BUG_BUILD_DONE；BUG_FIX 对应 fix-brief.md 的阻断项和受影响行为，完成后以该文件登记 BUG_FIX_DONE。主会话核对结果并更新 build.commits，分别进入 BUG_REVIEW 或 BUG_REVIEW_FIX；阶段与标记不下发给 Agent。
 
 ## 验收与返修
 
-主会话调度新的 `keel-qa`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-acceptance-spec`（`.codex/common/refs/keel-acceptance-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`、`.codex/common/refs/keel-bug-scope-spec.md#验收记录`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）、`keel-qa-scoring-spec`（`.codex/common/refs/keel-qa-scoring-spec.md`）。任务包含 approved.md、approved-investigation.md、本轮 Builder 标识和 commits、验收范围及报告目录（旧任务沿用已有资料），返修验收另附 fix-brief.md；请其按 Spec 核验本次交付并生成验收产物，返回业务结论 APPROVED 或 REJECTED、验证结果与遗留项。
+主会话调度新的 `keel-qa`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-acceptance-spec`（`.codex/common/refs/keel-acceptance-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`、`.codex/common/refs/keel-bug-scope-spec.md#验收记录`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）、`keel-qa-scoring-spec`（`.codex/common/refs/keel-qa-scoring-spec.md`）。任务包含 bug.md、investigation.md、本轮 Builder 标识和 commits、验收范围及报告目录（旧任务沿用已有资料），返修验收另附 fix-brief.md；请其按 Spec 核验本次交付并生成验收产物，返回业务结论 APPROVED 或 REJECTED、验证结果与遗留项。
 
 BUG_REVIEW 覆盖全部修复目标，BUG_REVIEW_FIX 覆盖阻断项及受影响行为。通过后进入 WAITING_RETEST；未通过则由主会话整理 fix-brief.md，进入 BUG_FIX 并安排新 QA 复验。原方案内返修最多三轮且不重复确认，仍阻断则 PAUSED。
 
@@ -66,4 +66,4 @@ BUG_REVIEW 覆盖全部修复目标，BUG_REVIEW_FIX 覆盖阻断项及受影响
 
 修复与验收派发时，主会话提供批准资料与本轮范围。主会话记录当前原生执行标识，通过原生消息跟进并手动调用脚本，没有自动进度采集器；仅接受当前执行的进展与结果，拒绝晚到的旧消息。进展通过原生消息跟进，不另存进度文件。主会话 source `.codex/common/scripts/keel-common.sh`，核对产物、提交和结果后调用 `complete_stage "<reporter>" "<tag>" "<摘要>" "<artifact>"`，再推进 state。reporter 沿用 keel-builder/keel-qa；修复结果映射本 Skill 的内部标记，QA 结论映射 APPROVED/REJECTED。审批、阶段与计数均由主会话管理；Agent 不调用运行助手或修改运行状态。定位阶段仅通过原生消息跟进。
 
-恢复以 state、进度和产物为准；沿用已确认快照与绑定，忽略旧 task_ref。审查五分钟、构建或返修十五分钟无进展时检查，并非自动判失败；轮询、重复摘要和仅 running 不算新进展，不重置计时。恢复时先结束旧执行，再创建新任务并记录新执行标识；每阶段每角色最多两次，产物错误补做一次，再失败计入恢复次数，超限暂停。
+恢复以 state、进度和产物为准；读取原文资料并沿用绑定，忽略旧 task_ref。审查五分钟、构建或返修十五分钟无进展时检查，并非自动判失败；轮询、重复摘要和仅 running 不算新进展，不重置计时。恢复时先结束旧执行，再创建新任务并记录新执行标识；每阶段每角色最多两次，产物错误补做一次，再失败计入恢复次数，超限暂停。
