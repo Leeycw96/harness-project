@@ -15,7 +15,7 @@ Plan、Dev、Fix 的隔离试验已完成。主会话按当前 Skill 编排原�
 | --- | --- | --- |
 | Plan | 结构与渲染通过，正文约 2943 个字符 | [源文档](.keel/plans/inventory-reservations.md) |
 | Dev | QA APPROVED，3/3 目标，100 分；30 项测试和 5 项独立验证通过 | [QA 报告](.keel/iterations/codex/inventory-e2e/run-1/qa-feedback.md) |
-| 流程维护 | 新增一个库存预占生命周期文档 | [流程文档](.keel/call-chain/inventory-reservation.md) |
+| 流程维护 | 用户下单业务流程文档 | [流程文档](.keel/call-chain/user-order.md) |
 | Fix | QA APPROVED，1/1 目标，100 分；32 项测试和 3 项独立验证通过 | [QA 报告](.keel/bugs/BUG-001/runs/run-1/qa-feedback.md) |
 | 原场景复验 | 10 件请求由 409 恢复为 200；主会话重放 12 个关联 HTTP 请求通过 | [重放记录](.keel/eval/original-scenario-retest.json) |
 

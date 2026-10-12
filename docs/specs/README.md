@@ -29,7 +29,7 @@ Spec 只说明产出物要满足什么：内容、格式、质量和验收结果
 | 代码实施 | [keel-implementation-spec.md](../../common/refs/keel-implementation-spec.md) | 实现、测试、验证和提交的交付结果 |
 | 交付验收 | [keel-acceptance-spec.md](../../common/refs/keel-acceptance-spec.md) | 简短验收结论与未完成说明 |
 | 验收评分 | [keel-qa-scoring-spec.md](../../common/refs/keel-qa-scoring-spec.md) | 功能目标与通用检查项分数、独立初验与复验 JSON |
-| 业务流程文档维护 | [keel-flow-index-spec.md](../../common/refs/keel-flow-index-spec.md) | 按实际代码维护流程索引、状态与代码位置 |
+| 业务流程文档维护 | [keel-flow-index-spec.md](../../common/refs/keel-flow-index-spec.md) | 主流程说明、文本状态机和业务入口，按用户/客户业务目标命名 |
 
 ## 共享标准与场景补充
 

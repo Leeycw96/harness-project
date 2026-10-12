@@ -277,9 +277,9 @@ bash .agents/skills/keel-plan/scripts/render-plan-html.sh .keel/plans/example.md
 Codex App 的 dev run 在 Preflight 后直接由 Builder 按 Markdown 计划构建，再由 QA 验收，最后按需维护 CallChain。局部调整与复杂业务流程、数据库迁移、权限、事务/并发、跨模块状态流转都由此入口执行。Codex App 不再生成或审查 build-scope；方案和边界必须在 Plan 阶段完成确认。
 
 
-CallChain 已启用按需调度：主会话明确判断没有外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 CallChain 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
+CallChain 已启用按需调度：主会话明确判断没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 CallChain 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
 
-CallChain 在业务流程文件中维护当前 PlantUML 状态图与流转表，记录源/目标状态、事件、条件、业务入口符号和实际状态变更符号及代码路径。图表以验收后的实现为准，历史差异不混入当前图表。UPDATED 以更新文档和简短报告完成，不强制提交 Git；仅任务明确要求时提交，状态中的 commit SHA 为可选记录。
+CallChain 文档以用户或客户的业务目标命名，如 `user-order.md`（用户下单），只保留主流程说明、状态机和业务入口。主流程用简短编号步骤，状态用文本箭头并标注对应步骤；入口列 HTTP、RPC、MQ、定时任务或回调的实际业务处理位置，例如业务 Job，而非框架配置或通用调度器。不展开 PlantUML、详细流转表、状态写入位置、参数、SQL、日志或测试记录。内容以验收后的实现为准；UPDATED 以更新文档和简短报告完成，仅任务明确要求时提交。精简示例见 [用户下单业务流程](keel-test/.keel/call-chain/user-order.md)。
 
 本轮评审发现阻断问题时自动进入内部修复循环，最多三轮。run 完成后的新反馈使用新的 plan/dev run；范围变化重新运行 `/keel-plan`。
 

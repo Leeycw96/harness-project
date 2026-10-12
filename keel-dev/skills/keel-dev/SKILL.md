@@ -53,7 +53,7 @@ REVIEW 覆盖全部功能；REVIEW_FIX 覆盖阻断项与受影响场景。通�
 
 ## 流程维护
 
-QA 通过后，主会话检查最终 Builder diff，按流程索引 Spec 判断是否需要调度：明确无外部入口、异步推进点、业务状态节点、流转条件或状态变更符号变化时为 noop，有变化或不确定为 run。
+QA 通过后，主会话检查最终 Builder diff，按流程索引 Spec 判断是否需要调度：明确无外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时为 noop，有变化或不确定为 run。
 
 主会话调用 `record_call_chain_prefilter "<noop|run>" "<判定说明>"`。on-demand 的 noop 调用 record_call_chain_skip 后直接交付；run 按流程维护绑定调度 `keel-call-chain`，任务包含索引目录、最终 commits 和相关计划，请其核实并维护受影响流程，返回 call-chain-review.md、业务结论 NOOP 或 UPDATED、更新文件与未确认事项。
 
