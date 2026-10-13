@@ -4,7 +4,6 @@ import base64
 from html.parser import HTMLParser
 import importlib.util
 import io
-import json
 import os
 from pathlib import Path
 import re
@@ -750,20 +749,19 @@ class "rewards.Rule" as Rule <<contract>>
         command = '''
 set -euo pipefail
 source "$1/common/scripts/keel-init.sh"
-init_keel_run "$PROJECT_DIR/full" "$PROJECT_DIR/.keel/plans/example.md" >/dev/null
+init_keel_run "$PROJECT_DIR/full" "$PROJECT_DIR/.keel/plans/example.md"
 if init_keel_run "$PROJECT_DIR/invalid" "$PROJECT_DIR/missing.md"; then exit 1; fi
 if init_keel_run "$PROJECT_DIR/invalid" "$PROJECT_DIR/.keel/plans/example.md" extra.md; then exit 1; fi
 '''
         result = subprocess.run(["bash", "-c", command, "test", str(ROOT)], env=env, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), str(self.root / "full/plan.md"))
         # Delete the original bundle: the run must remain self-contained.
         shutil.rmtree(self.directory)
         for mode in ("full",):
             run = self.root / mode
-            state = json.loads((run / "state.json").read_text())
-            self.assertEqual(state["plan_path"], str(run / "plan.md"))
-            self.assertNotIn("implementation_plan_path", state)
-            self.assertEqual(set(state["review"]), {"qa"})
+            self.assertFalse((run / "state.json").exists())
+            self.assertFalse((run / "profile.json").exists())
             self.assertEqual((run / "plan.md").read_text(), EXAMPLE)
             plan_module.validate(run / "plan.md")
             for slug, source in FEATURES.items():

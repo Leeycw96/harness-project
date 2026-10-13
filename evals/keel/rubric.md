@@ -16,7 +16,6 @@
 - QA 只审 Builder commit diff。
 - CallChain 正负样本判定不低于 baseline。
 - CallChain shadow/受控评测不得出现 `prefilter=noop`、Agent `UPDATED` 的漏判。
-- 中断后可恢复，超过重试上限可暂停并报告原因。
 
 ## 评分项
 
@@ -31,7 +30,6 @@
 | 测试 | 缺失或假断言 | 覆盖主路径 | 覆盖关键正常与异常契约 |
 | 审查 | 漏掉阻断问题 | 找到部分问题 | 阻断问题完整且证据准确 |
 | 隔离 | 混入用户改动 | 边界描述不清 | 只处理本轮 commit |
-| 恢复 | 无法恢复 | 人工介入后恢复 | 自动从磁盘状态恢复 |
 
 candidate 每个 case 的平均总分不得低于 baseline，且 hard gates 必须全部通过。
 
@@ -42,7 +40,7 @@ candidate 每个 case 的平均总分不得低于 baseline，且 hard gates 必�
 - 总输入/输出 token
 - Agent 调用次数
 - 完成时间
-- artifact 数量和状态写入次数
+- artifact 数量
 - CallChain shadow 的 noop 样本数、UPDATED 正样本数和 unsafe 漏判数
 
 第一期目标：Plan/full/fast Skill 输入合计至少减少 40%，每个 Agent 必读指令至少减少 30%。

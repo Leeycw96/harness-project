@@ -349,8 +349,6 @@ def snapshot(plan, output):
     bundle = validate(plan)
     files = execution_files(Path("plan.md"), bundle)
     output = output.resolve()
-    if (output / "state.json").exists():
-        raise ValueError("run 已有状态，不能覆盖；恢复时使用现有快照")
     for relative in files:
         target = output / relative
         if target.exists() or target.is_symlink() or target.parent.is_symlink():

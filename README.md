@@ -112,7 +112,7 @@ keel dev --codex /path/to/your/project
 
 ## 阶段职责
 
-借鉴 [Karpathy 启发的四项原则](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/README.zh.md)，按 Keel 阶段职责整合：Plan 在制定计划时核实假设、调研歧义并请用户完成关键取舍；Dev 按已确认方案落实简洁优先、精准修改与目标驱动，Builder 实现，QA 对照目标与实际结果验收。仅实际代码偏差或关键遗漏返回 Plan，验证修复仍遵守既有次数上限。
+借鉴 [Karpathy 启发的四项原则](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/README.zh.md)，按 Keel 职责整合：Plan 在制定计划时核实假设、调研歧义并请用户完成关键取舍；Dev 按已确认方案落实简洁优先、精准修改与目标驱动，Builder 实现，QA 对照目标与实际结果验收。实际代码偏差或关键遗漏返回 Plan，其余问题按 QA 结果返修。
 
 ## ASO 设计规范
 
@@ -130,7 +130,7 @@ keel dev --codex /path/to/your/project
 2. Spec 按使用场景组织，只定义产物的内容、格式、质量和适用条件。Builder 与 QA 使用同一份代码和测试标准。本次目标与授权范围放在任务中；如何调查、实现或验收由 Agent 自主决定。
 3. 每个 `SKILL.md` 说明从接收输入到最终交付的主要步骤及顺序，包括主会话承担的沟通、调度和交付。涉及 subagent 时，明确调用哪个 Agent、这一步要完成什么、依据什么 Spec，并提供必要的任务资料；仅在影响步骤衔接时补充输出、分支或恢复说明，不要求每一步套用完整字段模板。
 4. 信任 Agent 的专业能力，由其依据任务、Spec 和项目事实自主选择调研路径、工具与局部执行方法。编排聚焦目标和协作，不逐项规定模型能够自主完成的操作，不重复角色风格或 Spec，不堆叠禁止事项。仅保留授权边界、关键用户决策、必要质量门禁和跨步骤交接要求；主会话依据结果推进，已有明确决定直接沿用。
-5. 编排流程、A/S 绑定及必要的推进和恢复规则统一维护在所属 `SKILL.md`，不另设 `keel-dev-orchestration.md` 一类独立编排文件。可引用场景 Spec、模板和可执行脚本；共享脚本提供机制，`SKILL.md` 只说明必要调用及结果衔接，不展开脚本内部实现，不以外部引用代替流程主线。
+5. 编排流程和 A/S 选择统一维护在所属 `SKILL.md`，不另设 `keel-dev-orchestration.md` 一类独立编排文件。可引用场景 Spec、模板和可执行脚本；`SKILL.md` 只说明必要调用及结果衔接，不展开脚本内部实现，不以外部引用代替流程主线。
 6. A/S 可以独立替换，O 核对能力、引用和交付接口。缺资料、规范冲突或超出授权时说明原因，不能静默回退或扩大任务。
 7. 重组文件时保留目标、质量要求和门禁，同步调用方、部署、模板、校验与测试；旧 Spec 接口不保留。体量统计区分编排、固定输入和动态任务资料，不把搬文件当成上下文节省。
 
@@ -213,7 +213,7 @@ python3 .codex/common/scripts/keel-qa-score.py history /path/to/project --includ
 }
 ```
 
-APPROVED/REJECTED 由 QA 返回；通过时可省略 `qa-feedback.md`，必要遗留项在返回消息中说明，未通过时报告简述阻断项、原因与影响。无报告通过时，Dev/Fix 以 QA 返回的当次评分 JSON 登记完成，复验使用本次复验文件。评分不代替验收结论。历史工具兼容旧评分，简版记录从路径和文件时间识别项目、Dev/Fix 与初验/复验；简版不记录 Builder 身份，旧记录仍可按 Builder 筛选。检查内容可以随 Spec 增删，工具不内置质量检查种类或通过阈值。
+APPROVED/REJECTED 由 QA 返回；通过时可省略 `qa-feedback.md`，必要遗留项在返回消息中说明，未通过时报告简述阻断项、原因与影响。Dev/Fix 依据当前 QA 结论推进，评分 JSON 独立保存，复验使用本次复验文件。评分不代替验收结论。历史工具兼容旧评分，简版记录从路径和文件时间识别项目、Dev/Fix 与初验/复验；简版不记录 Builder 身份，旧记录仍可按 Builder 筛选。检查内容可以随 Spec 增删，工具不内置质量检查种类或通过阈值。
 
 ### Skill 与 Agent 协议
 
@@ -224,9 +224,9 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 
 调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 依据任务与 Spec 工作，返回业务结论、产物、commits、验证结果和遗留项；QA 使用 APPROVED/REJECTED，流程维护使用 NOOP/UPDATED。
 
-主会话选择 Agent/Spec，负责用户确认、阶段、进度与恢复；根据当前执行的新消息跟进，按 Agent 返回的业务结论、产物和提交记录完成并推进状态。各 Agent 对本职产出负责，代码交付由 QA 独立验收。运行字段、内部完成标记和 Skill 不下发给 Agent；Agent 不调用运行助手或修改运行状态，现有脚本也没有自动进度采集器。
+主会话选择 Agent/Spec，负责沟通、调度与交付；按 Agent 返回的业务结论继续工作，汇报产物与提交。各 Agent 对本职产出负责，代码交付由 QA 独立验收。Agent 仅接收任务与 Spec。
 
-开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 保留但忽略。恢复先结束旧执行，再启动新任务，晚到的旧进展和结果不用于新执行。审查五分钟、实现或返修十五分钟无进展时检查，轮询、重复摘要或仅 running 不重置计时。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 DocWriter、用户确认与旧 profile 恢复。
+运行阶段登记、确认留档、固定返修/恢复次数、超时计时和历史状态兼容已移除。Plan 按反馈修订方案；Dev/Fix 按 QA 阻断项返修后再验收，遇到实际阻碍时说明原因。
 
 ## 使用
 
@@ -244,12 +244,11 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 
 `.keel/bugs/<id>/bug.md` 与同名 HTML 仅简述“问题、原因、改造点、影响点、建议验证点”五章，影响和建议回归按业务流程表达。预期依据、分流结论与设计边界保留在同目录 `investigation.md` 的“修复资格”章节，其他章节记录调查进展；HTML 不展示调查代码或重复的完整源文档，保留 Markdown 下载。
 
-用户确认后，首次审批检查局部修复资格，只保存独立 fix state，Builder/QA 直接读取 bug.md 和 investigation.md，不生成批准快照。不再生成 bug.review.json、内嵌校验信息或绑定文档哈希；确认后不校验 MD、HTML 或调查文档的变化。同一 BUG 重复确认恢复已有任务，阶段和返修次数保留；已结束任务的新反馈另开 BUG。旧三章文档和已有批准任务继续兼容；代码验收通过后仍待原场景复验。
+修复说明由脚本验证并渲染，用户明确确认后由 Builder/QA 直接读取 bug.md 和 investigation.md，产物保存在 BUG run 目录。不另存批准或运行记录；旧三章说明继续兼容，代码验收通过后仍待原场景复验。
 
 ```bash
 python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.md
-# 用户明确确认当前 HTML 后，才记录其确认原文：
-python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.md --decision '用户确认原文'
+# 用户明确确认当前 HTML 后，主会话调度修复与验收。
 ```
 
 Codex App 的 Plan 编排 Planner 核对相关 DocWriter 和实际代码，返回带 slug 的候选功能与调研结果，再由主会话让用户选择哪些功能生成 PlantUML 时序图（部分、全部或不生成）；已有明确选择时不重复询问。其余只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项，内容可推导时直接起草，不逐章确认。
@@ -277,11 +276,11 @@ bash .agents/skills/keel-plan/scripts/render-plan-html.sh .keel/plans/example.md
 Codex App 的 dev run 在 Preflight 后直接由 Builder 按 Markdown 计划构建，再由 QA 验收，最后按需维护 DocWriter。局部调整与复杂业务流程、数据库迁移、权限、事务/并发、跨模块状态流转都由此入口执行。Codex App 不再生成或审查 build-scope；方案和边界必须在 Plan 阶段完成确认。
 
 
-DocWriter 已启用按需调度：Builder 返回本轮整体流程影响，主会话依据该说明记录预判；明确没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时记录 `noop` 并跳过 Agent，存在变化、说明缺失或不确定时记录 `run` 并保持独立 DocWriter 评审。DocWriter 返回后按 NOOP/UPDATED 直接登记并交付。历史 diff 受控评测结果可用 `scripts/check-call-chain-controlled-eval.sh` 汇总，不代表本次预判输入变化已通过模型评测。
+DocWriter 按需调度：Builder 返回本轮整体流程影响；明确没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时直接交付，存在变化、说明缺失或不确定时调度独立 DocWriter。DocWriter 返回 NOOP/UPDATED 后直接交付，不另写预判或结果台账。历史 diff 受控评测结果可用 `scripts/check-call-chain-controlled-eval.sh` 汇总，不代表本次流程已通过模型评测。
 
 DocWriter 文档以用户或客户的业务目标命名，如 `user-order.md`（用户下单），只保留主流程说明、状态机和业务入口。主流程用简短编号步骤，状态用文本箭头并标注对应步骤；入口列 HTTP、RPC、MQ、定时任务或回调的实际业务处理位置，例如业务 Job，而非框架配置或通用调度器。不展开 PlantUML、详细流转表、状态写入位置、参数、SQL、日志或测试记录。内容以验收后的实现为准；UPDATED 以更新文档和简短报告完成，仅任务明确要求时提交。默认输入的 [流程文档 Spec](common/refs/keel-flow-index-spec.md) 内嵌完整写法示例，随 runtime 部署供后续 DocWriter 使用；维护受影响旧文档时也整体收敛为这三部分。[用户下单业务流程](keel-test/.keel/call-chain/user-order.md) 是现有项目示例。
 
-本轮评审发现阻断问题时自动进入内部修复循环，最多三轮。run 完成后的新反馈使用新的 plan/dev run；范围变化重新运行 `/keel-plan`。
+QA 发现阻断问题时安排返修并再次验收；范围变化交回 `/keel-plan`。
 
 run 目录最小结构:
 
@@ -289,7 +288,6 @@ run 目录最小结构:
 .keel/iterations/<branch>/run-N/
   plan.md                    # 功能目标与文档索引
   <name>.features/            # 各功能的设计 MD
-  state.json
   qa-feedback.md             # REJECTED 时必需，APPROVED 时可省略
   qa-score.json              # 本次初验评分
   qa-score-retest-*.json      # 复验评分，与初验分开
@@ -297,11 +295,9 @@ run 目录最小结构:
   call-chain-review.md        # 实际调用 DocWriter 时才生成
 ```
 
-旧 `keel-dev-fast` 已合并；重新部署会按 manifest 清理其旧 Skill 文件，不删除未被跟踪的用户文件。运行数据的 `mode: full` 保留为兼容值，不再代表多个开发入口。
+旧 `keel-dev-fast` 已合并；重新部署会按 manifest 清理其旧 Skill 和已移除的运行助手，不删除未被跟踪的用户文件。
 
-恢复未完成的旧 fast run 时，先结束旧执行并调用 `resume_keel_run`，沿用已有提交、报告和历史完成标记继续未完成阶段。转换保留计划快照、Preflight、返修/恢复次数、用户规范绑定及进度，不重置执行记录；已完成的旧任务保持原样。旧 `profile.json` 配置的历史进度文件保留，不再追加记录。
-
-新 run 的静态契约和运行状态统一保存在 `state.json`，其中 `plan_path` 指向 run 内功能索引；主会话通过原生消息跟进当前 Agent，不再生成或追加进度文件。旧格式（包括单份大 MD）的 run 不兼容本流程，需要重新运行 `/keel-plan` 并新建 run；不自动拼接历史输入。
+新 run 只保存计划快照与任务产物；初始化返回快照 `plan.md`，主会话通过原生消息跟进当前 Agent。旧格式（包括单份大 MD）的计划需重新运行 `/keel-plan`，不自动拼接历史输入。
 
 ## 开发与验证
 
@@ -318,7 +314,6 @@ python3 scripts/test-qa-score.py
 scripts/keel-metrics.sh
 scripts/check-slimming-targets.sh
 scripts/check-call-chain-controlled-eval.sh
-scripts/summarize-call-chain-shadow.sh --help
 tmp=$(mktemp -d)
 bin/keel dev --codex "$tmp"
 find "$tmp/.agents/skills" "$tmp/.codex" -maxdepth 4 -type f | sort

@@ -40,7 +40,7 @@ Spec 只说明产出物要满足什么：内容、格式、质量和验收结果
 | 代码与测试质量 | [keel-code-quality-spec.md](../../common/refs/keel-code-quality-spec.md) | 真实实现、根因、职责、测试与项目检查 |
 | 改造点表达 | [keel-code-change-spec.md](../../common/refs/keel-code-change-spec.md) | 类、模块或文件加一句话改动，只约束说明列表 |
 | 业务流程表达 | [keel-business-flow-spec.md](../../common/refs/keel-business-flow-spec.md) | 业务阶段与变化的共用粒度 |
-| 局部修复边界 | [keel-bug-scope-spec.md](../../common/refs/keel-bug-scope-spec.md) | 分类结论、资格字段、批准产物与验收记录 |
+| 局部修复边界 | [keel-bug-scope-spec.md](../../common/refs/keel-bug-scope-spec.md) | 分类结论、资格字段、执行输入与验收记录 |
 
 ## 使用与调整
 

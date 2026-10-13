@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Check ASO dependency boundaries, deployed resources and the existing run protocol."""
-import hashlib
+"""Check ASO dependency boundaries, deployment and plan snapshot inputs."""
 import json
 from pathlib import Path
 import re
@@ -27,15 +26,6 @@ SCENARIO_SPECS = {'keel-delivery-spec.md', 'keel-code-quality-spec.md', 'keel-im
                   'keel-acceptance-spec.md', 'keel-flow-index-spec.md', 'keel-bug-scope-spec.md',
                   'keel-document-writing-spec.md', 'keel-qa-scoring-spec.md'}
 SPEC_FILES |= SCENARIO_SPECS
-TAGS = {
-    'BUILD_SLICE_DONE': ('builder', 'BUILD', 'plan.md'),
-    'BUILD_DONE': ('builder', 'BUILD', 'plan.md'),
-    'FIX_DONE': ('builder', 'FIX', 'fix-brief.md'),
-    'APPROVED': ('qa', 'REVIEW', 'qa-score.json'),
-    'REJECTED': ('qa', 'REVIEW_FIX', 'qa-feedback.md'),
-    'CALL_CHAIN_NOOP': ('call-chain', 'CALL_CHAIN', 'call-chain-review.md'),
-    'CALL_CHAIN_UPDATED': ('call-chain', 'CALL_CHAIN', 'call-chain-review.md'),
-}
 
 
 class AsoContractTests(unittest.TestCase):
@@ -49,7 +39,6 @@ class AsoContractTests(unittest.TestCase):
             raise RuntimeError(result.stderr)
         cls.refs = cls.project / '.codex/common/refs'
         cls.init = cls.project / '.codex/common/scripts/keel-init.sh'
-        cls.helpers = cls.project / '.codex/common/scripts/keel-common.sh'
         cls.plan = cls.project / '.agents/skills/keel-plan/assets/plan-template.md'
 
     @classmethod
@@ -66,16 +55,15 @@ class AsoContractTests(unittest.TestCase):
 
     def init_run(self, name):
         output = self.project / name
-        self.shell('export PROJECT_DIR="$1"\nsource "$2"\ninit_keel_run "$3" "$4"', self.project, self.init, output, self.plan)
-        return output / 'state.json'
+        result = self.shell('export PROJECT_DIR="$1"\nsource "$2"\ninit_keel_run "$3" "$4"', self.project, self.init, output, self.plan)
+        plan = output / 'plan.md'
+        self.assertEqual(result.stdout.strip(), str(plan))
+        return plan
 
-    def helper(self, state, command, *args, success=True):
-        return self.shell('export KEEL_PROFILE="$1"\nsource "$2"\n' + command, state, self.helpers, *args, success=success)
-
-    def qa_score(self, state, goals, retest=False):
+    def qa_score(self, plan, goals, retest=False):
         result = subprocess.run([sys.executable, str(self.project / '.codex/common/scripts/keel-qa-score.py'),
-                                 'record', '-', '--output-dir', str(state.parent),
-                                 '--plan', json.loads(state.read_text())['plan_path'],
+                                 'record', '-', '--output-dir', str(plan.parent),
+                                 '--plan', str(plan),
                                  *(['--retest'] if retest else [])],
                                 input=json.dumps({'goals': goals, 'checks': {'回归': 100}}),
                                 capture_output=True, text=True)
@@ -111,7 +99,7 @@ class AsoContractTests(unittest.TestCase):
 
     def test_spec_has_no_agent_registration_or_orchestration_dependencies(self):
         # Artifact verdicts (APPROVED/REJECTED, NOOP/UPDATED) are document standards;
-        # agent registration, runtime state and stage control belong to orchestration.
+        # Agent registration and task orchestration stay outside Spec.
         for name in SPEC_FILES:
             with self.subTest(spec=name):
                 text = (REFS / name).read_text()
@@ -242,8 +230,6 @@ class AsoContractTests(unittest.TestCase):
                 metadata, _ = self.spec_metadata(self.project / reference.partition('#')[0])
                 self.assertIn(metadata['name'], spec_cell)
             self.assertTrue((self.project / '.codex/agents' / (agent + '.toml')).is_file())
-        for tag, (role, _, _) in TAGS.items():
-            self.assertIn(tag, self.read_reference(DEV_SKILL + '#' + ROLE_STEPS[role]))
         fix_qa = self.read_reference('.agents/skills/keel-fix/SKILL.md#验收与返修').split('\n\n')[1]
         fix_specs = re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', fix_qa)
         self.assertIn('.codex/common/refs/keel-qa-scoring-spec.md', fix_specs)
@@ -251,9 +237,9 @@ class AsoContractTests(unittest.TestCase):
         self.assertNotIn('.codex/common/refs/keel-implementation-spec.md', effective_fix_specs)
 
     def test_agent_input_is_task_and_named_specs_without_runtime_injection(self):
-        contracts = [(DEV_SKILL, '运行衔接'),
-                     ('.agents/skills/keel-fix/SKILL.md', '运行衔接'),
-                     ('.agents/skills/keel-plan/SKILL.md', '调度与恢复')]
+        contracts = [(DEV_SKILL, 'Agent 调度'),
+                     ('.agents/skills/keel-fix/SKILL.md', 'Agent 调用'),
+                     ('.agents/skills/keel-plan/SKILL.md', '调度')]
         for skill, heading in contracts:
             with self.subTest(skill=skill):
                 text = self.read_reference(skill)
@@ -267,13 +253,8 @@ class AsoContractTests(unittest.TestCase):
                 self.assertIn('#二级标题', inputs[1][1])
                 self.assertNotRegex(text, r'\.agents/skills/[\w-]+/SKILL\.md#')
                 self.assertNotRegex(contract, r'Agent[^\n。]*(?:导出 KEEL_PROFILE|source |export |complete_stage|update_progress)')
-                self.assertRegex(contract, r'不(?:附|下发)[^\n。]*Skill')
-                if heading == '运行衔接':
-                    self.assertIn('忽略旧 task_ref', contract)
-                    self.assertIn('主会话', contract)
-                    self.assertIn('进展通过原生消息跟进，不另存进度文件', contract)
-                    self.assertIn('complete_stage', contract)
-                    self.assertIn('Agent 不调用运行助手或修改运行状态', contract)
+                self.assertRegex(contract, r'不(?:附|下发|把)[^\n。]*Skill')
+                self.assertIn('主会话', contract)
 
     def test_fix_investigation_has_readonly_task_and_output_specs(self):
         text = self.read_reference('.agents/skills/keel-fix/SKILL.md#接收与定位')
@@ -315,6 +296,7 @@ class AsoContractTests(unittest.TestCase):
             entries = ['.codex/common/refs/' + name for name in retired]
             entries += ['.agents/skills/keel-dev-fast/SKILL.md', '.agents/skills/keel-dev-fast/agents/openai.yaml']
             entries += ['.codex/agents/keel-call-chain.md', '.codex/agents/keel-call-chain.toml']
+            entries += ['.codex/common/scripts/keel-common.sh']
             for entry in entries:
                 path = project / entry
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -324,6 +306,12 @@ class AsoContractTests(unittest.TestCase):
             user_file.write_text('project-owned instructions')
             user_notes = project / '.agents/skills/keel-dev-fast/user-notes.md'
             user_notes.write_text('keep untracked user notes')
+            history = project / '.keel/iterations/old/run-1'
+            history.mkdir(parents=True)
+            records = {history / 'state.json': 'historical user-owned state file',
+                       history / 'profile.json': 'historical user-owned profile file'}
+            for path, content in records.items():
+                path.write_text(content)
             result = subprocess.run([str(ROOT / 'bin/keel'), 'dev', '--codex', str(project)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             for entry in entries:
@@ -340,293 +328,81 @@ class AsoContractTests(unittest.TestCase):
             self.assertEqual(config['name'], 'keel-doc-writer')
             self.assertEqual(user_file.read_text(), 'project-owned instructions')
             self.assertEqual(user_notes.read_text(), 'keep untracked user notes')
+            for path, content in records.items():
+                self.assertEqual(path.read_text(), content)
 
-    def test_unified_initialization_preserves_gates_and_conditional_call_chain(self):
-        state = self.init_run('init-dev')
-        data = json.loads(state.read_text())
-        self.assertEqual(data['mode'], 'full')  # Preserve the existing storage value, not a second entrypoint.
-        self.assertEqual(data['phase'], 'INIT')
-        self.assertEqual(data['limits'], {'fix_rounds': 3, 'stage_recoveries': 2})
-        self.assertEqual(data['thresholds'], {'short_stage_no_progress_seconds': 300, 'long_stage_no_progress_seconds': 900})
-        self.assertTrue(Path(data['plan_path']).is_file())
-        self.assertEqual(set(data['review']), {'qa'})
-        self.assertIn('call_chain_review', data['artifacts'])
-        self.assertEqual(data['call_chain']['prefilter']['mode'], 'on-demand')
-        self.assertIsNone(data['call_chain']['prefilter']['decision'])
-        self.assertIsNone(data['preflight']['test_compile']['user_decision'])
-        self.assertNotIn('fast', data)
-        self.assertNotIn('progress', data)
-        self.assertFalse((state.parent / 'progress.tsv').exists())
+    def test_initialization_returns_a_self_contained_plan_without_runtime_state(self):
+        plan = self.init_run('init-dev')
+        source_features = self.plan.parent / 'plan-template.features'
+        expected = {'plan.md'} | {
+            str(Path('plan-template.features') / path.relative_to(source_features))
+            for path in source_features.rglob('*') if path.is_file()
+        }
+        self.assertEqual({str(path.relative_to(plan.parent)) for path in plan.parent.rglob('*') if path.is_file()},
+                         expected)
+        self.assertEqual(plan.read_bytes(), self.plan.read_bytes())
+        result = subprocess.run([sys.executable, str(self.project / '.codex/common/scripts/keel-plan.py'),
+                                 'validate', str(plan)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.project / '.codex/common/scripts/keel-common.sh').exists())
         self.assertFalse((self.project / '.agents/skills/keel-dev-fast/SKILL.md').exists())
-        self.shell('export PROJECT_DIR="$1"\nsource "$2"\nif declare -F init_keel_fast_run >/dev/null; then exit 1; fi', self.project, self.init)
 
-    def legacy_fast(self, name, phase):
-        state = self.init_run(name)
-        data = json.loads(state.read_text())
-        data.update(mode='fast', phase=phase, fast={'skipped': ['call-chain']}, fix_round=2)
-        data.pop('call_chain')
-        data['artifacts'].pop('call_chain_review')
-        data['build']['commits'] = ['a' * 40, 'b' * 40]
-        data['build']['current_slice'] = 'fast'
-        data['retries'] = {'keel-qa': 1}
-        data['review']['qa']['status'] = 'rejected'
-        data['aso_bindings'] = {'builder': {'agent': 'custom-builder', 'spec_refs': ['custom.md'],
-                                          'task_ref': str(self.project / DEV_SKILL) + '#实现'}}
-        data['preflight']['test_compile'] = {'status': 'failed_allowed', 'summary': ['baseline evidence'], 'user_decision': True}
-        state.write_text(json.dumps(data))
-        (state.parent / 'qa-feedback.md').write_text('REJECTED: existing evidence')
-        (state.parent / 'fix-brief.md').write_text('existing repair scope')
-        (state.parent / 'progress.tsv').write_text('old FAST progress retained\n')
-        return state, data
+    def test_run_number_helpers_select_the_next_numeric_directory(self):
+        output = self.project / 'run-numbers'
+        for name in ('run-1', 'run-9', 'run-invalid', 'notes'):
+            (output / name).mkdir(parents=True)
+        result = self.shell('export PROJECT_DIR="$1"\nsource "$2"\nget_latest_run_number "$3"\nget_next_run_number "$3"\nget_next_run_number "$4"',
+                            self.project, self.init, output, output / 'missing')
+        self.assertEqual(result.stdout.splitlines(), ['9', '10', '1'])
 
-    def resume(self, profile, success=True):
-        return self.shell('export PROJECT_DIR="$1"\nsource "$2"\nresume_keel_run "$3"', self.project, self.init, profile, success=success)
-
-    def test_resume_fast_preserves_work_and_maps_only_active_stages(self):
-        phases = {'INIT': 'INIT', 'BUILD_FAST': 'BUILD', 'REVIEW_FAST': 'REVIEW',
-                  'FIX_FAST': 'FIX', 'REVIEW_FAST_FIX': 'REVIEW_FIX', 'PAUSED': 'PAUSED'}
-        for old_phase, new_phase in phases.items():
-            with self.subTest(phase=old_phase):
-                state, old = self.legacy_fast('resume-' + old_phase, old_phase)
-                evidence = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file() and p != state}
-                self.assertEqual(self.resume(state).stdout.strip(), str(state))
-                new = json.loads(state.read_text())
-                self.assertEqual(new['mode'], 'full')
-                self.assertEqual(new['phase'], new_phase)
-                self.assertEqual(new['call_chain']['prefilter']['mode'], 'on-demand')
-                self.assertIsNone(new['call_chain']['prefilter']['decision'])
-                self.assertEqual(new['artifacts']['call_chain_review'], str(state.parent / 'call-chain-review.md'))
-                self.assertIsNone(new['build']['current_slice'])
-                self.assertNotIn('fast', new)
-                for key in ('fix_round', 'retries', 'review', 'preflight', 'aso_bindings', 'plan_path', 'limits'):
-                    self.assertEqual(new[key], old[key])
-                self.assertEqual(new['build']['commits'], old['build']['commits'])
-                self.assertEqual({p: p.read_bytes() for p in evidence}, evidence)
-                before = state.read_bytes()
-                self.resume(state)
-                self.assertEqual(state.read_bytes(), before)
-
-    def test_resume_completed_or_invalid_runs_does_not_rewrite_history(self):
-        state, _ = self.legacy_fast('finished-fast', 'DONE')
-        Path(json.loads(state.read_text())['plan_path']).unlink()
-        before = state.read_bytes()
-        self.resume(state)
-        self.assertEqual(state.read_bytes(), before)
-        state, _ = self.legacy_fast('broken-fast', 'BUILD_FAST')
-        Path(json.loads(state.read_text())['plan_path']).unlink()
-        before = state.read_bytes()
-        self.resume(state, success=False)
-        self.assertEqual(state.read_bytes(), before)
-        state = self.init_run('wrong-mode')
-        data = json.loads(state.read_text())
-        data['mode'] = 'fix'
-        state.write_text(json.dumps(data))
-        before = state.read_bytes()
-        self.resume(state, success=False)
-        self.assertEqual(state.read_bytes(), before)
-
-    def test_resume_legacy_profile_preserves_history_without_creating_progress_events(self):
-        state, old = self.legacy_fast('profile-fast', 'FIX_FAST')
-        profile = state.parent / 'profile.json'
-        old['progress'] = {'events': str(state.parent / 'progress.events')}
-        profile.write_text(json.dumps(old))
-        before = profile.read_bytes()
-        self.assertEqual(self.resume(profile).stdout.strip(), str(profile))
-        self.assertEqual(profile.read_bytes(), before)
-        self.assertEqual(json.loads(state.read_text())['phase'], 'FIX')
-        old_progress = (state.parent / 'progress.tsv').read_bytes()
-        self.helper(profile, 'update_progress keel-builder FIX "继续修复"')
-        self.assertFalse((state.parent / 'progress.events').exists())
-        self.assertEqual((state.parent / 'progress.tsv').read_bytes(), old_progress)
-        self.assertEqual(profile.read_bytes(), before)
-
-    def test_progress_helpers_return_public_tags_without_writing_runtime_files(self):
-        state = self.init_run('events')
-        data = json.loads(state.read_text())
-        data.update(phase='REVIEW_FIX', fix_round=2, retries={'keel-qa': 2})
-        state.write_text(json.dumps(data))
-        original_state = state.read_bytes()
-        for _, (_, _, artifact_name) in TAGS.items():
-            artifact = state.parent / artifact_name
-            if not artifact.exists():
-                artifact.write_text('current task evidence')
-        original_files = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}
-        for tag, (role, stage, artifact_name) in TAGS.items():
-            artifact = state.parent / artifact_name
-            result = self.helper(state, 'update_progress "$3" "$4" "正在执行" "$5"\ncomplete_stage "$3" "$6" "已完成" "$5"', 'keel-' + ROLE_AGENTS[role], stage, artifact, tag)
-            self.assertEqual(result.stdout.splitlines(), [
-                f'keel-{ROLE_AGENTS[role]} | {stage} | 正在执行 | artifact: {artifact}',
-                f'{tag} | 已完成 | artifact: {artifact}',
-            ])
-        # Compatibility output is distinct from the main session's verdict and state transition.
-        self.assertEqual(state.read_bytes(), original_state)
-        self.helper(state, 'complete_stage keel-qa APPROVED "评分文件缺失" "$3"', state.parent / 'missing-score.json', success=False)
-        self.assertEqual(state.read_bytes(), original_state)
-        self.assertEqual({p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}, original_files)
-
-    def test_qa_approval_uses_returned_score_without_generating_feedback(self):
+    def test_qa_scoring_succeeds_without_generating_feedback_or_state(self):
         for retest in (False, True):
             with self.subTest(retest=retest):
-                state = self.init_run('approved-score-' + str(retest))
-                before_state = state.read_bytes()
-                feedback = Path(json.loads(state.read_text())['artifacts']['qa_feedback'])
+                plan = self.init_run('approved-score-' + str(retest))
+                feedback = plan.parent / 'qa-feedback.md'
                 initial = None
                 if retest:
-                    initial = self.qa_score(state, {'cancel-order': 100, 'confirm-refund': 0})
+                    initial = self.qa_score(plan, {'cancel-order': 100, 'confirm-refund': 0})
                     initial_bytes = initial.read_bytes()
                     feedback.write_text('REJECTED：初验退款未完成，保留原报告。')
                     previous_feedback = feedback.read_bytes()
-                else:
-                    self.assertFalse(feedback.exists())
-                returned_score = self.qa_score(state, {'cancel-order': 100, 'confirm-refund': 100}, retest)
+                before_files = {path: path.read_bytes() for path in plan.parent.rglob('*') if path.is_file()}
+                returned_score = self.qa_score(plan, {'cancel-order': 100, 'confirm-refund': 100}, retest)
                 self.assertEqual(returned_score.name == 'qa-score.json', not retest)
+                for path, content in before_files.items():
+                    self.assertEqual(path.read_bytes(), content)
                 if retest:
                     self.assertRegex(returned_score.name, r'^qa-score-retest-[0-9a-f]{12}\.json$')
                     self.assertNotEqual(returned_score, initial)
-                before_files = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}
-                result = self.helper(state, 'complete_stage keel-qa APPROVED "已收到本次验收通过结果" "$3"', returned_score)
-                self.assertEqual(result.stdout.strip(), f'APPROVED | 已收到本次验收通过结果 | artifact: {returned_score}')
-                self.assertEqual(state.read_bytes(), before_state)
-                self.assertEqual({p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}, before_files)
-                if retest:
                     self.assertEqual(initial.read_bytes(), initial_bytes)
                     self.assertEqual(feedback.read_bytes(), previous_feedback)
                 else:
                     self.assertFalse(feedback.exists())
+                self.assertFalse((plan.parent / 'state.json').exists())
+                self.assertFalse((plan.parent / 'profile.json').exists())
 
-    def test_rejected_qa_still_requires_feedback_even_when_score_exists(self):
-        state = self.init_run('rejected-missing-feedback')
-        feedback = Path(json.loads(state.read_text())['artifacts']['qa_feedback'])
-        self.qa_score(state, {'cancel-order': 100, 'confirm-refund': 0})
-        before = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}
-        command = 'complete_stage keel-qa REJECTED "已收到阻断项" "$3"'
-        result = self.helper(state, command, feedback, success=False)
-        self.assertIn('产出文件不存在', result.stderr)
-        self.assertEqual({p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}, before)
-        feedback.write_text('REJECTED：退款失败回调未完成，须修复后复验。')
-        result = self.helper(state, command, feedback)
-        self.assertEqual(result.stdout.strip(), f'REJECTED | 已收到阻断项 | artifact: {feedback}')
-
-    def test_progress_output_requires_no_runtime_profile_and_keeps_argument_guards(self):
-        result = self.shell('unset KEEL_PROFILE\nsource "$1"\nupdate_progress builder BUILD "正在执行"\ncomplete_stage keel-builder BUILD_DONE "已完成"', self.helpers)
-        self.assertEqual(result.stdout.splitlines(), ['keel-builder | BUILD | 正在执行', 'BUILD_DONE | 已完成'])
-        for command in ('update_progress "" BUILD "正在执行"', 'complete_stage keel-builder "" "已完成"'):
-            with self.subTest(command=command):
-                self.shell('unset KEEL_PROFILE\nsource "$1"\n' + command, self.helpers, success=False)
-
-    def test_old_completion_logs_and_missing_return_cannot_complete_call_chain(self):
-        state = self.init_run('missing-call-chain-return')
-        self.helper(state, '_keel_state_jq \'.phase = "CALL_CHAIN" | .fix_round = 2 | .retries = {"keel-call-chain": 2}\'\nrecord_call_chain_prefilter run "状态流转发生变化"')
-        log = state.parent / 'progress.tsv'
-        log.write_text('old\tcomplete\tkeel-call-chain\tCALL_CHAIN_UPDATED\t历史完成记录\n')
-        self.assertEqual(self.resume(state).stdout.strip(), str(state))
-        before = state.read_bytes()
-        old_log = log.read_bytes()
-        report = state.parent / 'call-chain-review.md'
-        # The main session records the returned result; the helper guards artifact existence.
-        command = 'complete_stage keel-call-chain CALL_CHAIN_UPDATED "已收到流程报告" "$3"\nrecord_call_chain_result updated'
-        self.helper(state, command, report, success=False)
-        self.assertEqual(state.read_bytes(), before)
-        self.assertEqual(log.read_bytes(), old_log)
-        self.assertNotEqual(json.loads(state.read_text())['call_chain']['status'], 'completed')
-        # The updated document is deliberately uncommitted, in a project without a Git repository.
-        self.assertFalse((self.project / '.git').exists())
-        document = self.project / '.keel/call-chain/order-lifecycle.md'
-        document.parent.mkdir(parents=True, exist_ok=True)
-        document.write_text('订单生命周期\n已补充退款确认状态与代码依据。')
-        report.write_text('UPDATED\n已更新 .keel/call-chain/order-lifecycle.md；状态变化有实际代码依据。')
-        self.helper(state, command, report)
-        after = json.loads(state.read_text())
-        self.assertEqual(after['phase'], 'DONE')
-        self.assertEqual(after['call_chain']['status'], 'completed')
-        self.assertEqual(after['call_chain']['artifact'], str(report))
-        self.assertIsNone(after['call_chain']['commit'])
-        self.assertTrue(document.is_file())
-        self.assertEqual(after['fix_round'], 2)
-        self.assertEqual(after['retries'], {'keel-call-chain': 2})
-        self.assertEqual(log.read_bytes(), old_log)
-
-    def test_call_chain_commit_metadata_is_optional(self):
-        cases = [('noop', None), ('updated', None), ('updated', 'b' * 40)]
-        for number, (action, commit) in enumerate(cases):
-            with self.subTest(action=action, commit=commit):
-                state = self.init_run('optional-commit-' + str(number))
-                self.helper(state, 'record_call_chain_prefilter run "核实受影响流程"')
-                (state.parent / 'call-chain-review.md').write_text(action.upper() + '\n文档与代码证据已核对。')
-                command = 'record_call_chain_result "$3"'
-                args = [action]
-                if commit is not None:
-                    command += ' "$4"'
-                    args.append(commit)
-                self.helper(state, command, *args)
-                data = json.loads(state.read_text())
-                self.assertEqual(data['phase'], 'DONE')
-                self.assertEqual(data['call_chain']['action'], action)
-                self.assertEqual(data['call_chain']['commit'], commit)
-
-    def test_invalid_optional_call_chain_commit_does_not_change_state(self):
-        state = self.init_run('invalid-optional-commit')
-        self.helper(state, 'record_call_chain_prefilter run "核实受影响流程"')
-        before = state.read_bytes()
-        self.helper(state, 'record_call_chain_result updated "$3"', 'invalid-sha', success=False)
-        self.assertEqual(state.read_bytes(), before)
-
-    def test_replaceable_bindings_survive_state_updates_without_role_edits(self):
-        state = self.init_run('replaceable')
-        role_paths = list((self.project / '.codex/agents').glob('*'))
-        hashes = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in role_paths}
-        spec = self.project / 'alternate-spec.md'
-        spec.write_text('使用本项目配置的验证工具，遵守已授权的交付范围。')
-        (self.project / '.codex/agents/alternate-builder.toml').write_text(
-            'name = "alternate-builder"\ndeveloper_instructions = "依据注入目标与规范完成实现并报告证据。"\n')
-        bindings = {'builder': {'agent': 'alternate-builder', 'spec_refs':[str(spec)]}}
-        self.helper(state, '_keel_state_jq --argjson bindings "$3" \'.aso_bindings = $bindings\'\nrecord_call_chain_prefilter noop "仅局部校验"\nrecord_call_chain_skip', json.dumps(bindings))
-        self.assertEqual(json.loads(state.read_text())['aso_bindings'], bindings)
-        self.assertEqual(set(bindings['builder']), {'agent', 'spec_refs'})
-        self.assertEqual({p:hashlib.sha256(p.read_bytes()).hexdigest() for p in role_paths}, hashes)
-
-    def test_call_chain_dispatch_guards_and_shadow_remain_compatible(self):
-        state = self.init_run('callchain')
-        self.helper(state, 'record_call_chain_skip', success=False)
-        self.helper(state, 'record_call_chain_prefilter run "新增状态流转"')
-        self.helper(state, 'record_call_chain_skip', success=False)
-        (state.parent / 'call-chain-review.md').write_text('UPDATED\n状态及其证据')
-        self.helper(state, 'record_call_chain_result updated "$3"', 'a' * 40)
-        data = json.loads(state.read_text())
-        self.assertEqual(data['phase'], 'DONE')
-        self.assertEqual(data['call_chain']['action'], 'updated')
-        self.assertEqual(data['call_chain']['commit'], 'a' * 40)
-        shadow = self.init_run('shadow')
-        self.helper(shadow, '_keel_state_jq \'.call_chain.prefilter.mode = "shadow"\'\nrecord_call_chain_prefilter noop "影子预判"\nrecord_call_chain_shadow_result updated')
-        self.assertFalse(json.loads(shadow.read_text())['call_chain']['prefilter']['safe'])
-        self.helper(shadow, 'record_call_chain_skip', success=False)
-
-    def test_noop_finishes_without_call_chain_report(self):
-        state = self.init_run('skip-call-chain')
-        self.helper(state, 'record_call_chain_prefilter noop "仅局部校验，无入口或状态变化"\nrecord_call_chain_skip')
-        data = json.loads(state.read_text())
-        self.assertEqual(data['phase'], 'DONE')
-        self.assertEqual(data['call_chain']['status'], 'skipped')
-        self.assertIsNone(data['call_chain']['artifact'])
-        self.assertFalse(Path(data['artifacts']['call_chain_review']).exists())
-
-    def test_legacy_profile_updates_state_without_modifying_configured_progress(self):
-        state = self.init_run('legacy')
-        profile = state.parent / 'profile.json'
-        old = json.loads(state.read_text())
-        old['progress'] = {'events':str(state.parent / 'progress.events')}
-        profile.write_text(json.dumps(old))
-        events = state.parent / 'progress.events'
-        events.write_text('historical progress\n')
-        before_profile, before_events = profile.read_bytes(), events.read_bytes()
-        before_paths = {p for p in state.parent.rglob('*') if p.is_file()}
-        result = self.helper(profile, 'keel_state_file\nupdate_progress keel-builder BUILD "恢复"\ncomplete_stage keel-builder BUILD_DONE "已完成"\nrecord_call_chain_prefilter noop "无变化"')
-        self.assertIn(str(state), result.stdout)
-        self.assertEqual(profile.read_bytes(), before_profile)
-        self.assertEqual(events.read_bytes(), before_events)
-        self.assertEqual({p for p in state.parent.rglob('*') if p.is_file()}, before_paths)
-        self.assertFalse((state.parent / 'progress.tsv').exists())
-        self.assertEqual(json.loads(state.read_text())['call_chain']['prefilter']['decision'], 'noop')
+    def test_custom_agent_and_spec_survive_redeployment(self):
+        with tempfile.TemporaryDirectory(prefix='keel-custom-role-') as work:
+            project = Path(work)
+            result = subprocess.run([str(ROOT / 'bin/keel'), 'dev', '--codex', str(project)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            role_paths = list((project / '.codex/agents').glob('*'))
+            roles = {path: path.read_bytes() for path in role_paths}
+            custom = {
+                project / '.codex/agents/alternate-builder.toml':
+                    'name = "alternate-builder"\ndeveloper_instructions = "依据注入目标与规范完成实现并报告证据。"\n',
+                project / '.codex/common/refs/alternate-spec.md':
+                    '使用本项目配置的验证工具，遵守已授权的交付范围。\n',
+            }
+            for path, content in custom.items():
+                path.write_text(content)
+            result = subprocess.run([str(ROOT / 'bin/keel'), 'dev', '--codex', str(project)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual({path: path.read_bytes() for path in role_paths}, roles)
+            for path, content in custom.items():
+                self.assertEqual(path.read_text(), content)
 
 
 if __name__ == '__main__':

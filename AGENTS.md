@@ -14,7 +14,6 @@ This repository packages Keel skills, custom agent manuals, and deployment scrip
 - `scripts/keel-metrics.sh`: reports current instruction and runtime size against `evals/keel/baseline-2.1.0.tsv`.
 - `scripts/check-slimming-targets.sh`: enforces the approved Skill and Agent instruction-reduction targets.
 - `scripts/check-call-chain-controlled-eval.sh`: validates the three-round controlled CallChain on-demand gate.
-- `scripts/summarize-call-chain-shadow.sh`: reports historical CallChain prefilter shadow results.
 There is no package-manager build step.
 
 ## Coding Style & Naming Conventions

@@ -1,12 +1,12 @@
 # Keel 强模型回归评估
 
-本目录用于比较 Keel 瘦身前后的需求结构化、构建、审查和恢复效果。评估基线固定为提交 `e7d6183`，目标模型只覆盖强模型。
+本目录用于比较 Keel 瘦身前后的需求结构化、构建和审查效果。评估基线固定为提交 `e7d6183`，目标模型只覆盖强模型。
 
 ## 运行约定
 
 1. 对同一个 case 使用相同模型、模型配置和仓库快照。
 2. baseline 与 candidate 各运行至少 3 次。
-3. 自动记录Markdown 计划、构建、测试、git diff、完成 tag、Agent 调用次数和 token。
+3. 自动记录 Markdown 计划、构建、测试、git diff、Agent 结论、调用次数和 token。
 4. 按 `rubric.md` 盲评模型产物，不向评审者透露版本。
 5. 任一 hard gate 退化时，candidate 不得进入下一期。
 
@@ -51,10 +51,4 @@ scripts/check-call-chain-controlled-eval.sh
 
 门槛通过后，新开发 run 使用 `on-demand` 模式：prefilter 为 `noop` 时跳过 CallChain Agent，为 `run` 时保持独立评审。
 
-4.0.5 起，主会话依据 Builder 返回的本轮整体流程影响记录预判，缺失或不确定时为 `run`。上述 diff 评测保留为历史基线，不代表新的预判输入已通过模型评测。
-
-历史 shadow run 仍可汇总：
-
-```bash
-scripts/summarize-call-chain-shadow.sh /path/to/.keel/iterations
-```
+4.0.5 起，主会话依据 Builder 返回的本轮整体流程影响直接决定是否调度，缺失或不确定时调度独立 DocWriter。新任务不生成状态文件或预判台账；上述 diff 评测保留为历史基线，不代表新流程已通过模型评测。

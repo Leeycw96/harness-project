@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Render a local bug review and record the user's approval for a fix run."""
+"""Validate and render a local bug review."""
 import argparse
 import base64
-from datetime import datetime, timezone
 import hashlib
 import html
 import importlib.util
-import json
 import os
 from pathlib import Path
 import re
@@ -43,10 +41,6 @@ def atomic_write(path, data):
     finally:
         if temporary and temporary.exists():
             temporary.unlink()
-
-
-def write_json(path, value):
-    atomic_write(path, (json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode())
 
 
 def field(content, label, multiple=False):
@@ -141,11 +135,6 @@ def validate(path):
             'eligible': eligible, 'investigation': details}
 
 
-def require_fix(document):
-    if not document['eligible']:
-        raise ValueError('只有已定位且不涉及设计变化的局部缺陷可进入 fix；其余继续定位或提示用户走 keel-plan')
-
-
 def render(source):
     source = Path(source).absolute()
     document = validate(source)
@@ -184,88 +173,14 @@ def render(source):
     return output
 
 
-def check(state_path):
-    state_path = Path(state_path).absolute()
-    state = json.loads(state_path.read_text())
-    if state.get('mode') != 'fix':
-        raise ValueError('不是独立 fix 运行记录')
-    approval = state.get('approval')
-    if (not isinstance(approval, dict) or not isinstance(approval.get('decision'), str) or
-            not approval['decision'].strip() or not isinstance(approval.get('confirmed_at'), str) or
-            not approval['confirmed_at'].strip()):
-        raise ValueError('fix 运行记录缺少用户确认原文或批准时间')
-    bug_path = state.get('bug_path')
-    if not isinstance(bug_path, str) or not bug_path.strip():
-        raise ValueError('fix 运行记录缺少 bug.md 来源路径')
-    source = Path(bug_path)
-    if not source.is_absolute() or source.name != 'bug.md' or source.is_symlink() or not source.is_file():
-        raise ValueError('fix 执行输入 bug.md 缺失或路径无效')
-    # Old runs may still name approval snapshots; always use the current source files.
-    state['fix_path'] = str(source)
-    if 'investigation_path' in state:
-        investigation_path = source.with_name('investigation.md')
-        if investigation_path.is_symlink() or not investigation_path.is_file():
-            raise ValueError('fix 执行输入 investigation.md 缺失或路径无效')
-        state['investigation_path'] = str(investigation_path)
-    return state
-
-
-def approve(source, decision):
-    source = Path(source).absolute()
-    if not decision.strip():
-        raise ValueError('必须记录用户对当前方案的明确确认原文')
-    if source.name != 'bug.md' or source.parent.parent.name != 'bugs' or source.parent.parent.parent.name != '.keel':
-        raise ValueError('确认来源须为 <project>/.keel/bugs/<id>/bug.md')
-    if any(path.is_symlink() for path in (source, source.parent, source.parent.parent, source.parent.parent.parent)):
-        raise ValueError('BUG 路径不能使用符号链接')
-    runs = source.parent / 'runs'
-    if runs.is_symlink():
-        raise ValueError('运行目录不能使用符号链接')
-    existing = sorted((path for path in runs.glob('run-*') if re.fullmatch(r'run-\d+', path.name)), key=lambda path: int(path.name[4:]))
-    if existing:
-        latest = existing[-1] / 'state.json'
-        previous = check(latest)
-        if previous.get('bug_path') != str(source):
-            raise ValueError('已有 fix 运行记录不属于当前 BUG')
-        return latest  # Repeating approval must not reset the repair limit or run state.
-    document = validate(source)
-    require_fix(document)
-    page = source.with_suffix('.html')
-    if page.is_symlink():
-        raise ValueError('HTML 不能使用符号链接')
-    page.read_bytes()
-    details = document['investigation']
-    runs.mkdir(exist_ok=True)
-    run = runs / 'run-1'
-    run.mkdir()
-    state = {'mode': 'fix', 'project_dir': str(source.parents[3]), 'output_dir': str(run),
-             'bug_path': str(source), 'fix_path': str(source), 'phase': 'PREFLIGHT',
-             'approval': {'decision': decision, 'confirmed_at': datetime.now(timezone.utc).isoformat()},
-             'artifacts': {'qa_feedback': str(run / 'qa-feedback.md'), 'fix_brief': str(run / 'fix-brief.md')},
-             'limits': {'fix_rounds': 3, 'stage_recoveries': 2}, 'fix_round': 0, 'retries': {},
-             'thresholds': {'short_stage_no_progress_seconds': 300, 'long_stage_no_progress_seconds': 900},
-             'build': {'commits': []}, 'review': {'qa': {'status': 'pending'}},
-             'preflight': {'main_compile': {'status': 'pending', 'summary': []},
-                           'test_compile': {'status': 'pending', 'summary': [], 'user_decision': None}}}
-    if details:
-        state['investigation_path'] = str(source.with_name('investigation.md'))
-    write_json(run / 'state.json', state)
-    return run / 'state.json'
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('validate', 'render', 'approve', 'check'))
+    parser.add_argument('command', choices=('validate', 'render'))
     parser.add_argument('path', type=Path)
-    parser.add_argument('--decision', default='')
     args = parser.parse_args()
     try:
         if args.command == 'render':
             print(render(args.path))
-        elif args.command == 'approve':
-            print(approve(args.path, args.decision))
-        elif args.command == 'check':
-            print(check(args.path)['fix_path'])
         else:
             document = validate(args.path)
             print('可审阅的局部缺陷' if document['eligible'] else '继续定位或提示转 Plan，不可进入 fix')
