@@ -469,8 +469,8 @@ class AsoContractTests(unittest.TestCase):
         before = state.read_bytes()
         old_log = log.read_bytes()
         report = state.parent / 'call-chain-review.md'
-        # The main session validates the returned report before recording completion and the result.
-        command = 'complete_stage keel-call-chain CALL_CHAIN_UPDATED "已核验流程报告" "$3"\nrecord_call_chain_result updated'
+        # The main session records the returned result; the helper guards artifact existence.
+        command = 'complete_stage keel-call-chain CALL_CHAIN_UPDATED "已收到流程报告" "$3"\nrecord_call_chain_result updated'
         self.helper(state, command, report, success=False)
         self.assertEqual(state.read_bytes(), before)
         self.assertEqual(log.read_bytes(), old_log)

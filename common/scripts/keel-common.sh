@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Keel Codex App main-session helpers.
-# The main session follows native Agent messages and verifies results through these APIs.
+# The main session follows native Agent messages and records returned business results through these APIs.
 # Agent business inputs are task + Spec; runtime fields stay with the main session.
 # Disk contract: state.json. KEEL_PROFILE retains legacy profile path compatibility.
 
@@ -83,7 +83,7 @@ update_progress() {
   printf '\n'
 }
 
-# Called by the main session after checking returned artifacts, commits and results.
+# Called by the main session with the current Agent's returned business result and artifact.
 complete_stage() {
   local agent="$1" tag="$2" message="$3" artifact="${4:-}"
   if [ -z "$agent" ] || [ -z "$tag" ] || [ -z "$message" ]; then
@@ -153,7 +153,7 @@ record_call_chain_skip() {
     end'
 }
 
-# Commit metadata is optional; verified document updates can complete without Git submission.
+# Commit metadata is optional; returned document updates can complete without Git submission.
 record_call_chain_result() {
   local agent_decision="$1" commit="${2:-}" artifact ts
   case "$agent_decision" in

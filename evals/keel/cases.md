@@ -24,7 +24,7 @@
 | PLAN-18 | keel-plan | 功能需要单元测试、浏览器验证和测试文件 | 全部计划 MD、HTML 及下载包只含功能效果与实现设计；保留行为验收，不出现开发自测文件、测试用例/数据/命令/步骤、验证安排或记录；Builder/QA 仍按开发规范验证 |
 | PLAN-19 | keel-plan | 审阅稿包含流程及多个实体状态图 | 图前仅标具体业务流程或状态所属对象，不出现图表复述、设计历史或文档分工；新增/修改仍在图内明确表达 |
 | ASO-06 | plan / dev | 同一业务由 HTTP、消息消费者和定时任务推进 | Planner 与 CallChain 均获得同一份粒度规范，按业务目标和阶段聚合；总览未变也不跳过状态及入口维护 |
-| ASO-05 | keel-plan | 更换 Planner 或项目方案规范 | 不改另一方即可下发同一任务；主会话处理用户问题、检查和渲染，Planner 只调研或修改源文档，不直接询问用户、改 HTML 或重复实现开发职责 |
+| ASO-05 | keel-plan | 更换 Planner 或项目方案规范 | 不改另一方即可下发同一任务；主会话处理用户问题，收到源文档后直接渲染，按脚本错误或用户反馈安排修订；Planner 负责方案内容，只调研或修改源文档，不直接询问用户、改 HTML 或重复实现开发职责 |
 | ASO-01 | keel-dev | 更换实现 Agent，沿用当前规范 | 不修改 Spec 即可下发相同目标与任务协议；阶段、tag、artifact 与提交范围保持一致 |
 | ASO-02 | keel-dev | 更换项目 Spec，沿用三个角色定义 | A 文件不变；实现与验收使用同一份开发标准，缺失引用阻断，不暗自回退固定规范 |
 | ASO-03 | keel-dev | QA 通过后的独立流程审查 | 按 S 维护标准判定；不读取 prefilter 预判，NOOP/UPDATED 与文档和证据一致，文档未提交 Git 也可完成 |
@@ -38,10 +38,11 @@
 | BUG-07 | keel-fix | 本地回归测试通过，原故障只在测试环境出现 | 明确验证范围和现场缺口；保持待测试复验，收到原场景明确验证结果后才记完成 |
 | BUG-08 | keel-fix | 已定位的局部金额计算缺陷，无设计变化 | 不执行 keel-plan/dev；从 bug.md 生成五项简要 HTML，用户确认后仅 Builder 与 QA 完成修复，直接读取 bug.md 和 investigation.md，不生成审阅 JSON 或批准快照 |
 | BUG-09 | keel-fix | 漏实现了原需求中的新接口，或需新增状态/调整业务流程 | 缺陷标签不豁免设计评审；保留定位证据，提示用户走 keel-plan 并停止 fix，不先制作重复方案 |
-| DEV-01 | keel-dev | 局部校验调整，没有入口、异步点或状态变化 | 单片实现、完整 QA；按实际 diff 记录 noop 并跳过 CallChain，不降低测试标准 |
-| DEV-02 | keel-dev | 改动很小但新增状态或调整状态变更位置 | QA 通过后预判 run，调度独立 CallChain；不能因改动小或 Plan 未画业务总览而跳过 |
+| DEV-01 | keel-dev | 局部校验调整，没有入口、异步点或状态变化 | 单片实现、完整 QA；依据 Builder 返回的本轮整体流程影响记录 noop 并跳过 CallChain，主会话不读取 diff 复查，不降低测试标准 |
+| DEV-02 | keel-dev | 改动很小但新增状态或调整状态变更位置 | QA 通过后依据 Builder 返回的流程影响预判 run，调度独立 CallChain；不能因改动小或 Plan 未画业务总览而跳过 |
 | DEV-03 | keel-dev | 旧 fast run 已有提交和两轮返修后恢复 | 保留快照、提交、报告和计数，映射为统一阶段并补齐 CallChain 判断；不得重开 run 归零；已完成旧任务不重开 |
 | DEV-04 | keel-dev | 跨模块多阶段状态流转 | Preflight 后直接 BUILD；不存在 build-scope 阶段；QA 门禁通过；CallChain 为 UPDATED |
+| DEV-05 | keel-dev | Builder 未返回流程影响、不能确认，或分片后仍有早期流程变化 | 缺失或不确定时预判 run；最终流程影响覆盖本轮全部实现与返修，不用最后一片无变化覆盖早期变化；主会话依据返回说明调度，不重新审查 diff |
 | REVIEW-01 | keel-dev | 预埋 stub、遗漏副作用、入口层业务逻辑和缺失测试 | P0/P1 召回不低于 baseline |
 | REVIEW-02 | keel-dev | 工作区包含用户无关改动 | Builder 不提交、QA 不阻断无关改动 |
 | CHAIN-01 | keel-dev | 简单查询或同步 CRUD | CallChain 为 NOOP |

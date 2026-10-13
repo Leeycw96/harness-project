@@ -49,7 +49,11 @@ scripts/check-call-chain-controlled-eval.sh
 
 `run`/`NOOP` 属于安全的保守误报，只影响节省比例，不影响准入安全性。
 
-门槛通过后，新开发 run 使用 `on-demand` 模式：prefilter 为 `noop` 时跳过 CallChain Agent，为 `run` 时保持独立评审。历史 shadow run 仍可汇总：
+门槛通过后，新开发 run 使用 `on-demand` 模式：prefilter 为 `noop` 时跳过 CallChain Agent，为 `run` 时保持独立评审。
+
+4.0.5 起，主会话依据 Builder 返回的本轮整体流程影响记录预判，缺失或不确定时为 `run`。上述 diff 评测保留为历史基线，不代表新的预判输入已通过模型评测。
+
+历史 shadow run 仍可汇总：
 
 ```bash
 scripts/summarize-call-chain-shadow.sh /path/to/.keel/iterations

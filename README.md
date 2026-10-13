@@ -128,7 +128,7 @@ keel dev --codex /path/to/your/project
 
 1. Agent Markdown 固定为“角色、能力、做事风格”。风格约束行为，如最小修改、TDD、先核实事实、只读调查不改代码、独立验收；换项目仍成立，不放项目路径或固定检查清单。TOML 只注册并加载角色说明。
 2. Spec 按使用场景组织，只定义产物的内容、格式、质量和适用条件。Builder 与 QA 使用同一份代码和测试标准。本次目标与授权范围放在任务中；如何调查、实现或验收由 Agent 自主决定。
-3. 每个 `SKILL.md` 说明从接收输入到最终交付的主要步骤及顺序，包括主会话承担的沟通、检查和交付。涉及 subagent 时，明确调用哪个 Agent、这一步要完成什么、依据什么 Spec，并提供必要的任务资料；仅在影响步骤衔接时补充输出、分支或恢复说明，不要求每一步套用完整字段模板。
+3. 每个 `SKILL.md` 说明从接收输入到最终交付的主要步骤及顺序，包括主会话承担的沟通、调度和交付。涉及 subagent 时，明确调用哪个 Agent、这一步要完成什么、依据什么 Spec，并提供必要的任务资料；仅在影响步骤衔接时补充输出、分支或恢复说明，不要求每一步套用完整字段模板。
 4. 信任 Agent 的专业能力，由其依据任务、Spec 和项目事实自主选择调研路径、工具与局部执行方法。编排聚焦目标和协作，不逐项规定模型能够自主完成的操作，不重复角色风格或 Spec，不堆叠禁止事项。仅保留授权边界、关键用户决策、必要质量门禁和跨步骤交接要求；主会话依据结果推进，已有明确决定直接沿用。
 5. 编排流程、A/S 绑定及必要的推进和恢复规则统一维护在所属 `SKILL.md`，不另设 `keel-dev-orchestration.md` 一类独立编排文件。可引用场景 Spec、模板和可执行脚本；共享脚本提供机制，`SKILL.md` 只说明必要调用及结果衔接，不展开脚本内部实现，不以外部引用代替流程主线。
 6. A/S 可以独立替换，O 核对能力、引用和交付接口。缺资料、规范冲突或超出授权时说明原因，不能静默回退或扩大任务。
@@ -166,7 +166,7 @@ Plan 与 Fix 的改造点共用 `common/refs/keel-code-change-spec.md`：按真�
 | 流程维护 | DocWriter | 流程文档维护 + 通用交付 + 业务流程表达 | keel-dev 的 SKILL.md：判断是否需要维护、调度与结果处理 |
 | 局部缺陷修复 | Builder、QA | 按步选择调查/实施/验收规范 + 局部修复边界；说明编写另用修复说明与改造点表达 | keel-fix 的 SKILL.md：定位、分流、独立审阅、修复验收与现场复验 |
 
-Plan 的主会话负责沟通和检查，调研与文档编写交给 Planner。生成的 HTML 与执行 MD 使用同一份设计内容。
+Plan 的主会话负责沟通、调度、渲染和交付，调研与文档编写交给 Planner。生成的 HTML 与执行 MD 使用同一份设计内容。
 
 ### Spec 格式与引用
 
@@ -224,7 +224,7 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 
 调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 依据任务与 Spec 工作，返回业务结论、产物、commits、验证结果和遗留项；QA 使用 APPROVED/REJECTED，流程维护使用 NOOP/UPDATED。
 
-主会话选择 Agent/Spec，负责用户确认、阶段、进度与恢复；根据当前执行的新消息记录进度，核对产物、提交和结果后记录完成，再推进状态。运行字段、内部完成标记和 Skill 不下发给 Agent；Agent 不调用运行助手或修改运行状态，现有脚本也没有自动进度采集器。
+主会话选择 Agent/Spec，负责用户确认、阶段、进度与恢复；根据当前执行的新消息跟进，按 Agent 返回的业务结论、产物和提交记录完成并推进状态。各 Agent 对本职产出负责，代码交付由 QA 独立验收。运行字段、内部完成标记和 Skill 不下发给 Agent；Agent 不调用运行助手或修改运行状态，现有脚本也没有自动进度采集器。
 
 开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 保留但忽略。恢复先结束旧执行，再启动新任务，晚到的旧进展和结果不用于新执行。审查五分钟、实现或返修十五分钟无进展时检查，轮询、重复摘要或仅 running 不重置计时。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 DocWriter、用户确认与旧 profile 恢复。
 
@@ -254,7 +254,7 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.
 
 Codex App 的 Plan 编排 Planner 核对相关 DocWriter 和实际代码，返回带 slug 的候选功能与调研结果，再由主会话让用户选择哪些功能生成 PlantUML 时序图（部分、全部或不生成）；已有明确选择时不重复询问。其余只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项，内容可推导时直接起草，不逐章确认。
 
-Planner 按本期变化设计方案：时序图表达关键交互、业务分支和原子操作，必要实现约束在功能 MD 中用少量文字保留；模型、图与说明、接口共同支撑完整设计。确实无模型/接口变更时在 MD 写“本期不涉及变更，沿用现有实现”，HTML 继续省略对应可选栏目。仅增加内部状态的完整小方案见 `keel-plan/skills/keel-plan/assets/incremental-example.md` 及关联文件。合约开发的完整示例见 `keel-plan/skills/keel-plan/assets/contract-example.md` 及关联文件。主会话检查范围与简洁程度，负责渲染和最终用户确认，不重复 Planner 的调研与文档编写。
+Planner 按本期变化设计方案：时序图表达关键交互、业务分支和原子操作，必要实现约束在功能 MD 中用少量文字保留；模型、图与说明、接口共同支撑完整设计。确实无模型/接口变更时在 MD 写“本期不涉及变更，沿用现有实现”，HTML 继续省略对应可选栏目。仅增加内部状态的完整小方案见 `keel-plan/skills/keel-plan/assets/incremental-example.md` 及关联文件。合约开发的完整示例见 `keel-plan/skills/keel-plan/assets/contract-example.md` 及关联文件。主会话收到 Planner 源文档后直接渲染并交用户审阅；脚本校验失败时按错误安排修订。
 
 执行文档按功能拆分。轻量索引保留各功能目标、逐项验收、依赖及文件链接；目标只说明技术上要达到的功能效果，不包含实现过程。每份功能 MD 保留数据模型、功能时序图、接口设计、代码改造点四章；涉及智能合约开发时，在数据模型之前增加合约设计，先列合约、简要说明及本期变化，再用 PlantUML 展示关系和实例基数（1:1、1:N、N:M，按需细化零或多个）。模型写实际表/列或 JSON 结构差异，SQL 按迁移需要提供；时序图写关键交互，必要实现约束留在该章节图外文字，接口设计写 HTTP/RPC 请求/响应契约，改造点按共用规范列实际类、模块或文件与一句话改动。共享合约设计、模型或接口由一个功能定义，其他功能引用其对应章节，SQL 不重复执行。全部计划 MD 与 HTML 不包含开发自测内容，不列测试文件、用例、命令、操作步骤、验证安排或记录；验收标准仅保留可观察的功能结果，Builder 与 QA 按开发规范自行组织测试。Builder 读索引后仅加载当前功能和必要引用章节；QA 按功能逐份验收。
 
@@ -277,7 +277,7 @@ bash .agents/skills/keel-plan/scripts/render-plan-html.sh .keel/plans/example.md
 Codex App 的 dev run 在 Preflight 后直接由 Builder 按 Markdown 计划构建，再由 QA 验收，最后按需维护 DocWriter。局部调整与复杂业务流程、数据库迁移、权限、事务/并发、跨模块状态流转都由此入口执行。Codex App 不再生成或审查 build-scope；方案和边界必须在 Plan 阶段完成确认。
 
 
-DocWriter 已启用按需调度：主会话明确判断没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 DocWriter 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
+DocWriter 已启用按需调度：Builder 返回本轮整体流程影响，主会话依据该说明记录预判；明确没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时记录 `noop` 并跳过 Agent，存在变化、说明缺失或不确定时记录 `run` 并保持独立 DocWriter 评审。DocWriter 返回后按 NOOP/UPDATED 直接登记并交付。历史 diff 受控评测结果可用 `scripts/check-call-chain-controlled-eval.sh` 汇总，不代表本次预判输入变化已通过模型评测。
 
 DocWriter 文档以用户或客户的业务目标命名，如 `user-order.md`（用户下单），只保留主流程说明、状态机和业务入口。主流程用简短编号步骤，状态用文本箭头并标注对应步骤；入口列 HTTP、RPC、MQ、定时任务或回调的实际业务处理位置，例如业务 Job，而非框架配置或通用调度器。不展开 PlantUML、详细流转表、状态写入位置、参数、SQL、日志或测试记录。内容以验收后的实现为准；UPDATED 以更新文档和简短报告完成，仅任务明确要求时提交。默认输入的 [流程文档 Spec](common/refs/keel-flow-index-spec.md) 内嵌完整写法示例，随 runtime 部署供后续 DocWriter 使用；维护受影响旧文档时也整体收敛为这三部分。[用户下单业务流程](keel-test/.keel/call-chain/user-order.md) 是现有项目示例。
 
@@ -299,7 +299,7 @@ run 目录最小结构:
 
 旧 `keel-dev-fast` 已合并；重新部署会按 manifest 清理其旧 Skill 文件，不删除未被跟踪的用户文件。运行数据的 `mode: full` 保留为兼容值，不再代表多个开发入口。
 
-恢复未完成的旧 fast run 时，先结束旧执行并调用 `resume_keel_run`，核对已有提交、报告和历史完成标记后续作。转换保留计划快照、Preflight、返修/恢复次数、用户规范绑定及进度，不重置执行记录；已完成的旧任务保持原样。旧 `profile.json` 配置的历史进度文件保留，不再追加记录。
+恢复未完成的旧 fast run 时，先结束旧执行并调用 `resume_keel_run`，沿用已有提交、报告和历史完成标记继续未完成阶段。转换保留计划快照、Preflight、返修/恢复次数、用户规范绑定及进度，不重置执行记录；已完成的旧任务保持原样。旧 `profile.json` 配置的历史进度文件保留，不再追加记录。
 
 新 run 的静态契约和运行状态统一保存在 `state.json`，其中 `plan_path` 指向 run 内功能索引；主会话通过原生消息跟进当前 Agent，不再生成或追加进度文件。旧格式（包括单份大 MD）的 run 不兼容本流程，需要重新运行 `/keel-plan` 并新建 run；不自动拼接历史输入。
 

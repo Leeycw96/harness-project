@@ -407,7 +407,7 @@ class FixContractTests(unittest.TestCase):
         before_state = state.read_bytes()
         helper = self.project / '.codex/common/scripts/keel-common.sh'
         # Main-session recording follows approval validation; agents return business results only.
-        record = 'set -euo pipefail\npython3 "$3" check "$1" >/dev/null\nexport KEEL_PROFILE="$1"\nsource "$2"\nupdate_progress keel-builder BUG_BUILD "已收到修复结果"\ncomplete_stage keel-builder BUG_BUILD_DONE "已核验修复结果" "$4"'
+        record = 'set -euo pipefail\npython3 "$3" check "$1" >/dev/null\nexport KEEL_PROFILE="$1"\nsource "$2"\nupdate_progress keel-builder BUG_BUILD "已收到修复结果"\ncomplete_stage keel-builder BUG_BUILD_DONE "已收到修复结果" "$4"'
         args = ['fix-test', str(state), str(helper), str(script), str(self.bug)]
         result = subprocess.run(['bash', '-c', record, *args], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
