@@ -63,6 +63,30 @@ class FixContractTests(unittest.TestCase):
         fix.render(self.bug)
         return fix.approve(self.bug, '确认此修复方案，请按此实施。')
 
+    def deploy_runtime(self):
+        result = subprocess.run([str(ROOT / 'bin/keel'), 'dev', '--codex', str(self.project)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def qa_score(self, state, score, retest=False):
+        result = subprocess.run([sys.executable, str(self.project / '.codex/common/scripts/keel-qa-score.py'),
+                                 'record', '-', '--output-dir', str(state.parent), '--fix', str(self.bug),
+                                 *(['--retest'] if retest else [])],
+                                input=json.dumps({'goals': {'bug': score}, 'checks': {'金额回归': score}}),
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return Path(result.stdout.strip())
+
+    def complete_qa_return(self, state, verdict, artifact, success=True):
+        helper = self.project / '.codex/common/scripts/keel-common.sh'
+        command = 'set -euo pipefail\nexport KEEL_PROFILE="$1"\nsource "$2"\ncomplete_stage keel-qa "$3" "已收到本次验收结果" "$4"'
+        result = subprocess.run(['bash', '-c', command, 'fix-test', str(state), str(helper), verdict, str(artifact)],
+                                capture_output=True, text=True)
+        if success:
+            self.assertEqual(result.returncode, 0, result.stderr)
+        else:
+            self.assertNotEqual(result.returncode, 0)
+        return result
+
     def assert_concise_review(self, page):
         self.assertEqual(re.findall(r'<h2[^>]*>(.*?)</h2>', page), list(SECTIONS))
         encoded = re.search(r'data:text/markdown;charset=utf-8;base64,([^"\s]+)', page)[1]
@@ -384,9 +408,54 @@ class FixContractTests(unittest.TestCase):
         self.assertEqual(page.read_bytes(), original)
         self.assertFalse((self.bug.parent / 'runs').exists())
 
+    def test_qa_approval_accepts_score_without_feedback_and_preserves_approval(self):
+        self.deploy_runtime()
+        state = self.approve()
+        original = state.read_bytes()
+        feedback = Path(fix.check(state)['artifacts']['qa_feedback'])
+        returned_score = self.qa_score(state, 100)
+        self.assertEqual(returned_score.name, 'qa-score.json')
+        self.assertFalse(feedback.exists())
+        result = self.complete_qa_return(state, 'APPROVED', returned_score)
+        self.assertEqual(result.stdout.strip(), f'APPROVED | 已收到本次验收结果 | artifact: {returned_score}')
+        self.assertEqual(state.read_bytes(), original)
+        self.assertEqual(fix.check(state)['approval']['decision'], '确认此修复方案，请按此实施。')
+        self.assertFalse(feedback.exists())
+        self.assertEqual({path.name for path in state.parent.iterdir()}, {'state.json', 'qa-score.json'})
+
+    def test_qa_retest_registers_current_score_and_preserves_initial_feedback(self):
+        self.deploy_runtime()
+        state = self.approve()
+        original = state.read_bytes()
+        initial_score = self.qa_score(state, 0)
+        initial_bytes = initial_score.read_bytes()
+        feedback = Path(fix.check(state)['artifacts']['qa_feedback'])
+        feedback.write_text('REJECTED：初验金额错误，保留原报告。')
+        feedback_bytes = feedback.read_bytes()
+        returned_score = self.qa_score(state, 100, retest=True)
+        self.assertRegex(returned_score.name, r'^qa-score-retest-[0-9a-f]{12}\.json$')
+        self.assertNotEqual(returned_score, initial_score)
+        result = self.complete_qa_return(state, 'APPROVED', returned_score)
+        self.assertEqual(result.stdout.strip(), f'APPROVED | 已收到本次验收结果 | artifact: {returned_score}')
+        self.assertEqual(initial_score.read_bytes(), initial_bytes)
+        self.assertEqual(feedback.read_bytes(), feedback_bytes)
+        self.assertEqual(state.read_bytes(), original)
+
+    def test_rejected_qa_requires_feedback_even_when_score_exists(self):
+        self.deploy_runtime()
+        state = self.approve()
+        self.qa_score(state, 0)
+        feedback = Path(fix.check(state)['artifacts']['qa_feedback'])
+        before = {p: p.read_bytes() for p in state.parent.iterdir() if p.is_file()}
+        result = self.complete_qa_return(state, 'REJECTED', feedback, success=False)
+        self.assertIn('产出文件不存在', result.stderr)
+        self.assertEqual({p: p.read_bytes() for p in state.parent.iterdir() if p.is_file()}, before)
+        feedback.write_text('REJECTED：金额舍入错误，须修复后复验。')
+        result = self.complete_qa_return(state, 'REJECTED', feedback)
+        self.assertEqual(result.stdout.strip(), f'REJECTED | 已收到本次验收结果 | artifact: {feedback}')
+
     def test_deployed_cli_and_main_session_record_returns_without_losing_approval(self):
-        result = subprocess.run([str(ROOT / 'bin/keel'), 'dev', '--codex', str(self.project)], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
+        self.deploy_runtime()
         script = self.project / '.agents/skills/keel-fix/scripts/keel-fix.py'
         unrelated = self.project / 'common/scripts/keel-plan.py'
         unrelated.parent.mkdir(parents=True)
@@ -415,8 +484,8 @@ class FixContractTests(unittest.TestCase):
         self.assertFalse(log.exists())
         self.assertEqual(state.read_bytes(), before_state)
         self.assertEqual(fix.check(state)['fix_round'], 2)
-        missing = subprocess.run(['bash', '-c', 'set -euo pipefail\nexport KEEL_PROFILE="$1"\nsource "$2"\ncomplete_stage keel-qa APPROVED "缺少验收报告" "$3"',
-                                  'fix-test', str(state), str(helper), str(state.parent / 'missing-feedback.md')], capture_output=True, text=True)
+        missing = subprocess.run(['bash', '-c', 'set -euo pipefail\nexport KEEL_PROFILE="$1"\nsource "$2"\ncomplete_stage keel-qa APPROVED "评分文件缺失" "$3"',
+                                  'fix-test', str(state), str(helper), str(state.parent / 'missing-score.json')], capture_output=True, text=True)
         self.assertNotEqual(missing.returncode, 0)
         self.assertFalse(log.exists())
         self.assertEqual(state.read_bytes(), before_state)

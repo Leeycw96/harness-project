@@ -27,7 +27,7 @@ Spec 只说明产出物要满足什么：内容、格式、质量和验收结果
 | 方案设计与编写 | [keel-proposal-spec.md](../../common/refs/keel-proposal-spec.md) | 调研结果、执行文档、模型、接口与图表标准 |
 | 修复说明编写 | [keel-fix-review-spec.md](../../common/refs/keel-fix-review-spec.md) | 五项简要说明、HTML 展示与下载 |
 | 代码实施 | [keel-implementation-spec.md](../../common/refs/keel-implementation-spec.md) | 实现、测试、验证和提交的交付结果 |
-| 交付验收 | [keel-acceptance-spec.md](../../common/refs/keel-acceptance-spec.md) | 简短验收结论与未完成说明 |
+| 交付验收 | [keel-acceptance-spec.md](../../common/refs/keel-acceptance-spec.md) | 通过时简短返回与可选报告、未通过报告及结论标准 |
 | 验收评分 | [keel-qa-scoring-spec.md](../../common/refs/keel-qa-scoring-spec.md) | 功能目标与通用检查项分数、独立初验与复验 JSON |
 | 业务流程文档维护 | [keel-flow-index-spec.md](../../common/refs/keel-flow-index-spec.md) | 主流程说明、文本状态机和业务入口；默认 Spec 内嵌完整示例，新旧文档都按用户/客户业务目标收敛 |
 
@@ -50,4 +50,4 @@ Skill 按场景选择规范，通过“任务＋Spec”两段派发。任务包�
 
 Agent 保留换项目后仍适用的做事风格，自主选择工作方法。直接增删 Spec 的产物要求即可调整 QA 的验收内容，Skill 无需跟着变化，不配置检查开关或自动减检。
 
-验收正文简述总体结论和功能目标结果，失败、遗漏或未验证事项说明必要的原因与影响。评分 JSON 只有检查项和对应分数，不要求证据引用、逐项评分理由或日志存档。方案总览表达完整业务生命周期，时序图表达关键交互与原子操作，必要实现约束留在功能 MD；完整性按整份设计判断，避免报告和图表重复堆砌细节。
+QA 通过时只返回简短结论、当次评分路径和必要遗留项，验收报告可省略或只写概要；未通过时报告简述阻断项、原因与影响。评分 JSON 只有检查项和对应分数，不要求证据引用、逐项评分理由或日志存档。方案总览表达完整业务生命周期，时序图表达关键交互与原子操作，必要实现约束留在功能 MD；完整性按整份设计判断，避免报告和图表重复堆砌细节。

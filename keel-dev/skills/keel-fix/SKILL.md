@@ -45,7 +45,7 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.
 
 ## 验收与返修
 
-主会话调度新的 `keel-qa`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-acceptance-spec`（`.codex/common/refs/keel-acceptance-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`、`.codex/common/refs/keel-bug-scope-spec.md#验收记录`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）、`keel-qa-scoring-spec`（`.codex/common/refs/keel-qa-scoring-spec.md`）。任务包含 bug.md、investigation.md、本轮 Builder 标识和 commits、验收范围及报告目录（旧任务沿用已有资料），返修验收另附 fix-brief.md；请其按 Spec 核验本次交付并生成验收产物，返回业务结论 APPROVED 或 REJECTED、验证结果与遗留项。
+主会话调度新的 `keel-qa`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-acceptance-spec`（`.codex/common/refs/keel-acceptance-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`、`.codex/common/refs/keel-bug-scope-spec.md#验收记录`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）、`keel-qa-scoring-spec`（`.codex/common/refs/keel-qa-scoring-spec.md`）。任务包含 bug.md、investigation.md、本轮 Builder 标识和 commits、验收范围及产物目录（旧任务沿用已有资料），返修验收另附 fix-brief.md；请其按 Spec 验收，返回 APPROVED/REJECTED、当次评分路径和遗留项。
 
 BUG_REVIEW 覆盖全部修复目标，BUG_REVIEW_FIX 覆盖阻断项及受影响行为。通过后进入 WAITING_RETEST；未通过则由主会话整理 fix-brief.md，进入 BUG_FIX 并安排新 QA 复验。原方案内返修最多三轮且不重复确认，仍阻断则 PAUSED。
 
@@ -64,6 +64,6 @@ BUG_REVIEW 覆盖全部修复目标，BUG_REVIEW_FIX 覆盖阻断项及受影响
 
 调用层实际加载所选注册 Agent 的角色配置并提供项目环境，不增加第三段业务输入；尽量使用独立任务上下文，工具支持时关闭完整历史继承，不靠继承父 Skill 或对话充当角色。不下发 KEEL_PROFILE、stage、artifact、tag、reporter、task_ref 或 Skill，不把运行字段和历史对话夹入任务。Agent 自主工作，仅返回业务结论、产物、commits、验证结果与遗留项。
 
-修复与验收派发时，主会话提供批准资料与本轮范围。主会话记录当前原生执行标识，通过原生消息跟进并手动调用脚本，没有自动进度采集器；仅接受当前执行的进展与结果，拒绝晚到的旧消息。进展通过原生消息跟进，不另存进度文件。主会话 source `.codex/common/scripts/keel-common.sh`，按当前执行返回的业务结论登记 commits 与产物，调用 `complete_stage "<reporter>" "<tag>" "<摘要>" "<artifact>"`，成功后推进 state。reporter 沿用 keel-builder/keel-qa；修复结果映射本 Skill 的内部标记，QA 结论映射 APPROVED/REJECTED。审批、阶段与计数均由主会话管理；Agent 不调用运行助手或修改运行状态。定位阶段仅通过原生消息跟进。
+修复与验收派发时，主会话提供批准资料与本轮范围。主会话记录当前原生执行标识，通过原生消息跟进并手动调用脚本，没有自动进度采集器；仅接受当前执行的进展与结果，拒绝晚到的旧消息。进展通过原生消息跟进，不另存进度文件。主会话 source `.codex/common/scripts/keel-common.sh`，按当前执行返回的业务结论登记 commits 与产物，调用 `complete_stage "<reporter>" "<tag>" "<摘要>" "<artifact>"`，成功后推进 state。reporter 沿用 keel-builder/keel-qa；修复结果映射本 Skill 的内部标记，QA 按返回结论映射完成标记，artifact 用当次报告；通过且无报告时用当次评分 JSON。审批、阶段与计数均由主会话管理；Agent 不调用运行助手或修改运行状态。定位阶段仅通过原生消息跟进。
 
 恢复以 state、进度和产物为准；读取原文资料并沿用绑定，忽略旧 task_ref。审查五分钟、构建或返修十五分钟无进展时检查，并非自动判失败；轮询、重复摘要和仅 running 不算新进展，不重置计时。恢复时先结束旧执行，再创建新任务并记录新执行标识；每阶段每角色最多两次，产物错误补做一次，再失败计入恢复次数，超限暂停。

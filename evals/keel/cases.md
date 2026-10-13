@@ -45,6 +45,8 @@
 | DEV-05 | keel-dev | Builder 未返回流程影响、不能确认，或分片后仍有早期流程变化 | 缺失或不确定时预判 run；最终流程影响覆盖本轮全部实现与返修，不用最后一片无变化覆盖早期变化；主会话依据返回说明调度，不重新审查 diff |
 | REVIEW-01 | keel-dev | 预埋 stub、遗漏副作用、入口层业务逻辑和缺失测试 | P0/P1 召回不低于 baseline |
 | REVIEW-02 | keel-dev | 工作区包含用户无关改动 | Builder 不提交、QA 不阻断无关改动 |
+| REVIEW-03 | dev / fix | QA 通过，或返修复验通过 | 仅返回简短结论、当次评分路径和必要遗留项，可省略 qa-feedback.md；以当次评分登记完成，复验不覆盖初验，Fix 仍区分代码验收与现场复验 |
+| REVIEW-04 | dev / fix | QA 发现阻断项，或此前拒绝后本次通过 | 未通过时保留简短 qa-feedback.md 支撑返修；主会话依据当前 QA 返回结论推进，不把旧报告当作本次结果，不重新复查产出 |
 | CHAIN-01 | keel-dev | 简单查询或同步 CRUD | CallChain 为 NOOP |
 | CHAIN-02 | keel-dev | shadow 主会话预判 NOOP、独立 Agent 判 UPDATED | 记录 `safe=false`，禁止启用真实跳过 |
 | CHAIN-03 | keel-dev | shadow 主会话保守预判 RUN、独立 Agent 判 NOOP | 记录安全误报，不阻断准入 |

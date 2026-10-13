@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
@@ -30,7 +31,7 @@ TAGS = {
     'BUILD_SLICE_DONE': ('builder', 'BUILD', 'plan.md'),
     'BUILD_DONE': ('builder', 'BUILD', 'plan.md'),
     'FIX_DONE': ('builder', 'FIX', 'fix-brief.md'),
-    'APPROVED': ('qa', 'REVIEW', 'qa-feedback.md'),
+    'APPROVED': ('qa', 'REVIEW', 'qa-score.json'),
     'REJECTED': ('qa', 'REVIEW_FIX', 'qa-feedback.md'),
     'CALL_CHAIN_NOOP': ('call-chain', 'CALL_CHAIN', 'call-chain-review.md'),
     'CALL_CHAIN_UPDATED': ('call-chain', 'CALL_CHAIN', 'call-chain-review.md'),
@@ -70,6 +71,16 @@ class AsoContractTests(unittest.TestCase):
 
     def helper(self, state, command, *args, success=True):
         return self.shell('export KEEL_PROFILE="$1"\nsource "$2"\n' + command, state, self.helpers, *args, success=success)
+
+    def qa_score(self, state, goals, retest=False):
+        result = subprocess.run([sys.executable, str(self.project / '.codex/common/scripts/keel-qa-score.py'),
+                                 'record', '-', '--output-dir', str(state.parent),
+                                 '--plan', json.loads(state.read_text())['plan_path'],
+                                 *(['--retest'] if retest else [])],
+                                input=json.dumps({'goals': goals, 'checks': {'回归': 100}}),
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return Path(result.stdout.strip())
 
     def test_role_definitions_do_not_import_spec_or_workflow(self):
         # Stable professional methods such as TDD belong to A; concrete runtime dependencies do not.
@@ -449,9 +460,52 @@ class AsoContractTests(unittest.TestCase):
             ])
         # Compatibility output is distinct from the main session's verdict and state transition.
         self.assertEqual(state.read_bytes(), original_state)
-        self.helper(state, 'complete_stage keel-qa APPROVED "不能通过" "$3"', state.parent / 'missing.md', success=False)
+        self.helper(state, 'complete_stage keel-qa APPROVED "评分文件缺失" "$3"', state.parent / 'missing-score.json', success=False)
         self.assertEqual(state.read_bytes(), original_state)
         self.assertEqual({p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}, original_files)
+
+    def test_qa_approval_uses_returned_score_without_generating_feedback(self):
+        for retest in (False, True):
+            with self.subTest(retest=retest):
+                state = self.init_run('approved-score-' + str(retest))
+                before_state = state.read_bytes()
+                feedback = Path(json.loads(state.read_text())['artifacts']['qa_feedback'])
+                initial = None
+                if retest:
+                    initial = self.qa_score(state, {'cancel-order': 100, 'confirm-refund': 0})
+                    initial_bytes = initial.read_bytes()
+                    feedback.write_text('REJECTED：初验退款未完成，保留原报告。')
+                    previous_feedback = feedback.read_bytes()
+                else:
+                    self.assertFalse(feedback.exists())
+                returned_score = self.qa_score(state, {'cancel-order': 100, 'confirm-refund': 100}, retest)
+                self.assertEqual(returned_score.name == 'qa-score.json', not retest)
+                if retest:
+                    self.assertRegex(returned_score.name, r'^qa-score-retest-[0-9a-f]{12}\.json$')
+                    self.assertNotEqual(returned_score, initial)
+                before_files = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}
+                result = self.helper(state, 'complete_stage keel-qa APPROVED "已收到本次验收通过结果" "$3"', returned_score)
+                self.assertEqual(result.stdout.strip(), f'APPROVED | 已收到本次验收通过结果 | artifact: {returned_score}')
+                self.assertEqual(state.read_bytes(), before_state)
+                self.assertEqual({p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}, before_files)
+                if retest:
+                    self.assertEqual(initial.read_bytes(), initial_bytes)
+                    self.assertEqual(feedback.read_bytes(), previous_feedback)
+                else:
+                    self.assertFalse(feedback.exists())
+
+    def test_rejected_qa_still_requires_feedback_even_when_score_exists(self):
+        state = self.init_run('rejected-missing-feedback')
+        feedback = Path(json.loads(state.read_text())['artifacts']['qa_feedback'])
+        self.qa_score(state, {'cancel-order': 100, 'confirm-refund': 0})
+        before = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}
+        command = 'complete_stage keel-qa REJECTED "已收到阻断项" "$3"'
+        result = self.helper(state, command, feedback, success=False)
+        self.assertIn('产出文件不存在', result.stderr)
+        self.assertEqual({p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}, before)
+        feedback.write_text('REJECTED：退款失败回调未完成，须修复后复验。')
+        result = self.helper(state, command, feedback)
+        self.assertEqual(result.stdout.strip(), f'REJECTED | 已收到阻断项 | artifact: {feedback}')
 
     def test_progress_output_requires_no_runtime_profile_and_keeps_argument_guards(self):
         result = self.shell('unset KEEL_PROFILE\nsource "$1"\nupdate_progress builder BUILD "正在执行"\ncomplete_stage keel-builder BUILD_DONE "已完成"', self.helpers)
