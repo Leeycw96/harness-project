@@ -11,13 +11,13 @@ user-invocable: true
 
 ## 角色与规范
 
-下表为默认绑定。主会话选择或替换 Agent/Spec、核对能力与引用，在 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 忽略，不让 Agent 读取 Skill。
+下表为默认绑定。主会话选择或替换 Agent/Spec、核对能力与引用，在 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 忽略，不让 Agent 读取 Skill。旧默认 Agent 名 `keel-call-chain` 调度时映射为 `keel-doc-writer`，定制绑定沿用。
 
 | 工作 | 默认 Agent | Spec |
 | --- | --- | --- |
 | 实现 | keel-builder | `keel-delivery-spec`：`.codex/common/refs/keel-delivery-spec.md`；`keel-implementation-spec`：`.codex/common/refs/keel-implementation-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
 | 验收 | keel-qa | `keel-delivery-spec`：`.codex/common/refs/keel-delivery-spec.md`；`keel-acceptance-spec`：`.codex/common/refs/keel-acceptance-spec.md`；`keel-code-quality-spec`：`.codex/common/refs/keel-code-quality-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md`；`keel-qa-scoring-spec`：`.codex/common/refs/keel-qa-scoring-spec.md` |
-| 流程维护 | keel-call-chain | `keel-delivery-spec`：`.codex/common/refs/keel-delivery-spec.md`；`keel-flow-index-spec`：`.codex/common/refs/keel-flow-index-spec.md`；`keel-business-flow-spec`：`.codex/common/refs/keel-business-flow-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
+| 流程维护 | keel-doc-writer | `keel-delivery-spec`：`.codex/common/refs/keel-delivery-spec.md`；`keel-flow-index-spec`：`.codex/common/refs/keel-flow-index-spec.md`；`keel-business-flow-spec`：`.codex/common/refs/keel-business-flow-spec.md`；`keel-document-writing-spec`：`.codex/common/refs/keel-document-writing-spec.md` |
 
 ## 初始化
 
@@ -55,14 +55,14 @@ REVIEW 覆盖全部功能；REVIEW_FIX 覆盖阻断项与受影响场景。通�
 
 QA 通过后，主会话检查最终 Builder diff，按流程索引 Spec 判断是否需要调度：明确无外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时为 noop，有变化或不确定为 run。
 
-主会话调用 `record_call_chain_prefilter "<noop|run>" "<判定说明>"`。on-demand 的 noop 调用 record_call_chain_skip 后直接交付；run 按流程维护绑定调度 `keel-call-chain`，任务包含索引目录、最终 commits 和相关计划，请其核实并维护受影响流程，返回 call-chain-review.md、业务结论 NOOP 或 UPDATED、更新文件与未确认事项。
+主会话调用 `record_call_chain_prefilter "<noop|run>" "<判定说明>"`。on-demand 的 noop 调用 record_call_chain_skip 后直接交付；run 按流程维护绑定调度 `keel-doc-writer`，任务包含索引目录、最终 commits 和相关计划，请其核实并维护受影响流程，返回 call-chain-review.md、业务结论 NOOP 或 UPDATED、更新文件与未确认事项。
 
 收到报告后，主会话先核对产物与结果，以对应内部标记调用 complete_stage；成功后才记录以下结果并推进 state：
 
 - NOOP：主会话映射内部标记 CALL_CHAIN_NOOP，调用 `record_call_chain_result noop`。
 - UPDATED：主会话核对更新文档与报告，映射内部标记 CALL_CHAIN_UPDATED，调用 `record_call_chain_result updated`。本步不要求 Git 提交；任务另外要求提交时，可用第二参数记录返回的 commit SHA。
 
-恢复旧 shadow 模式时始终调度 CallChain，Agent 独立判断且不读取预判结果；主会话完成上述产物校验与记录后，改用 `record_call_chain_shadow_result "<noop|updated>"` 并记录对应文档结果。
+恢复旧 shadow 模式时始终调度 DocWriter，Agent 独立判断且不读取预判结果；主会话完成上述产物校验与记录后，改用 `record_call_chain_shadow_result "<noop|updated>"` 并记录对应文档结果。
 
 ## 交付
 

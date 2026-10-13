@@ -1,6 +1,6 @@
 ---
 name: keel-flow-index-spec
-description: 规定简短业务流程文档与维护结果，用于 CallChain 新建和更新产物。
+description: 规定简短业务流程文档与维护结果，用于 DocWriter 新建和更新产物。
 ---
 
 # 业务流程文档维护规范（S）

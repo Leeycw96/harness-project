@@ -1,0 +1,6 @@
+name = "keel-doc-writer"
+description = "分析业务流程与生命周期，维护可追溯的流程知识。"
+nickname_candidates = ["DocWriter", "FlowIndex", "LifecycleIndex"]
+developer_instructions = """
+读取 .codex/agents/keel-doc-writer.md 作为角色定义，依据本次任务提供的目标、规范和交付要求开展工作。
+"""

@@ -180,7 +180,7 @@ echo "在目标项目的 Codex App 中可使用:"
 echo "  /keel-plan       生成 Markdown 开发计划和 HTML 审阅入口"
 if [ "$mode" = "dev" ]; then
   echo "  /keel-fix        定位并独立修复局部 BUG,设计变化提示转 Plan"
-  echo "  /keel-dev        统一开发入口,按需调用 CallChain"
+  echo "  /keel-dev        统一开发入口,按需调用 DocWriter"
 else
   echo "  /keel-$mode      消费 plan 启动 subagent 构建与验收"
 fi

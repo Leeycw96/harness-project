@@ -16,7 +16,8 @@ DEV_SKILL = '.agents/skills/keel-dev/SKILL.md'
 ROLE_STEPS = {'builder': '实现', 'qa': '验收', 'call-chain': '流程维护'}
 ROLE_SPECS = {'builder': 'keel-implementation-spec.md', 'qa': 'keel-acceptance-spec.md',
               'call-chain': 'keel-flow-index-spec.md'}
-AGENT_DIRS = {role: AGENTS for role in ROLE_STEPS} | {'planner': ROOT / 'keel-plan/agents'}
+ROLE_AGENTS = {'builder': 'builder', 'qa': 'qa', 'call-chain': 'doc-writer'}
+AGENT_DIRS = {agent: AGENTS for agent in ROLE_AGENTS.values()} | {'planner': ROOT / 'keel-plan/agents'}
 RETIRED_SPECS = {'keel-dev-spec.md', 'keel-qa-spec.md', 'keel-fix-spec.md',
                  'keel-plan-spec.md', 'keel-call-chain-spec.md', 'keel-work-spec.md'}
 SPEC_FILES = {'keel-business-flow-spec.md', 'keel-code-change-spec.md'}
@@ -103,7 +104,7 @@ class AsoContractTests(unittest.TestCase):
         for name in SPEC_FILES:
             with self.subTest(spec=name):
                 text = (REFS / name).read_text()
-                self.assertNotRegex(text, r'keel-builder|keel-qa\.md|keel-call-chain\.md|\.codex/agents/|KEEL_PROFILE|state\.json|complete_stage|update_progress|\b(?:BUILD|REVIEW|FIX|PAUSED|PREFLIGHT)(?:_[A-Z]+)*\b')
+                self.assertNotRegex(text, r'keel-builder|keel-qa\.md|keel-(?:call-chain|doc-writer)\.md|\.codex/agents/|KEEL_PROFILE|state\.json|complete_stage|update_progress|\b(?:BUILD|REVIEW|FIX|PAUSED|PREFLIGHT)(?:_[A-Z]+)*\b')
 
     def test_specs_do_not_prescribe_execution_or_permissions(self):
         # Guard the operation clauses removed in this revision, without banning artifact terminology.
@@ -208,8 +209,9 @@ class AsoContractTests(unittest.TestCase):
         main = self.read_reference(DEV_SKILL + '#角色与规范')
         rows = re.findall(r'^\| (实现|验收|流程维护) \| (keel-[\w-]+) \| ([^|]+) \|$', main, re.M)
         self.assertEqual(len(rows), 3)
+        agent_roles = {'keel-' + agent: role for role, agent in ROLE_AGENTS.items()}
         for step, agent, spec_cell in rows:
-            role = agent.removeprefix('keel-')
+            role = agent_roles[agent]
             self.assertEqual(step, ROLE_STEPS[role])
             spec_refs = re.findall(r'\.codex/common/refs/[\w.-]+\.md(?:#[\w -]+)?', spec_cell)
             self.assertTrue(spec_refs, spec_cell)
@@ -301,6 +303,7 @@ class AsoContractTests(unittest.TestCase):
             manifest.parent.mkdir(parents=True)
             entries = ['.codex/common/refs/' + name for name in retired]
             entries += ['.agents/skills/keel-dev-fast/SKILL.md', '.agents/skills/keel-dev-fast/agents/openai.yaml']
+            entries += ['.codex/agents/keel-call-chain.md', '.codex/agents/keel-call-chain.toml']
             for entry in entries:
                 path = project / entry
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -318,6 +321,12 @@ class AsoContractTests(unittest.TestCase):
             for name in SPEC_FILES:
                 self.assertEqual((project / '.codex/common/refs' / name).read_bytes(), (REFS / name).read_bytes())
                 self.assertIn('.codex/common/refs/' + name, manifest.read_text().splitlines())
+            for suffix in ('md', 'toml'):
+                name = 'keel-doc-writer.' + suffix
+                self.assertEqual((project / '.codex/agents' / name).read_bytes(), (AGENTS / name).read_bytes())
+                self.assertIn('.codex/agents/' + name, manifest.read_text().splitlines())
+            config = tomllib.loads((project / '.codex/agents/keel-doc-writer.toml').read_text())
+            self.assertEqual(config['name'], 'keel-doc-writer')
             self.assertEqual(user_file.read_text(), 'project-owned instructions')
             self.assertEqual(user_notes.read_text(), 'keep untracked user notes')
 
@@ -433,9 +442,9 @@ class AsoContractTests(unittest.TestCase):
         original_files = {p: p.read_bytes() for p in state.parent.rglob('*') if p.is_file()}
         for tag, (role, stage, artifact_name) in TAGS.items():
             artifact = state.parent / artifact_name
-            result = self.helper(state, 'update_progress "$3" "$4" "正在执行" "$5"\ncomplete_stage "$3" "$6" "已完成" "$5"', 'keel-' + role, stage, artifact, tag)
+            result = self.helper(state, 'update_progress "$3" "$4" "正在执行" "$5"\ncomplete_stage "$3" "$6" "已完成" "$5"', 'keel-' + ROLE_AGENTS[role], stage, artifact, tag)
             self.assertEqual(result.stdout.splitlines(), [
-                f'keel-{role} | {stage} | 正在执行 | artifact: {artifact}',
+                f'keel-{ROLE_AGENTS[role]} | {stage} | 正在执行 | artifact: {artifact}',
                 f'{tag} | 已完成 | artifact: {artifact}',
             ])
         # Compatibility output is distinct from the main session's verdict and state transition.

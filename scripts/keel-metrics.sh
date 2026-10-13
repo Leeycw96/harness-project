@@ -106,7 +106,8 @@ rows = re.findall(r'^\| (实现|验收|流程维护) \| (keel-[\w-]+) \| ([^|]+)
 if len(rows) != 3:
     raise SystemExit('开发职责绑定须包含实现、验收和流程维护')
 for _, name, cell in rows:
-    role = name.removeprefix('keel-')
+    # Retain the historical CallChain metric labels after the Agent registration rename.
+    role = {'keel-doc-writer': 'call-chain'}.get(name, name.removeprefix('keel-'))
     agent = 'keel-dev/agents/' + name
     references = spec_references(cell)
     measure(f'codex-{role}-instructions', agent + '.md')

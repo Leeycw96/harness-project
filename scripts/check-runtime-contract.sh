@@ -48,7 +48,7 @@ for required in \
   "keel-dev/skills/keel-fix/scripts/keel-fix.py" \
   "keel-dev/agents/keel-builder.toml" \
   "keel-dev/agents/keel-qa.toml" \
-  "keel-dev/agents/keel-call-chain.toml"; do
+  "keel-dev/agents/keel-doc-writer.toml"; do
   [ -f "$repo_root/$required" ] || { echo "缺少 runtime 文件: $required" >&2; exit 1; }
 done
 if rg -n -i 'build-scope|scope_review|keel-code-review|CODE_REVIEW|claude-code|\.claude/' \

@@ -74,7 +74,7 @@ update_progress() {
   case "$agent" in
     keel-builder|builder) display_agent="keel-builder" ;;
     keel-qa|qa) display_agent="keel-qa" ;;
-    keel-call-chain|call-chain|call_chain) display_agent="keel-call-chain" ;;
+    keel-doc-writer|doc-writer|doc_writer|keel-call-chain|call-chain|call_chain) display_agent="keel-doc-writer" ;;
     *) display_agent="$agent" ;;
   esac
 

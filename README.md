@@ -6,7 +6,7 @@
 
 命令入口为 `keel`，开发模式为 `dev`，计划与运行数据使用 `.keel/`。本次更名直接使用新名称，不提供旧命令别名或自动迁移。
 
-Keel 是一组面向 Codex App 的 skills + agent 手册，用于编排 Planner、Builder、QA 和 CallChain，完成从业务理解到代码交付的开发工作流。
+Keel 是一组面向 Codex App 的 skills + agent 手册，用于编排 Planner、Builder、QA 和 DocWriter，完成从业务理解到代码交付的开发工作流。
 
 ## 目录结构
 
@@ -98,8 +98,8 @@ keel dev --codex /path/to/your/project
 │   ├── keel-builder.toml
 │   ├── keel-qa.md
 │   ├── keel-qa.toml
-│   ├── keel-call-chain.md
-│   └── keel-call-chain.toml
+│   ├── keel-doc-writer.md
+│   └── keel-doc-writer.toml
 └── .keel/
     └── installed-manifest
 ```
@@ -146,11 +146,11 @@ keel dev --codex /path/to/your/project
 
 ### 共用业务流程粒度
 
-`common/refs/keel-business-flow-spec.md` 由 Plan 和开发编排分别下发给 Planner、CallChain。一个流程围绕独立业务目标，从业务触发到明确结果；节点按业务阶段或决策划分，HTTP/RPC、MQ 消费、定时任务和回调是技术触发点，不能直接当作业务节点或按入口数量分文件。
+`common/refs/keel-business-flow-spec.md` 由 Plan 和开发编排分别下发给 Planner、DocWriter。一个流程围绕独立业务目标，从业务触发到明确结果；节点按业务阶段或决策划分，HTTP/RPC、MQ 消费、定时任务和回调是技术触发点，不能直接当作业务节点或按入口数量分文件。
 
 比较当前与目标流程时使用同一粒度：触发场景、结果类型、阶段、先后关系、业务分支或责任交接变化，才算业务流程变化。内部实现、规则细节或状态表达变化，若业务阶段与路径不变，则总览可省略；需要用户查看整体流程时仍可提供。
 
-CallChain 仍按原维护条件检查入口、异步推进、状态及流转变化，记录真正的状态变更位置；省略 Plan 总览不等于跳过索引维护。普通内部调用栈不展开，两个角色共用粒度，但 Plan 设计本次目标流程，CallChain 记录验收后代码实际具备的流程，各自职责和门禁不变。
+DocWriter 仍按原维护条件检查入口、异步推进、状态及流转变化，记录业务入口、主流程与状态；省略 Plan 总览不等于跳过索引维护。普通内部调用栈不展开，两个角色共用粒度，但 Plan 设计本次目标流程，DocWriter 记录验收后代码实际具备的流程，各自职责和门禁不变。
 
 Plan 与 Fix 的改造点共用 `common/refs/keel-code-change-spec.md`：按真实类、模块或文件列出一句话改动，避免展开方法、行号和测试细节。Plan 起草/修订时下发给 Planner，Fix 编写/修订说明时由主会话加载，执行者依目标和调查依据自主定位。
 
@@ -163,7 +163,7 @@ Plan 与 Fix 的改造点共用 `common/refs/keel-code-change-spec.md`：按真�
 | 方案设计 | Planner | 方案编写 + 通用交付 + 业务流程/改造点表达 | keel-plan 的 SKILL.md：调研、决策沟通、起草/修订、渲染与最终确认 |
 | 开发 | Builder | 代码实施 + 通用交付 + 代码与测试质量 | keel-dev 的 SKILL.md：初始化、实现、验收、返修与交付 |
 | 验收 | QA | 交付验收 + 通用交付 + 同一代码与测试质量 + 评分记录 | 所属 keel-dev 或 keel-fix 的 SKILL.md |
-| 流程维护 | CallChain | 流程文档维护 + 通用交付 + 业务流程表达 | keel-dev 的 SKILL.md：判断是否需要维护、调度与结果处理 |
+| 流程维护 | DocWriter | 流程文档维护 + 通用交付 + 业务流程表达 | keel-dev 的 SKILL.md：判断是否需要维护、调度与结果处理 |
 | 局部缺陷修复 | Builder、QA | 按步选择调查/实施/验收规范 + 局部修复边界；说明编写另用修复说明与改造点表达 | keel-fix 的 SKILL.md：定位、分流、独立审阅、修复验收与现场复验 |
 
 Plan 的主会话负责沟通和检查，调研与文档编写交给 Planner。生成的 HTML 与执行 MD 使用同一份设计内容。
@@ -174,7 +174,7 @@ Spec 位于 `common/refs/`，按使用场景和共享标准分类，完整清单
 
 正文直接列简短易懂的产物要求，正确或错误示例按需添加并保留前缀。当前 Skill 直接选择场景规范，旧名称与章节入口已移除。
 
-Planner、Builder、QA 和 CallChain 的 Spec 输入共用 `keel-document-writing-spec`：Markdown 用短句和直白说法，少写重复背景、过程和图表复述；只保留必要设计、字段、SQL、图表及验证结果，不要求整理证据或保存验证日志。它作为写作规范输入，不增加产物检查或固定字数限制。
+Planner、Builder、QA 和 DocWriter 的 Spec 输入共用 `keel-document-writing-spec`：Markdown 用短句和直白说法，少写重复背景、过程和图表复述；只保留必要设计、字段、SQL、图表及验证结果，不要求整理证据或保存验证日志。它作为写作规范输入，不增加产物检查或固定字数限制。
 
 Agent 的做事风格不固化项目检查清单。需要增删某项 QA 检查时，直接修改对应 Spec；Skill 继续下发同一份规范并编排执行，不增加检查开关或自动高分策略。
 
@@ -226,12 +226,12 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 
 主会话选择 Agent/Spec，负责用户确认、阶段、进度与恢复；根据当前执行的新消息记录进度，核对产物、提交和结果后记录完成，再推进状态。运行字段、内部完成标记和 Skill 不下发给 Agent；Agent 不调用运行助手或修改运行状态，现有脚本也没有自动进度采集器。
 
-开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 保留但忽略。恢复先结束旧执行，再启动新任务，晚到的旧进展和结果不用于新执行。审查五分钟、实现或返修十五分钟无进展时检查，轮询、重复摘要或仅 running 不重置计时。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 CallChain、用户确认与旧 profile 恢复。
+开发 run 的 `state.json.aso_bindings` 按 builder/qa/call_chain 记录 agent、spec_refs；旧 task_ref 保留但忽略。恢复先结束旧执行，再启动新任务，晚到的旧进展和结果不用于新执行。审查五分钟、实现或返修十五分钟无进展时检查，轮询、重复摘要或仅 running 不重置计时。保留三轮返修、每阶段每角色两次恢复、QA 门禁、按需 DocWriter、用户确认与旧 profile 恢复。
 
 ## 使用
 
 1. 在 Codex App 运行 `/keel-plan`，生成 `.keel/plans/<name>.md` 功能索引、`<name>.features/<slug>.md` 功能文档、`<name>.review.md` 审阅素材及同名 `.html` 用户审阅入口。
-2. 已确认计划统一运行 `/keel-dev <plan-path>`，由编排决定实现切片与 CallChain 调用。
+2. 已确认计划统一运行 `/keel-dev <plan-path>`，由编排决定实现切片与 DocWriter 调用。
 3. 新提交的 BUG 直接运行 `/keel-fix <问题描述或资料路径>`；定位阶段不要求预先生成 Plan。
 
 ```text
@@ -240,7 +240,7 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 
 `keel-fix` 编排 Builder 根据问题、代码、配置与日志定位根因，本地复现是可选定位方法。Builder 必须区分已定位、候选原因与暂未定位；主会话按定位需要请求现有资料或现场验证，不能把日志语句当作本次运行记录，也不能靠猜测修改代码。
 
-定位后由主会话分流：明确、局部且不改变既定设计的缺陷走独立 fix；需求变更或涉及业务状态/流程、接口、数据模型、迁移及高风险设计的修复，说明原因并提示用户走 `/keel-plan`。尚未定位时继续调查，不误判为需求。fix 只编排 Builder 和 QA，不调用 Plan/Dev Skill 或 CallChain。
+定位后由主会话分流：明确、局部且不改变既定设计的缺陷走独立 fix；需求变更或涉及业务状态/流程、接口、数据模型、迁移及高风险设计的修复，说明原因并提示用户走 `/keel-plan`。尚未定位时继续调查，不误判为需求。fix 只编排 Builder 和 QA，不调用 Plan/Dev Skill 或 DocWriter。
 
 `.keel/bugs/<id>/bug.md` 与同名 HTML 仅简述“问题、原因、改造点、影响点、建议验证点”五章，影响和建议回归按业务流程表达。预期依据、分流结论与设计边界保留在同目录 `investigation.md` 的“修复资格”章节，其他章节记录调查进展；HTML 不展示调查代码或重复的完整源文档，保留 Markdown 下载。
 
@@ -252,7 +252,7 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.m
 python3 .agents/skills/keel-fix/scripts/keel-fix.py approve .keel/bugs/<id>/bug.md --decision '用户确认原文'
 ```
 
-Codex App 的 Plan 编排 Planner 核对相关 CallChain 和实际代码，返回带 slug 的候选功能与调研结果，再由主会话让用户选择哪些功能生成 PlantUML 时序图（部分、全部或不生成）；已有明确选择时不重复询问。其余只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项，内容可推导时直接起草，不逐章确认。
+Codex App 的 Plan 编排 Planner 核对相关 DocWriter 和实际代码，返回带 slug 的候选功能与调研结果，再由主会话让用户选择哪些功能生成 PlantUML 时序图（部分、全部或不生成）；已有明确选择时不重复询问。其余只询问必须由用户决定、且无法从需求、代码或项目惯例确定的事项，内容可推导时直接起草，不逐章确认。
 
 Planner 按本期变化设计方案：时序图表达关键交互、业务分支和原子操作，必要实现约束在功能 MD 中用少量文字保留；模型、图与说明、接口共同支撑完整设计。确实无模型/接口变更时在 MD 写“本期不涉及变更，沿用现有实现”，HTML 继续省略对应可选栏目。仅增加内部状态的完整小方案见 `keel-plan/skills/keel-plan/assets/incremental-example.md` 及关联文件。合约开发的完整示例见 `keel-plan/skills/keel-plan/assets/contract-example.md` 及关联文件。主会话检查范围与简洁程度，负责渲染和最终用户确认，不重复 Planner 的调研与文档编写。
 
@@ -268,18 +268,18 @@ HTML 从索引、功能文档和审阅素材共同生成，目标、验收、合
 bash .agents/skills/keel-plan/scripts/render-plan-html.sh .keel/plans/example.md .keel/plans/example.html
 ```
 
-开发只保留 `/keel-dev` 一个入口。小任务一次实现并创建聚焦提交，大任务按依赖分片；两者使用相同的 Builder、QA 和质量规范。QA 通过后按实际改动决定是否需要 CallChain，不按任务大小或是否展示业务总览直接跳过。
+开发只保留 `/keel-dev` 一个入口。小任务一次实现并创建聚焦提交，大任务按依赖分片；两者使用相同的 Builder、QA 和质量规范。QA 通过后按实际改动决定是否需要 DocWriter，不按任务大小或是否展示业务总览直接跳过。
 
 ```text
 /keel-dev <plan-path>
 ```
 
-Codex App 的 dev run 在 Preflight 后直接由 Builder 按 Markdown 计划构建，再由 QA 验收，最后按需维护 CallChain。局部调整与复杂业务流程、数据库迁移、权限、事务/并发、跨模块状态流转都由此入口执行。Codex App 不再生成或审查 build-scope；方案和边界必须在 Plan 阶段完成确认。
+Codex App 的 dev run 在 Preflight 后直接由 Builder 按 Markdown 计划构建，再由 QA 验收，最后按需维护 DocWriter。局部调整与复杂业务流程、数据库迁移、权限、事务/并发、跨模块状态流转都由此入口执行。Codex App 不再生成或审查 build-scope；方案和边界必须在 Plan 阶段完成确认。
 
 
-CallChain 已启用按需调度：主会话明确判断没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 CallChain 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
+DocWriter 已启用按需调度：主会话明确判断没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时记录 `noop` 并跳过 Agent；存在变化或不确定时记录 `run` 并保持独立 DocWriter 评审。受控评测结果使用 `scripts/check-call-chain-controlled-eval.sh` 复核。
 
-CallChain 文档以用户或客户的业务目标命名，如 `user-order.md`（用户下单），只保留主流程说明、状态机和业务入口。主流程用简短编号步骤，状态用文本箭头并标注对应步骤；入口列 HTTP、RPC、MQ、定时任务或回调的实际业务处理位置，例如业务 Job，而非框架配置或通用调度器。不展开 PlantUML、详细流转表、状态写入位置、参数、SQL、日志或测试记录。内容以验收后的实现为准；UPDATED 以更新文档和简短报告完成，仅任务明确要求时提交。默认输入的 [流程文档 Spec](common/refs/keel-flow-index-spec.md) 内嵌完整写法示例，随 runtime 部署供后续 CallChain 使用；维护受影响旧文档时也整体收敛为这三部分。[用户下单业务流程](keel-test/.keel/call-chain/user-order.md) 是现有项目示例。
+DocWriter 文档以用户或客户的业务目标命名，如 `user-order.md`（用户下单），只保留主流程说明、状态机和业务入口。主流程用简短编号步骤，状态用文本箭头并标注对应步骤；入口列 HTTP、RPC、MQ、定时任务或回调的实际业务处理位置，例如业务 Job，而非框架配置或通用调度器。不展开 PlantUML、详细流转表、状态写入位置、参数、SQL、日志或测试记录。内容以验收后的实现为准；UPDATED 以更新文档和简短报告完成，仅任务明确要求时提交。默认输入的 [流程文档 Spec](common/refs/keel-flow-index-spec.md) 内嵌完整写法示例，随 runtime 部署供后续 DocWriter 使用；维护受影响旧文档时也整体收敛为这三部分。[用户下单业务流程](keel-test/.keel/call-chain/user-order.md) 是现有项目示例。
 
 本轮评审发现阻断问题时自动进入内部修复循环，最多三轮。run 完成后的新反馈使用新的 plan/dev run；范围变化重新运行 `/keel-plan`。
 
@@ -294,7 +294,7 @@ run 目录最小结构:
   qa-score.json              # 本次初验评分
   qa-score-retest-*.json      # 复验评分，与初验分开
   fix-brief.md
-  call-chain-review.md        # 实际调用 CallChain 时才生成
+  call-chain-review.md        # 实际调用 DocWriter 时才生成
 ```
 
 旧 `keel-dev-fast` 已合并；重新部署会按 manifest 清理其旧 Skill 文件，不删除未被跟踪的用户文件。运行数据的 `mode: full` 保留为兼容值，不再代表多个开发入口。
