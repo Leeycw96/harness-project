@@ -98,7 +98,7 @@ class AsoContractTests(unittest.TestCase):
         return text
 
     def test_spec_has_no_agent_registration_or_orchestration_dependencies(self):
-        # Artifact verdicts (APPROVED/REJECTED, NOOP/UPDATED) are document standards;
+        # QA verdicts (APPROVED/REJECTED) are document standards;
         # Agent registration and task orchestration stay outside Spec.
         for name in SPEC_FILES:
             with self.subTest(spec=name):

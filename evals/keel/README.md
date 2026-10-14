@@ -49,6 +49,6 @@ scripts/check-call-chain-controlled-eval.sh
 
 `run`/`NOOP` 属于安全的保守误报，只影响节省比例，不影响准入安全性。
 
-门槛通过后，新开发 run 使用 `on-demand` 模式：prefilter 为 `noop` 时跳过 CallChain Agent，为 `run` 时保持独立评审。
+上述历史流程在门槛通过后使用 `on-demand` 模式：prefilter 为 `noop` 时跳过 CallChain Agent，为 `run` 时保持独立评审。
 
-4.0.5 起，主会话依据 Builder 返回的本轮整体流程影响直接决定是否调度，缺失或不确定时调度独立 DocWriter。新任务不生成状态文件或预判台账；上述 diff 评测保留为历史基线，不代表新流程已通过模型评测。
+4.0.6 起，主会话依据本轮全部实现与返修范围判断流程影响，明确无入口、异步推进、业务状态、流转条件或业务入口符号变化时跳过，存在变化或不确定时调度独立 DocWriter。Builder 不要求汇总实际改动、验证结果、commits、遗留项或流程影响；主会话从 Git 获取本轮 commits。DocWriter 按需直接维护 `.keel/call-chain/` 文档，不要求 NOOP/UPDATED，不另写是否更新的结论文档或报告。新任务不生成状态文件或预判台账；上述 diff 评测保留为历史基线，不代表新流程已通过模型评测。

@@ -29,13 +29,13 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.m
 
 展示同名 HTML，反馈修改 MD 后重新渲染。只有已定位的局部缺陷且用户明确确认当前修复说明后，才能开始修复；确认根因或补充日志不等于批准方案。
 
-确认后选择 `.keel/bugs/<id>/runs/run-N/` 为产物目录。执行直接读取 bug.md 和同目录 investigation.md；原方案内返修不重复确认。
+确认后选择 `.keel/bugs/<id>/runs/run-N/` 为产物目录。执行直接读取 bug.md 和同目录 investigation.md；原方案内返修不重复确认。主会话在首次修复前记住当前 HEAD，从 Git 获取本轮修复与返修的 commits，供验收与交付使用。
 
 ## 修复
 
-主会话调度新的 `keel-builder`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-implementation-spec`（`.codex/common/refs/keel-implementation-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。任务包含 bug.md、investigation.md、必要资料和本轮范围；请其完成已确认修复、验证和聚焦提交，返回业务结论、commits、产物、验证结果与遗留项。
+主会话调度新的 `keel-builder`，Spec 为 `keel-delivery-spec`（`.codex/common/refs/keel-delivery-spec.md`）、`keel-implementation-spec`（`.codex/common/refs/keel-implementation-spec.md`）、`keel-code-quality-spec`（`.codex/common/refs/keel-code-quality-spec.md`）、`keel-bug-scope-spec`（`.codex/common/refs/keel-bug-scope-spec.md#分类结论`）、`keel-document-writing-spec`（`.codex/common/refs/keel-document-writing-spec.md`）。任务包含 bug.md、investigation.md、必要资料和本轮范围；请其完成已确认修复、验证和聚焦提交。正常完成只需简短通知，无需汇总实际改动、验证结果、commits 或遗留项；无法完成时说明阻碍。
 
-主会话收到当前 Builder 的业务结论、commits 和验证结果后，直接安排验收；返修只处理 fix-brief.md 的阻断项和受影响行为。
+当前 Builder 完成后直接安排验收；返修只处理 fix-brief.md 的阻断项和受影响行为。
 
 ## 验收与返修
 
@@ -56,4 +56,4 @@ python3 .agents/skills/keel-fix/scripts/keel-fix.py render .keel/bugs/<id>/bug.m
 - **任务**：自包含本步目标、范围与授权、必要资料引用（含项目手册）与交付要求。
 - **Spec**：产物规范 name 与绝对路径列表；带 `#二级标题` 时只加载该节及子节。
 
-调用层实际加载所选注册 Agent 的角色配置并提供项目环境，不增加第三段业务输入；尽量使用独立任务上下文，工具支持时关闭完整历史继承，不靠继承父 Skill 或对话充当角色。不下发 Skill 或历史对话。Agent 自主工作，仅返回业务结论、产物、commits、验证结果与遗留项；主会话通过原生消息跟进，收到结果后直接推进。
+调用层实际加载所选注册 Agent 的角色配置并提供项目环境，不增加第三段业务输入；尽量使用独立任务上下文，工具支持时关闭完整历史继承，不靠继承父 Skill 或对话充当角色。不下发 Skill 或历史对话。Agent 自主工作，按本步要求完成交付，不统一要求返回汇总；主会话通过原生消息跟进，完成后直接推进。

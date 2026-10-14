@@ -1,6 +1,6 @@
 ---
 name: keel-flow-index-spec
-description: 规定简短业务流程文档与维护结果，用于 DocWriter 新建和更新产物。
+description: 规定简短业务流程文档，用于 DocWriter 新建和更新产物。
 ---
 
 # 业务流程文档维护规范（S）
@@ -51,7 +51,3 @@ PENDING --3：取消或超时--> CLOSED
 | MQ | payment.succeeded | consumers/payment.py::handle |
 | 定时任务 | 超时关单 | jobs/order_timeout.py::execute |
 ````
-
-## 维护结果
-
-- call-chain-review.md 简述 NOOP/UPDATED、范围、更新文件或未更新原因及未确认事项，不重复流程文档或附验证存档；结论符合实际实现。

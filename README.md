@@ -1,6 +1,6 @@
 # Keel
 
-当前版本: **4.0.5**（见 `VERSION`）。
+当前版本: **4.0.6**（见 `VERSION`）。
 
 版本更新记录见 [CHANGE_LOG.md](CHANGE_LOG.md)。
 
@@ -222,9 +222,9 @@ Plan、Dev、Fix 给 Agent 的业务输入只有两段：
 - **任务**：本步目标、范围与授权、必要资料引用（含项目手册）和交付要求。
 - **Spec**：产物规范的 name 与绝对路径列表；`#二级标题` 引用包含子节，到下一二级标题结束。
 
-调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 依据任务与 Spec 工作，返回业务结论、产物、commits、验证结果和遗留项；QA 使用 APPROVED/REJECTED，流程维护使用 NOOP/UPDATED。
+调用层加载注册角色配置并提供项目环境，工具支持时使用独立上下文、关闭完整历史继承。Agent 依据任务与 Spec 完成本职产出；实现中的 Builder 只需简短通知完成，不要求汇总实际改动、验证结果、commits、遗留项或流程影响，遇到阻碍或设计冲突时说明。DocWriter 按需直接维护流程文档，不要求固定结论或报告。QA 仍返回 APPROVED/REJECTED、当次评分路径及必要遗留项，未通过时保留简短报告。
 
-主会话选择 Agent/Spec，负责沟通、调度与交付；按 Agent 返回的业务结论继续工作，汇报产物与提交。各 Agent 对本职产出负责，代码交付由 QA 独立验收。Agent 仅接收任务与 Spec。
+主会话选择 Agent/Spec，负责沟通、调度与交付，从 Git 获取本轮 commits；依据当前结果继续工作，汇报产物与提交。各 Agent 对本职产出负责，代码交付由 QA 独立验收。Agent 仅接收任务与 Spec。
 
 运行阶段登记、确认留档、固定返修/恢复次数、超时计时和历史状态兼容已移除。Plan 按反馈修订方案；Dev/Fix 按 QA 阻断项返修后再验收，遇到实际阻碍时说明原因。
 
@@ -276,9 +276,9 @@ bash .agents/skills/keel-plan/scripts/render-plan-html.sh .keel/plans/example.md
 Codex App 的 dev run 在 Preflight 后直接由 Builder 按 Markdown 计划构建，再由 QA 验收，最后按需维护 DocWriter。局部调整与复杂业务流程、数据库迁移、权限、事务/并发、跨模块状态流转都由此入口执行。Codex App 不再生成或审查 build-scope；方案和边界必须在 Plan 阶段完成确认。
 
 
-DocWriter 按需调度：Builder 返回本轮整体流程影响；明确没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时直接交付，存在变化、说明缺失或不确定时调度独立 DocWriter。DocWriter 返回 NOOP/UPDATED 后直接交付，不另写预判或结果台账。历史 diff 受控评测结果可用 `scripts/check-call-chain-controlled-eval.sh` 汇总，不代表本次流程已通过模型评测。
+DocWriter 按需调度：主会话依据本轮全部实现与返修范围判断流程影响，明确没有外部入口、异步推进点、业务状态节点、流转条件或业务入口符号变化时直接交付，存在变化或不确定时调度独立 DocWriter。DocWriter 按需直接更新 `.keel/call-chain/` 文档；是否更新的结论不另写文档，也不要求 NOOP/UPDATED 或汇总报告。历史 diff 受控评测结果可用 `scripts/check-call-chain-controlled-eval.sh` 汇总，不代表本次流程已通过模型评测。
 
-DocWriter 文档以用户或客户的业务目标命名，如 `user-order.md`（用户下单），只保留主流程说明、状态机和业务入口。主流程用简短编号步骤，状态用文本箭头并标注对应步骤；入口列 HTTP、RPC、MQ、定时任务或回调的实际业务处理位置，例如业务 Job，而非框架配置或通用调度器。不展开 PlantUML、详细流转表、状态写入位置、参数、SQL、日志或测试记录。内容以验收后的实现为准；UPDATED 以更新文档和简短报告完成，仅任务明确要求时提交。默认输入的 [流程文档 Spec](common/refs/keel-flow-index-spec.md) 内嵌完整写法示例，随 runtime 部署供后续 DocWriter 使用；维护受影响旧文档时也整体收敛为这三部分。[用户下单业务流程](keel-test/.keel/call-chain/user-order.md) 是现有项目示例。
+DocWriter 文档以用户或客户的业务目标命名，如 `user-order.md`（用户下单），只保留主流程说明、状态机和业务入口。主流程用简短编号步骤，状态用文本箭头并标注对应步骤；入口列 HTTP、RPC、MQ、定时任务或回调的实际业务处理位置，例如业务 Job，而非框架配置或通用调度器。不展开 PlantUML、详细流转表、状态写入位置、参数、SQL、日志或测试记录。内容以验收后的实现为准，需要维护时直接更新文档，仅任务明确要求时提交。默认输入的 [流程文档 Spec](common/refs/keel-flow-index-spec.md) 内嵌完整写法示例，随 runtime 部署供后续 DocWriter 使用；维护受影响旧文档时也整体收敛为这三部分。[用户下单业务流程](keel-test/.keel/call-chain/user-order.md) 是现有项目示例。
 
 QA 发现阻断问题时安排返修并再次验收；范围变化交回 `/keel-plan`。
 
@@ -292,7 +292,6 @@ run 目录最小结构:
   qa-score.json              # 本次初验评分
   qa-score-retest-*.json      # 复验评分，与初验分开
   fix-brief.md
-  call-chain-review.md        # 实际调用 DocWriter 时才生成
 ```
 
 旧 `keel-dev-fast` 已合并；重新部署会按 manifest 清理其旧 Skill 和已移除的运行助手，不删除未被跟踪的用户文件。
