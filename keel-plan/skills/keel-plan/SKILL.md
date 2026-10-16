@@ -31,6 +31,8 @@ user-invocable: true
 
 生成时序图时，任务明确引用 `keel-proposal-spec#时序图标准`，提供 `.agents/skills/keel-plan/assets/plan-template.features/cancel-order.md`；涉及模块内异步或校验时另给 `.agents/skills/keel-plan/assets/incremental-example.features/mark-verifying.md`，供 Planner 参考按业务模块归并参与方，不照搬技术类调用链。
 
+涉及 HTTP、RPC 或 SDK 对外接口变更时，起草任务明确引用 `keel-proposal-spec#接口设计标准`，提供 `.agents/skills/keel-plan/assets/interface-example.html` 作为结构与信息量模板。Planner 在功能 MD 维护契约，HTML 仅展示接口签名、入参、出参和必要示例，执行所需的错误/异常说明保留在 MD。
+
 ## 渲染
 
 收到当前 Planner 返回的源文档后，主会话直接在项目根运行：

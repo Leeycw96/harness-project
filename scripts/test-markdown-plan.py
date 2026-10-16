@@ -676,6 +676,34 @@ class "rewards.Rule" as Rule <<contract>>
         self.assertEqual(interface.count("<h3>RPC <code>OrderService.cancel(CancelRequest)</code></h3>"), 1)
         self.assertNotIn("<table>", interface)
 
+    def test_sdk_public_interface_renders_once_with_shared_reference(self):
+        sdk = '### SDK `OrderClient.cancel(CancelRequest)`\n\n入参：订单编号，string，必填。\n\n返回值：CancelResult。\n\n异常：OrderNotCancellable，订单不允许取消。'
+        for slug in ("cancel-order", "confirm-refund"):
+            self.feature(slug).write_text(replace_section(FEATURES[slug], "接口设计", sdk))
+        self.assert_rejected()
+        self.feature("confirm-refund").write_text(replace_section(FEATURES["confirm-refund"], "接口设计", "- 引用：[cancel-order](cancel-order.md#接口设计)"))
+        page, _ = self.render()
+        interface = page.split("<h2>接口设计</h2>")[1].split("</section>")[0]
+        self.assertEqual(interface.count("<h3>SDK <code>OrderClient.cancel(CancelRequest)</code></h3>"), 1)
+        self.assertNotIn("OrderNotCancellable", interface)
+        self.assertIn("OrderNotCancellable", self.feature().read_text())
+        self.assertNotIn("引用：", interface)
+        self.feature().write_text(replace_section(FEATURES["cancel-order"], "接口设计", sdk.replace("SDK `", "内部方法 `")))
+        self.assert_rejected()
+
+    def test_interface_errors_hidden_but_execution_source_and_download_preserved(self):
+        page, _ = self.render()
+        visible = page.split("<h2>接口设计</h2>")[1].split("</section>")[0]
+        self.assertNotIn("失败响应：", visible)
+        self.assertNotIn("验签失败", visible)
+        self.assertIn("出参：200，无响应体。", visible)
+        self.assertIn("refundRequestId", visible)
+        encoded = re.search(r'data:application/zip;base64,([^\"]+)', page)[1]
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded))) as archive:
+            self.assertIn("失败响应：验签失败返回 401", archive.read("example.features/confirm-refund.md").decode())
+        sample = (ASSETS / "interface-example.html").read_text()
+        self.assertNotIn("失败响应：", sample)
+
     def test_shared_reference_after_endpoint_is_hidden_in_html(self):
         source = FEATURES["cancel-order"]
         api = section(source, "接口设计") + "\n\n- 引用：[confirm-refund](confirm-refund.md#接口设计)"

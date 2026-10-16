@@ -267,7 +267,7 @@ def validate(path):
         has_diagram = any(lang and lang.lower() == "plantuml" for lang, _ in detail["功能时序图"])
         if choice not in {"生成", "不生成"} or (choice == "生成") != has_diagram:
             raise ValueError(f"时序图与选择不一致: {slug}")
-        _, interfaces = feature_blocks(detail["接口设计"], r"([A-Z]+ `/[^`\s]*`|RPC `[^`\n]+`)")
+        _, interfaces = feature_blocks(detail["接口设计"], r"([A-Z]+ `/[^`\s]*`|(?:RPC|SDK) `[^`\n]+`)")
         for api_heading, api_content in interfaces.values():
             if not any(body.strip() for _, body in api_content):
                 raise ValueError(f"接口设计缺少内容: {api_heading}")
@@ -288,7 +288,7 @@ def validate(path):
                                     interface_text not in NO_INTERFACE_CHANGE_MARKERS):
             raise ValueError("接口不涉及变更的标记不能与接口定义、引用或变更说明混用")
         if not interfaces and not references["接口设计"] and interface_text not in NO_INTERFACE_CHANGE_MARKERS:
-            raise ValueError("接口设计须以 HTTP 方法与路径或 RPC 签名为三级标题；无变更时明确说明")
+            raise ValueError("接口设计须以 HTTP 方法与路径、RPC 或 SDK 公开签名为三级标题；无变更时明确说明")
         if any(line.strip() == NO_MODEL_CHANGE for line in prose(detail["数据模型"]).splitlines()) and (
                 one_field(detail["数据模型"], "结构变更") != "无" or references["数据模型"]):
             raise ValueError("模型不涉及变更的标记不能与实际变更或共享设计引用混用")
@@ -583,6 +583,8 @@ def render(plan, output, template):
             if lang is None:
                 if name in {"合约设计", "数据模型设计", "接口设计"}:
                     body = re.sub(r"^- (?:结构变更|SQL迁移|引用)：.+$", "", body, flags=re.M)
+                if name == "接口设计":
+                    body = re.sub(r"^(?:失败响应|错误/异常|错误|异常)：[^\n]*(?:\n(?!\s*$|#{1,6} |(?:入参|出参|返回值|请求|响应)[^\n]*：)[^\n]+)*", "", body, flags=re.M)
                 rendered.append(prose_html(body, []))
             elif lang.lower() == "plantuml":
                 diagram_count += 1
