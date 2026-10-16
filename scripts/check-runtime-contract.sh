@@ -27,6 +27,7 @@ for required in \
   "keel-plan/skills/keel-plan/assets/plan-view-template.html" \
   "keel-plan/skills/keel-plan/assets/data-model-example.html" \
   "keel-plan/skills/keel-plan/assets/interface-example.html" \
+  "keel-plan/skills/keel-plan/assets/flow-example.html" \
   "keel-plan/skills/keel-plan/scripts/render-plan-html.sh" \
   "keel-plan/agents/keel-planner.toml" \
   "keel-plan/agents/keel-planner.md" \

@@ -33,6 +33,8 @@ user-invocable: true
 
 涉及 HTTP、RPC 或 SDK 对外接口变更时，起草任务明确引用 `keel-proposal-spec#接口设计标准`，提供 `.agents/skills/keel-plan/assets/interface-example.html` 作为结构与信息量模板。Planner 在功能 MD 维护契约，HTML 仅展示接口签名、入参、出参和必要示例，执行所需的错误/异常说明保留在 MD。
 
+生成业务流程总览时，起草任务提供 `.agents/skills/keel-plan/assets/flow-example.html` 和 `.agents/skills/keel-plan/assets/plan-review-template.md`，按 `keel-proposal-spec#HTML 审阅稿` 的业务流程总览要求及 `keel-business-flow-spec` 参考其业务阶段粒度、分支、变化标记与版式；示例事实按项目核实替换，PlantUML 源图维护在 `.review.md`。
+
 ## 渲染
 
 收到当前 Planner 返回的源文档后，主会话直接在项目根运行：

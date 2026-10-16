@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <title>流程图样例 · 订单取消与退款 · Keel Plan</title>
+  <style>
+    :root { color-scheme:dark; --bg:#0d1117; --surface:#151c25; --line:#303945; --text:#e6edf3; --muted:#a6b1bf; --accent:#80baff; --code-bg:#0b1016; --inline-code:#222d3b; --status:#9be9a8; }
+    :root[data-theme="light"] { color-scheme:light; --bg:#fff; --surface:#f6f8fa; --line:#d0d7de; --text:#1f2328; --muted:#59636e; --accent:#0969da; --code-bg:#f6f8fa; --inline-code:#eaeef2; --status:#1a7f37; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; scroll-padding-top:90px; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; }
+    a { color:var(--accent); text-underline-offset:4px; }
+    a:focus-visible,summary:focus-visible,button:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+    .topbar { border-bottom:1px solid var(--line); padding:16px 32px; display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; background:var(--bg); gap:12px 20px; }
+    .topbar-actions { display:flex; align-items:center; gap:16px; }
+    .theme-toggle { font:inherit; font-size:13px; color:var(--text); background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:6px 12px; min-height:36px; cursor:pointer; }
+    .theme-toggle:hover { border-color:var(--accent); }
+    .brand { font:600 13px/1.8 ui-monospace,monospace; letter-spacing:.1em; }
+    .status { color:var(--status); font-size:12px; }
+    .layout { display:grid; grid-template-columns:220px minmax(0,1fr); max-width:1440px; margin:auto; gap:48px; padding:42px 32px 80px; }
+    aside { position:sticky; top:24px; align-self:start; max-height:calc(100vh - 48px); overflow:auto; }
+    .nav-label,.eyebrow { color:var(--muted); font-size:12px; letter-spacing:.08em; }
+    nav { margin-top:18px; display:grid; gap:6px; }
+    nav a { color:var(--muted); text-decoration:none; border-left:2px solid var(--line); padding:7px 12px; font-size:14px; }
+    nav a:hover { color:var(--text); border-color:var(--accent); background:var(--surface); }
+    main { min-width:0; }
+    h1 { font-size:34px; line-height:1.3; margin:10px 0 18px; letter-spacing:-.025em; }
+    .lead { color:var(--muted); margin:0 0 24px; }
+    h2 { font-size:23px; padding-top:24px; margin:32px 0 16px; border-top:1px solid var(--line); }
+    h3 { font-size:18px; margin:26px 0 12px; }
+    h4,h5,h6 { font-size:16px; }
+    p,li { overflow-wrap:anywhere; }
+    p { margin:12px 0; }
+    ul,ol { padding-left:24px; }
+    li { margin:8px 0; }
+    code { font: .88em/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; background:var(--inline-code); border-radius:4px; padding:2px 5px; }
+    pre { overflow:auto; padding:18px; background:var(--code-bg); border:1px solid var(--line); border-radius:6px; }
+    pre code { background:none; padding:0; white-space:pre; }
+    .sql-keyword { color:#ff7b72; } .sql-type { color:#79c0ff; }
+    .sql-string { color:#a5d6ff; } .sql-number { color:#d2a8ff; } .sql-comment { color:#8b949e; }
+    :root[data-theme="light"] .sql-keyword { color:#cf222e; }
+    :root[data-theme="light"] .sql-type { color:#0550ae; }
+    :root[data-theme="light"] .sql-string { color:#0a3069; }
+    :root[data-theme="light"] .sql-number { color:#8250df; }
+    :root[data-theme="light"] .sql-comment { color:#59636e; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:8px; margin:18px 0; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { background:var(--surface); text-align:left; color:var(--muted); font-weight:600; }
+    th,td { padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; min-width:110px; overflow-wrap:anywhere; }
+    tr:last-child td { border-bottom:0; }
+    figure { margin:22px 0; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    .diagram { background:#fff; padding:24px; overflow:auto; text-align:center; }
+    .diagram img { max-width:100%; height:auto; vertical-align:middle; }
+    figcaption { font-size:12px; color:var(--muted); padding:9px 16px; background:var(--surface); }
+    details { padding:10px 16px; }
+    summary { color:var(--accent); cursor:pointer; font-size:13px; }
+    blockquote { border-left:3px solid var(--accent); padding:8px 16px; margin:18px 0; color:var(--muted); background:var(--surface); }
+    .source { margin-top:44px; border:1px solid var(--line); border-radius:8px; }
+    .source a { display:inline-block; margin-top:16px; }
+    footer { color:var(--muted); font-size:12px; margin-top:28px; }
+    @media(max-width:900px) { .layout { grid-template-columns:1fr; padding:24px 18px; gap:24px; } aside { position:static; max-height:none; } nav { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:28px; } .diagram { text-align:left; } .diagram img { max-width:none; } }
+    @media print { :root,:root[data-theme] { color-scheme:light; --bg:white; --text:#111; --line:#ccc; --surface:#f7f7f7; --muted:#555; --accent:#23558b; --code-bg:#f7f7f7; --inline-code:#eee; } aside,.topbar,.source { display:none; } .layout { display:block; padding:0; } figure,table { break-inside:avoid; } }
+  </style>
+  <script>
+    (() => {
+      const storageKey = 'keel-plan-theme';
+      let theme = 'dark';
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved === 'light' || saved === 'dark') theme = saved;
+      } catch (_) {}
+      document.documentElement.dataset.theme = theme;
+      document.addEventListener('DOMContentLoaded', () => {
+        const toggle = document.getElementById('theme-toggle');
+        const update = () => {
+          document.documentElement.dataset.theme = theme;
+          toggle.textContent = theme === 'dark' ? '切换浅色' : '切换深色';
+          toggle.setAttribute('aria-label', toggle.textContent + '模式');
+        };
+        toggle.addEventListener('click', () => {
+          theme = theme === 'dark' ? 'light' : 'dark';
+          update();
+          try { localStorage.setItem(storageKey, theme); } catch (_) {}
+        });
+        update();
+        toggle.hidden = false;
+      });
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">KEEL / PLAN</span>
+    <div class="topbar-actions">
+      <span class="status">待用户审阅</span>
+      <button class="theme-toggle" id="theme-toggle" type="button" hidden>切换浅色</button>
+    </div>
+  </header>
+  <div class="layout">
+    <aside><div class="nav-label">计划内容</div><nav aria-label="计划章节"><a href="#flow">业务流程总览</a></nav></aside>
+    <main>
+      <div class="eyebrow">业务方案审阅</div>
+      <h1>流程图样例 · 订单取消与退款</h1>
+      <p class="lead">PlantUML 活动图 · 沿用当前 Spec 与模板，供你标注调整。示例业务需按实际项目替换。</p>
+      <article id="plan-content"><section id="flow"><h2>业务流程总览</h2><h3>订单取消与退款确认流程</h3><figure><div class="diagram"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2ZXJzaW9uPSIxLjEiIGRhdGEtZGlhZ3JhbS10eXBlPSJBQ1RJVklUWSIgc3R5bGU9IndpZHRoOjUyOXB4O2hlaWdodDo0OTVweDtiYWNrZ3JvdW5kOiNGRkZGRkY7IiB3aWR0aD0iNTI5cHgiIGhlaWdodD0iNDk1cHgiIHZpZXdCb3g9IjAgMCA1MjkgNDk1IiB6b29tQW5kUGFuPSJtYWduaWZ5IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBjb250ZW50U3R5bGVUeXBlPSJ0ZXh0L2NzcyI+PD9wbGFudHVtbCAxLjIwMjYuOD8+PGRlZnMvPjxnIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBsZW5ndGhBZGp1c3Q9InNwYWNpbmciPjxlbGxpcHNlIGN4PSIzMzUuNjUxIiBjeT0iMjUiIHJ4PSIxMCIgcnk9IjEwIiBmaWxsPSIjMjIyIiBzdHlsZT0ic3Ryb2tlOiMyMjI7c3Ryb2tlLXdpZHRoOjE7Ii8+PHJlY3QgeD0iMjUzLjY1MSIgeT0iNTUiIHdpZHRoPSIxNjQiIGhlaWdodD0iMzQuMTMzIiBmaWxsPSIjRjFGMUYxIiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjAuNTsiIHJ4PSIxMi41IiByeT0iMTIuNSIvPjx0ZXh0IHg9IjI2My42NTEiIHk9Ijc2LjYwMiIgZmlsbD0iIzAwMCIgZm9udC1zaXplPSIxMiIgdGV4dExlbmd0aD0iMTQ0Ij7otK3kubDogIXnlLPor7flj5bmtojlt7LmlK/ku5jorqLljZU8L3RleHQ+PHBvbHlnb24gcG9pbnRzPSIyNzUuMTUxLDEwOS4xMzMsMzk2LjE1MSwxMDkuMTMzLDQwOC4xNTEsMTIxLjEzMywzOTYuMTUxLDEzMy4xMzMsMjc1LjE1MSwxMzMuMTMzLDI2My4xNTEsMTIxLjEzMywyNzUuMTUxLDEwOS4xMzMiIGZpbGw9IiNGMUYxRjEiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MC41O3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2UtbWl0ZXJsaW1pdDoxMDsiLz48dGV4dCB4PSIyNzUuMTUxIiB5PSIxMjUuMjkiIGZpbGw9IiMwMDAiIGZvbnQtc2l6ZT0iMTEiIHRleHRMZW5ndGg9IjEyMSI+5YWB6K645Y+W5raI77yf5rK/55So546w5pyJ5p2h5Lu2PC90ZXh0Pjx0ZXh0IHg9IjI1Mi4xNTEiIHk9IjExOC44MTMiIGZpbGw9IiMwMDAiIGZvbnQtc2l6ZT0iMTEiPuaYrzwvdGV4dD48dGV4dCB4PSI0MDguMTUxIiB5PSIxMTguODEzIiBmaWxsPSIjMDAwIiBmb250LXNpemU9IjExIj7lkKY8L3RleHQ+PHJlY3QgeD0iMTA3LjkiIHk9IjE0My4xMzMiIHdpZHRoPSIxOTkuNjAyIiBoZWlnaHQ9IjM0LjEzMyIgZmlsbD0iI0YxRjFGMSIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDowLjU7IiByeD0iMTIuNSIgcnk9IjEyLjUiLz48dGV4dCB4PSIxMTcuOSIgeT0iMTY0LjczNCIgZmlsbD0iIzAwMCIgZm9udC1zaXplPSIxMiIgdGV4dExlbmd0aD0iMTc5LjYwMiI+W+S/ruaUuV0g55m76K6w6YCA5qy+55Sz6K+377yM6K6i5Y2V5b6F6YCA5qy+PC90ZXh0PjxyZWN0IHg9IjEzNy43MDEiIHk9IjE5Ny4yNjYiIHdpZHRoPSIxNDAiIGhlaWdodD0iMzQuMTMzIiBmaWxsPSIjRjFGMUYxIiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjAuNTsiIHJ4PSIxMi41IiByeT0iMTIuNSIvPjx0ZXh0IHg9IjE0Ny43MDEiIHk9IjIxOC44NjciIGZpbGw9IiMwMDAiIGZvbnQtc2l6ZT0iMTIiIHRleHRMZW5ndGg9IjEyMCI+5rK/55So6YCA5qy+5rig6YGT5Y+R6LW36YCA5qy+PC90ZXh0PjxyZWN0IHg9IjE0My45IiB5PSIyNTEuMzk4IiB3aWR0aD0iMTI3LjYwMiIgaGVpZ2h0PSIzNC4xMzMiIGZpbGw9IiNGMUYxRjEiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MC41OyIgcng9IjEyLjUiIHJ5PSIxMi41Ii8+PHRleHQgeD0iMTUzLjkiIHk9IjI3MyIgZmlsbD0iIzAwMCIgZm9udC1zaXplPSIxMiIgdGV4dExlbmd0aD0iMTA3LjYwMiI+W+aWsOWinl0g562J5b6F6YCA5qy+57uT5p6cPC90ZXh0Pjxwb2x5Z29uIHBvaW50cz0iMTgzLjM4MSwzMDUuNTMxLDIzMi4wMjEsMzA1LjUzMSwyNDQuMDIxLDMxNy41MzEsMjMyLjAyMSwzMjkuNTMxLDE4My4zODEsMzI5LjUzMSwxNzEuMzgxLDMxNy41MzEsMTgzLjM4MSwzMDUuNTMxIiBmaWxsPSIjRjFGMUYxIiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjAuNTtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW1pdGVybGltaXQ6MTA7Ii8+PHRleHQgeD0iMTgzLjM4MSIgeT0iMzIxLjY4OCIgZmlsbD0iIzAwMCIgZm9udC1zaXplPSIxMSIgdGV4dExlbmd0aD0iNDguNjQxIj7pgIDmrL7miJDlip8/PC90ZXh0Pjx0ZXh0IHg9IjE2MC4zODEiIHk9IjMxNS4yMTEiIGZpbGw9IiMwMDAiIGZvbnQtc2l6ZT0iMTEiPuaYrzwvdGV4dD48dGV4dCB4PSIyNDQuMDIxIiB5PSIzMTUuMjExIiBmaWxsPSIjMDAwIiBmb250LXNpemU9IjExIj7lkKY8L3RleHQ+PHJlY3QgeD0iMTYiIHk9IjMzOS41MzEiIHdpZHRoPSIxODcuNjAyIiBoZWlnaHQ9IjM0LjEzMyIgZmlsbD0iI0YxRjFGMSIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDowLjU7IiByeD0iMTIuNSIgcnk9IjEyLjUiLz48dGV4dCB4PSIyNiIgeT0iMzYxLjEzMyIgZmlsbD0iIzAwMCIgZm9udC1zaXplPSIxMiIgdGV4dExlbmd0aD0iMTY3LjYwMiI+W+S/ruaUuV0g5a6M5oiQ6K6i5Y2V5Y+W5raI5bm26YCa55+l55So5oi3PC90ZXh0PjxyZWN0IHg9IjIyMy42MDIiIHk9IjMzOS41MzEiIHdpZHRoPSIxNjQiIGhlaWdodD0iMzQuMTMzIiBmaWxsPSIjRjFGMUYxIiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjAuNTsiIHJ4PSIxMi41IiByeT0iMTIuNSIvPjx0ZXh0IHg9IjIzMy42MDIiIHk9IjM2MS4xMzMiIGZpbGw9IiMwMDAiIGZvbnQtc2l6ZT0iMTIiIHRleHRMZW5ndGg9IjE0NCI+5L+d55WZ5b6F6YCA5qy+54q25oCB5bm26K6w5b2V5Y6f5ZugPC90ZXh0Pjxwb2x5Z29uIHBvaW50cz0iMjA3LjcwMSwzNzkuNjY0LDIxOS43MDEsMzkxLjY2NCwyMDcuNzAxLDQwMy42NjQsMTk1LjcwMSwzOTEuNjY0LDIwNy43MDEsMzc5LjY2NCIgZmlsbD0iI0YxRjFGMSIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDowLjU7c3Ryb2tlLWxpbmVqb2luOm1pdGVyO3N0cm9rZS1taXRlcmxpbWl0OjEwOyIvPjxyZWN0IHg9IjQxNy42MDIiIHk9IjE0My4xMzMiIHdpZHRoPSI5MiIgaGVpZ2h0PSIzNC4xMzMiIGZpbGw9IiNGMUYxRjEiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MC41OyIgcng9IjEyLjUiIHJ5PSIxMi41Ii8+PHRleHQgeD0iNDI3LjYwMiIgeT0iMTY0LjczNCIgZmlsbD0iIzAwMCIgZm9udC1zaXplPSIxMiIgdGV4dExlbmd0aD0iNzIiPuWRiuefpeS4jeiDveWPlua2iDwvdGV4dD48cG9seWdvbiBwb2ludHM9IjMzNS42NTEsNDA5LjY2NCwzNDcuNjUxLDQyMS42NjQsMzM1LjY1MSw0MzMuNjY0LDMyMy42NTEsNDIxLjY2NCwzMzUuNjUxLDQwOS42NjQiIGZpbGw9IiNGMUYxRjEiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MC41O3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2UtbWl0ZXJsaW1pdDoxMDsiLz48ZWxsaXBzZSBjeD0iMzM1LjY1MSIgY3k9IjQ2NC42NjQiIHJ4PSIxMSIgcnk9IjExIiBmaWxsPSJub25lIiBzdHlsZT0ic3Ryb2tlOiMyMjI7c3Ryb2tlLXdpZHRoOjE7Ii8+PGVsbGlwc2UgY3g9IjMzNS42NTEiIGN5PSI0NjQuNjY0IiByeD0iNiIgcnk9IjYiIGZpbGw9IiMyMjIiIHN0eWxlPSJzdHJva2U6IzIyMjtzdHJva2Utd2lkdGg6MTsiLz48bGluZSB4MT0iMzM1LjY1MSIgeTE9IjM1IiB4Mj0iMzM1LjY1MSIgeTI9IjU1IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7Ii8+PHBvbHlnb24gcG9pbnRzPSIzMzEuNjUxLDQ1LDMzNS42NTEsNTUsMzM5LjY1MSw0NSwzMzUuNjUxLDQ5IiBmaWxsPSIjMTgxODE4IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7c3Ryb2tlLWxpbmVqb2luOm1pdGVyO3N0cm9rZS1taXRlcmxpbWl0OjEwOyIvPjxsaW5lIHgxPSIyMDcuNzAxIiB5MT0iMTc3LjI2NiIgeDI9IjIwNy43MDEiIHkyPSIxOTcuMjY2IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7Ii8+PHBvbHlnb24gcG9pbnRzPSIyMDMuNzAxLDE4Ny4yNjYsMjA3LjcwMSwxOTcuMjY2LDIxMS43MDEsMTg3LjI2NiwyMDcuNzAxLDE5MS4yNjYiIGZpbGw9IiMxODE4MTgiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW1pdGVybGltaXQ6MTA7Ii8+PGxpbmUgeDE9IjIwNy43MDEiIHkxPSIyMzEuMzk4IiB4Mj0iMjA3LjcwMSIgeTI9IjI1MS4zOTgiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTsiLz48cG9seWdvbiBwb2ludHM9IjIwMy43MDEsMjQxLjM5OCwyMDcuNzAxLDI1MS4zOTgsMjExLjcwMSwyNDEuMzk4LDIwNy43MDEsMjQ1LjM5OCIgZmlsbD0iIzE4MTgxOCIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxO3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2UtbWl0ZXJsaW1pdDoxMDsiLz48bGluZSB4MT0iMTcxLjM4MSIgeTE9IjMxNy41MzEiIHgyPSIxMDkuODAxIiB5Mj0iMzE3LjUzMSIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxOyIvPjxsaW5lIHgxPSIxMDkuODAxIiB5MT0iMzE3LjUzMSIgeDI9IjEwOS44MDEiIHkyPSIzMzkuNTMxIiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7Ii8+PHBvbHlnb24gcG9pbnRzPSIxMDUuODAxLDMyOS41MzEsMTA5LjgwMSwzMzkuNTMxLDExMy44MDEsMzI5LjUzMSwxMDkuODAxLDMzMy41MzEiIGZpbGw9IiMxODE4MTgiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW1pdGVybGltaXQ6MTA7Ii8+PGxpbmUgeDE9IjI0NC4wMjEiIHkxPSIzMTcuNTMxIiB4Mj0iMzA1LjYwMiIgeTI9IjMxNy41MzEiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTsiLz48bGluZSB4MT0iMzA1LjYwMiIgeTE9IjMxNy41MzEiIHgyPSIzMDUuNjAyIiB5Mj0iMzM5LjUzMSIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxOyIvPjxwb2x5Z29uIHBvaW50cz0iMzAxLjYwMiwzMjkuNTMxLDMwNS42MDIsMzM5LjUzMSwzMDkuNjAyLDMyOS41MzEsMzA1LjYwMiwzMzMuNTMxIiBmaWxsPSIjMTgxODE4IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7c3Ryb2tlLWxpbmVqb2luOm1pdGVyO3N0cm9rZS1taXRlcmxpbWl0OjEwOyIvPjxsaW5lIHgxPSIxMDkuODAxIiB5MT0iMzczLjY2NCIgeDI9IjEwOS44MDEiIHkyPSIzOTEuNjY0IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7Ii8+PGxpbmUgeDE9IjEwOS44MDEiIHkxPSIzOTEuNjY0IiB4Mj0iMTk1LjcwMSIgeTI9IjM5MS42NjQiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTsiLz48cG9seWdvbiBwb2ludHM9IjE4NS43MDEsMzg3LjY2NCwxOTUuNzAxLDM5MS42NjQsMTg1LjcwMSwzOTUuNjY0LDE4OS43MDEsMzkxLjY2NCIgZmlsbD0iIzE4MTgxOCIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxO3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2UtbWl0ZXJsaW1pdDoxMDsiLz48bGluZSB4MT0iMzA1LjYwMiIgeTE9IjM3My42NjQiIHgyPSIzMDUuNjAyIiB5Mj0iMzkxLjY2NCIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxOyIvPjxsaW5lIHgxPSIzMDUuNjAyIiB5MT0iMzkxLjY2NCIgeDI9IjIxOS43MDEiIHkyPSIzOTEuNjY0IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7Ii8+PHBvbHlnb24gcG9pbnRzPSIyMjkuNzAxLDM4Ny42NjQsMjE5LjcwMSwzOTEuNjY0LDIyOS43MDEsMzk1LjY2NCwyMjUuNzAxLDM5MS42NjQiIGZpbGw9IiMxODE4MTgiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW1pdGVybGltaXQ6MTA7Ii8+PGxpbmUgeDE9IjIwNy43MDEiIHkxPSIyODUuNTMxIiB4Mj0iMjA3LjcwMSIgeTI9IjMwNS41MzEiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTsiLz48cG9seWdvbiBwb2ludHM9IjIwMy43MDEsMjk1LjUzMSwyMDcuNzAxLDMwNS41MzEsMjExLjcwMSwyOTUuNTMxLDIwNy43MDEsMjk5LjUzMSIgZmlsbD0iIzE4MTgxOCIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxO3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2UtbWl0ZXJsaW1pdDoxMDsiLz48bGluZSB4MT0iMjYzLjE1MSIgeTE9IjEyMS4xMzMiIHgyPSIyMDcuNzAxIiB5Mj0iMTIxLjEzMyIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxOyIvPjxsaW5lIHgxPSIyMDcuNzAxIiB5MT0iMTIxLjEzMyIgeDI9IjIwNy43MDEiIHkyPSIxNDMuMTMzIiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7Ii8+PHBvbHlnb24gcG9pbnRzPSIyMDMuNzAxLDEzMy4xMzMsMjA3LjcwMSwxNDMuMTMzLDIxMS43MDEsMTMzLjEzMywyMDcuNzAxLDEzNy4xMzMiIGZpbGw9IiMxODE4MTgiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW1pdGVybGltaXQ6MTA7Ii8+PGxpbmUgeDE9IjQwOC4xNTEiIHkxPSIxMjEuMTMzIiB4Mj0iNDYzLjYwMiIgeTI9IjEyMS4xMzMiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTsiLz48bGluZSB4MT0iNDYzLjYwMiIgeTE9IjEyMS4xMzMiIHgyPSI0NjMuNjAyIiB5Mj0iMTQzLjEzMyIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxOyIvPjxwb2x5Z29uIHBvaW50cz0iNDU5LjYwMiwxMzMuMTMzLDQ2My42MDIsMTQzLjEzMyw0NjcuNjAyLDEzMy4xMzMsNDYzLjYwMiwxMzcuMTMzIiBmaWxsPSIjMTgxODE4IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7c3Ryb2tlLWxpbmVqb2luOm1pdGVyO3N0cm9rZS1taXRlcmxpbWl0OjEwOyIvPjxsaW5lIHgxPSIyMDcuNzAxIiB5MT0iNDAzLjY2NCIgeDI9IjIwNy43MDEiIHkyPSI0MjEuNjY0IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7Ii8+PGxpbmUgeDE9IjIwNy43MDEiIHkxPSI0MjEuNjY0IiB4Mj0iMzIzLjY1MSIgeTI9IjQyMS42NjQiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTsiLz48cG9seWdvbiBwb2ludHM9IjMxMy42NTEsNDE3LjY2NCwzMjMuNjUxLDQyMS42NjQsMzEzLjY1MSw0MjUuNjY0LDMxNy42NTEsNDIxLjY2NCIgZmlsbD0iIzE4MTgxOCIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxO3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2UtbWl0ZXJsaW1pdDoxMDsiLz48bGluZSB4MT0iNDYzLjYwMiIgeTE9IjE3Ny4yNjYiIHgyPSI0NjMuNjAyIiB5Mj0iNDIxLjY2NCIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxOyIvPjxsaW5lIHgxPSI0NjMuNjAyIiB5MT0iNDIxLjY2NCIgeDI9IjM0Ny42NTEiIHkyPSI0MjEuNjY0IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7Ii8+PHBvbHlnb24gcG9pbnRzPSIzNTcuNjUxLDQxNy42NjQsMzQ3LjY1MSw0MjEuNjY0LDM1Ny42NTEsNDI1LjY2NCwzNTMuNjUxLDQyMS42NjQiIGZpbGw9IiMxODE4MTgiIHN0eWxlPSJzdHJva2U6IzE4MTgxODtzdHJva2Utd2lkdGg6MTtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW1pdGVybGltaXQ6MTA7Ii8+PGxpbmUgeDE9IjMzNS42NTEiIHkxPSI4OS4xMzMiIHgyPSIzMzUuNjUxIiB5Mj0iMTA5LjEzMyIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxOyIvPjxwb2x5Z29uIHBvaW50cz0iMzMxLjY1MSw5OS4xMzMsMzM1LjY1MSwxMDkuMTMzLDMzOS42NTEsOTkuMTMzLDMzNS42NTEsMTAzLjEzMyIgZmlsbD0iIzE4MTgxOCIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxO3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2UtbWl0ZXJsaW1pdDoxMDsiLz48bGluZSB4MT0iMzM1LjY1MSIgeTE9IjQzMy42NjQiIHgyPSIzMzUuNjUxIiB5Mj0iNDUzLjY2NCIgc3R5bGU9InN0cm9rZTojMTgxODE4O3N0cm9rZS13aWR0aDoxOyIvPjxwb2x5Z29uIHBvaW50cz0iMzMxLjY1MSw0NDMuNjY0LDMzNS42NTEsNDUzLjY2NCwzMzkuNjUxLDQ0My42NjQsMzM1LjY1MSw0NDcuNjY0IiBmaWxsPSIjMTgxODE4IiBzdHlsZT0ic3Ryb2tlOiMxODE4MTg7c3Ryb2tlLXdpZHRoOjE7c3Ryb2tlLWxpbmVqb2luOm1pdGVyO3N0cm9rZS1taXRlcmxpbWl0OjEwOyIvPjw/cGxhbnR1bWwtc3JjIE5PX0JKaTkwNThSdFZPZm4xd3kwMm4tNGs2WFlLSDhlWERRNWtuOTMwZUhoQTBHS0E5OWVONFhmRzVqOFdSdkNwdmJYbklpdVRPWVlzdEYteHh6UzU4aG9KS3VjTVZhLVZ3U0pCUVZlaVlmQmNZdU5USWQxRmtSWG5jNTZjUGVoamwyV3JLVXQwanVJcEtOZTN2V3pXcU9sQU1OSTkwUmI0aEZOR2QzU01oV0NnRmI2Y213RWdaWC0zZHF0SmxIUkhJS243MnBZNFk2OUwxWk9RNndrMjF0d3A3T0VYZTdsVW41cHREUTVEVXBCdWZ3QzJFNGYzaFlVN2FmVFE3Tk9mdFNjSU03VldUYzRjeXdoRnAzcmtwV1BIVi1ldzhjbGpBNWNOVnVoVEx1QngzZU5kTmc4dEhsdE8zbkl3dU10bThlTjZJZlBKVTdSc3d5ZEVXcDZqM1Z5SlF3dlE5R3VubVYyaFdURDJ2d2N0dm53ZEtiQlYtVzRUNmhTRXJtdHNDREUxMk9iZVRGcVZFNEI/PjwvZz48L3N2Zz4=" alt="订单取消与退款确认 PlantUML 活动图" /></div><details><summary>查看 PlantUML 源码</summary><pre><code>@startuml
+start
+:购买者申请取消已支付订单;
+if (允许取消？沿用现有条件) then (是)
+  :[修改] 登记退款申请，订单待退款;
+  :沿用退款渠道发起退款;
+  :[新增] 等待退款结果;
+  if (退款成功?) then (是)
+    :[修改] 完成订单取消并通知用户;
+  else (否)
+    :保留待退款状态并记录原因;
+  endif
+else (否)
+  :告知不能取消;
+endif
+stop
+@enduml</code></pre></details></figure></section></article>
+      
+      
+    </main>
+  </div>
+</body>
+</html>
