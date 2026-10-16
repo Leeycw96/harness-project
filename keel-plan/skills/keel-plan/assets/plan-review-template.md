@@ -42,8 +42,8 @@ state "已支付" as PAID
 state "待退款 [新增]" as REFUND_PENDING #DCFCE7
 state "已取消 [修改]" as CANCELLED #DBEAFE
 [*] --> PAID
-PAID -[#green]-> REFUND_PENDING : [新增] 申请退款
-REFUND_PENDING -[#green]-> CANCELLED : [新增] 退款成功
+PAID -[#green]-> REFUND_PENDING : 申请退款
+REFUND_PENDING -[#green]-> CANCELLED : 退款成功
 CANCELLED --> [*]
 state "本期删除（不参与新流转）" as REMOVED {
   state "取消中 [删除]" as CANCELLING #FEE2E2

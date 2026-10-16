@@ -38,6 +38,13 @@
     code { font: .88em/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; background:var(--inline-code); border-radius:4px; padding:2px 5px; }
     pre { overflow:auto; padding:18px; background:var(--code-bg); border:1px solid var(--line); border-radius:6px; }
     pre code { background:none; padding:0; white-space:pre; }
+    .sql-keyword { color:#ff7b72; } .sql-type { color:#79c0ff; }
+    .sql-string { color:#a5d6ff; } .sql-number { color:#d2a8ff; } .sql-comment { color:#8b949e; }
+    :root[data-theme="light"] .sql-keyword { color:#cf222e; }
+    :root[data-theme="light"] .sql-type { color:#0550ae; }
+    :root[data-theme="light"] .sql-string { color:#0a3069; }
+    :root[data-theme="light"] .sql-number { color:#8250df; }
+    :root[data-theme="light"] .sql-comment { color:#59636e; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:8px; margin:18px 0; }
     table { width:100%; border-collapse:collapse; font-size:14px; }
     th { background:var(--surface); text-align:left; color:var(--muted); font-weight:600; }

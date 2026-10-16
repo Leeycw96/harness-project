@@ -6,13 +6,15 @@
 
 旧订单的新增字段保留 NULL，不回填。以下为 PostgreSQL 示例，实际计划须替换为项目数据库方言及迁移约定。
 
+### 订单域
+
 ```plantuml
 @startuml
 hide circle
 entity "orders（订单）" as orders {
-  * id : varchar(64) <<PK>>
+  * id : varchar(64) <<PK>> — 订单编号
   --
-  refund_requested_at : timestamp [新增，可空]
+  refund_requested_at : timestamp [新增，可空] — 申请退款时间
 }
 @enduml
 ```

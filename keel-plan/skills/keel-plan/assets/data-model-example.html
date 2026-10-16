@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Keel · 按领域展示数据模型</title><style>
+*{box-sizing:border-box}body{margin:0;background:#0d1117;color:#e6edf3;font:15px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}header{padding:16px 28px;border-bottom:1px solid #303945;display:flex;justify-content:space-between;font-size:13px}header span{color:#a6b1bf}main{max-width:1280px;margin:auto;padding:30px 28px 70px}h1{font-size:28px;margin:0 0 24px}h2{font-size:22px;margin:35px 0 18px;border-top:1px solid #303945;padding-top:25px}.canvas{background:#f8fafc;padding:30px 24px;border-radius:9px;overflow:auto}.graph{display:flex;align-items:center;justify-content:center;min-width:1000px}.entity{border:1px solid #94a3b8;border-radius:6px;background:white;color:#1e293b;min-width:420px;overflow:hidden}.title{background:#e8edf4;padding:10px 14px;font-weight:650}.new{background:#dcfce7}table{border-collapse:collapse;width:100%;font-size:12px}th,td{padding:9px 11px;text-align:left;border-bottom:1px solid #e2e8f0;white-space:nowrap}th{color:#64748b;font-weight:500}tr:last-child td{border-bottom:0}td:first-child{font-family:ui-monospace,monospace}.relation{min-width:150px;text-align:center;color:#475569;font-size:12px}.relation b{font:18px ui-monospace,monospace;display:block;white-space:nowrap}.sql{margin-top:16px;border:1px solid #303945;border-radius:8px;overflow:hidden}.sql-label{padding:8px 16px;background:#151c25;color:#a6b1bf;font:12px ui-monospace,monospace}pre{margin:0;padding:19px 22px;overflow:auto;background:#0b1016;font:13px/1.9 ui-monospace,monospace;tab-size:4}.kw{color:#ff7b72}.type{color:#79c0ff}.str{color:#a5d6ff}.num{color:#d2a8ff}.comment{color:#8b949e}footer{color:#a6b1bf;font-size:12px;margin-top:30px}@media(max-width:700px){main{padding:22px 16px}.canvas{padding:18px 12px}}
+</style></head><body><header><b>KEEL / PLAN</b><span>版式预览 · 示例数据 · PostgreSQL</span></header><main>
+<h1>数据模型设计</h1>
+<h2>订单域</h2>
+<div class="canvas"><div class="graph">
+<div class="entity"><div class="title">orders · 订单</div><table><thead><tr><th>字段</th><th>类型</th><th>中文注释</th></tr></thead><tbody>
+<tr><td>id «PK»</td><td>bigint</td><td>订单编号</td></tr>
+<tr><td>order_no</td><td>varchar(32)</td><td>订单号</td></tr>
+<tr><td>status</td><td>varchar(24)</td><td>已支付</td></tr>
+<tr class="new"><td>refund_requested_at [新增]</td><td>timestamp，可空</td><td>申请退款时间</td></tr>
+</tbody></table></div>
+<div class="relation"><b>1 ───── 0..*</b>一个订单对应多次退款申请<br>逻辑关联，无数据库外键</div>
+<div class="entity"><div class="title new">refund_requests · 退款申请 [新增]</div><table><thead><tr><th>字段</th><th>类型</th><th>中文注释</th></tr></thead><tbody>
+<tr><td>id «PK»</td><td>bigint</td><td>退款申请编号</td></tr>
+<tr><td>order_id «关联键»</td><td>bigint</td><td>所属订单编号</td></tr>
+<tr><td>amount</td><td>numeric(12,2)</td><td>退款金额</td></tr>
+<tr><td>reason</td><td>varchar(200)</td><td>退款原因</td></tr>
+</tbody></table></div>
+</div></div>
+<div class="sql"><div class="sql-label">SQL · PostgreSQL</div><pre><code><span class="kw">ALTER TABLE</span> orders
+    <span class="kw">ADD COLUMN</span> refund_requested_at <span class="type">timestamp</span>;
+
+<span class="kw">CREATE TABLE</span> refund_requests (
+    id       <span class="type">bigint</span> <span class="kw">GENERATED ALWAYS AS IDENTITY PRIMARY KEY</span>,
+    order_id <span class="type">bigint</span> <span class="kw">NOT NULL</span>,
+    amount   <span class="type">numeric</span>(<span class="num">12</span>, <span class="num">2</span>) <span class="kw">NOT NULL CHECK</span> (amount &gt; <span class="num">0</span>),
+    reason   <span class="type">varchar</span>(<span class="num">200</span>) <span class="kw">NOT NULL</span>
+);
+
+<span class="kw">CREATE INDEX</span> idx_refund_requests_order_id
+    <span class="kw">ON</span> refund_requests (order_id);</code></pre></div>
+<h2>商品域</h2>
+<div class="canvas"><div class="graph">
+<div class="entity"><div class="title">products · 商品</div><table><thead><tr><th>字段</th><th>类型</th><th>中文注释</th></tr></thead><tbody>
+<tr><td>id «PK»</td><td>bigint</td><td>商品编号</td></tr>
+<tr><td>name</td><td>varchar(120)</td><td>商品名称</td></tr>
+<tr class="new"><td>subtitle [新增]</td><td>varchar(120)，可空</td><td>商品副标题</td></tr>
+</tbody></table></div>
+<div class="relation"><b>1 ───── 0..*</b>一个商品对应多个规格<br>数据库外键</div>
+<div class="entity"><div class="title">product_skus · 商品规格</div><table><thead><tr><th>字段</th><th>类型</th><th>中文注释</th></tr></thead><tbody>
+<tr><td>id «PK»</td><td>bigint</td><td>规格编号</td></tr>
+<tr><td>product_id «FK»</td><td>bigint</td><td>所属商品编号</td></tr>
+<tr><td>spec_name</td><td>varchar(80)</td><td>规格名称</td></tr>
+<tr class="new"><td>barcode [新增]</td><td>varchar(32)，可空</td><td>商品条码</td></tr>
+</tbody></table></div>
+</div></div>
+<div class="sql"><div class="sql-label">SQL · PostgreSQL</div><pre><code><span class="kw">ALTER TABLE</span> products
+    <span class="kw">ADD COLUMN</span> subtitle <span class="type">varchar</span>(<span class="num">120</span>);
+
+<span class="kw">ALTER TABLE</span> product_skus
+    <span class="kw">ADD COLUMN</span> barcode <span class="type">varchar</span>(<span class="num">32</span>);
+
+<span class="kw">COMMENT ON COLUMN</span> products.subtitle <span class="kw">IS</span> <span class="str">'商品副标题'</span>;
+<span class="kw">COMMENT ON COLUMN</span> product_skus.barcode <span class="kw">IS</span> <span class="str">'商品条码'</span>;</code></pre></div>
+<footer>所有表、关系、数据与 SQL 均为版式示例。</footer>
+</main></body></html>

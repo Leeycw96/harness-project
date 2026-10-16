@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Behavior checks for split execution input, portable snapshots and offline review."""
 import base64
+import html
 from html.parser import HTMLParser
 import importlib.util
 import io
@@ -169,7 +170,7 @@ class MarkdownPlanTests(unittest.TestCase):
         sequences = article.split("<h2>功能时序图</h2>")[1].split("</section>")[0]
         self.assertNotIn("confirm-refund", sequences)
         self.assertNotIn("执行说明（不生成时序图）", sequences)
-        self.assertEqual(article.count("ALTER TABLE orders"), 1)
+        self.assertEqual(html.unescape(re.sub(r"<[^>]*>", "", article)).count("ALTER TABLE orders"), 1)
         for unwanted in ("时序图：生成", "结构变更：", "引用：", "其他必要说明", "__KEEL_"):
             self.assertNotIn(unwanted, article)
         for anchor in re.findall(r'href="#([^\"]+)"', page):
@@ -223,7 +224,7 @@ Job -> Gateway : 幂等退款
         self.assertEqual(diagram.call_count, 5)
         model = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
         interfaces = page.split("<h2>接口设计</h2>")[1].split("</section>")[0]
-        self.assertIn("ALTER TABLE orders", model)
+        self.assertIn("ALTER TABLE orders", html.unescape(re.sub(r"<[^>]*>", "", model)))
         self.assertIn("/orders/{id}/cancel", interfaces)
         encoded = re.search(r'data:application/zip;base64,([^\"]+)', page)[1]
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded))) as archive:
@@ -569,7 +570,7 @@ class "rewards.Rule" as Rule <<contract>>
                 page, _ = self.render()
                 visible = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
                 self.assertNotIn("SQL迁移：", visible)
-                self.assertEqual("UPDATE orders" in visible, "UPDATE orders" in model)
+                self.assertEqual("UPDATE orders" in html.unescape(re.sub(r"<[^>]*>", "", visible)), "UPDATE orders" in model)
         for model in (JSON_MODEL + "\n\n- SQL迁移：需要",
                       JSON_MODEL + "\n\n- SQL迁移：需要\n\n```sql\n\n```",
                       JSON_MODEL + "\n\n- SQL迁移：不需要\n\n" + sql,
@@ -601,12 +602,13 @@ class "rewards.Rule" as Rule <<contract>>
     def test_mixed_physical_and_json_structure_keeps_er_and_sql_requirements(self):
         source = FEATURES["cancel-order"]
         model = section(source, "数据模型").replace("结构变更：新增字段", "结构变更：新增字段、JSON结构调整")
-        model += "\n\n" + JSON_MODEL.split("\n", 1)[1]
+        model += "\n\n### JSON结构\n\n" + JSON_MODEL.split("\n", 1)[1]
         self.feature().write_text(replace_section(source, "数据模型", model))
         page, _ = self.render()
         visible = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
-        self.assertIn("ALTER TABLE orders", visible)
+        self.assertIn("ALTER TABLE orders", html.unescape(re.sub(r"<[^>]*>", "", visible)))
         self.assertIn("orders.metadata.externalRef", visible)
+        self.assertNotIn("先执行字段迁移", visible)
         for bad in (re.sub(r"```sql\n.*?```", "", model, flags=re.S),
                     re.sub(r"```plantuml\n.*?```", "", model, flags=re.S)):
             with self.subTest(model=bad[-80:]):
@@ -621,6 +623,37 @@ class "rewards.Rule" as Rule <<contract>>
                 fenced = model + "\n\n```" + language + "\n- SQL迁移：不需要\n```"
                 self.feature().write_text(replace_section(source, "数据模型", fenced))
                 self.assert_rejected()
+
+    def test_domain_review_hides_execution_prose_and_keeps_domain_sql_order(self):
+        source = FEATURES["cancel-order"]
+        model = section(source, "数据模型") + '\n\n### 商品域\n\n```plantuml\n@startuml\nentity products {\n id : bigint — 商品编号\n}\n@enduml\n```\n\n```sql\nALTER TABLE products ADD COLUMN subtitle TEXT;\n```\n\n仅执行者需要的恢复约束。'
+        self.feature().write_text(replace_section(source, "数据模型", model))
+        page, _ = self.render()
+        visible = page.split("<h2>数据模型设计</h2>")[1].split("</section>")[0]
+        self.assertLess(visible.index("订单域"), visible.index("orders"))
+        self.assertLess(visible.index("orders"), visible.index("商品域"))
+        self.assertLess(visible.index("商品域"), visible.index("products"))
+        for hidden in ("旧订单的新增字段", "先执行字段迁移", "仅执行者需要"):
+            self.assertNotIn(hidden, visible)
+        self.assertEqual(visible.count('class="language-sql"'), 2)
+        self.assertIn('class="sql-keyword"', visible)
+        self.assertIn("仅执行者需要", self.feature().read_text())
+
+    def test_sql_highlight_preserves_source_and_escapes_markup(self):
+        source = "-- 中文注释 <script>\nALTER TABLE t ADD name VARCHAR(32) DEFAULT '商品''名称<script>';\n/* 多行\n注释 */"
+        rendered = plan_module.sql_html(source)
+        self.assertEqual(html.unescape(re.sub(r"<[^>]*>", "", rendered)), source)
+        for scope in ("comment", "keyword", "type", "string", "number"):
+            self.assertIn('class="sql-' + scope + '"', rendered)
+        self.assertNotIn("<script>", rendered)
+
+    def test_state_template_edges_have_no_change_labels(self):
+        for name in ("plan-review-template.md", "incremental-example.review.md"):
+            content = (ASSETS / name).read_text()
+            for line in content.splitlines():
+                if "->" in line:
+                    self.assertNotRegex(line, r"\[(?:新增|修改|删除)\]")
+            self.assertIn("[新增]", content)
 
     def test_html_escapes_all_sources(self):
         self.feature().write_text(FEATURES["cancel-order"] + '\n<script>alert("x")</script> **重点** `x < y` [来源](https://example.com)\n')

@@ -27,6 +27,8 @@ user-invocable: true
 
 修订时仍由 Planner 使用相同 Spec，接收本次反馈与受影响源文件，返回修改结果及未决问题。
 
+涉及数据库模型时，起草任务提供 `.agents/skills/keel-plan/assets/data-model-example.html` 供 Planner 参考领域分组、图内字段/类型/中文注释及图下 SQL 的版式；内容维护在功能 MD，不直接编写审阅 HTML，不能照搬示例业务事实。
+
 ## 渲染
 
 收到当前 Planner 返回的源文档后，主会话直接在项目根运行：

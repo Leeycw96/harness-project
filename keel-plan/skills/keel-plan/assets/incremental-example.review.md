@@ -18,9 +18,9 @@ state "校验中 [新增]" as VERIFYING #DCFCE7
 state "已完成" as COMPLETED
 state "失败" as FAILED
 [*] --> RUNNING
-RUNNING -[#green]-> VERIFYING : [新增] 文件生成完成
-VERIFYING -[#blue]-> COMPLETED : [修改] 原校验成功
-VERIFYING -[#blue]-> FAILED : [修改] 原校验失败或超时
+RUNNING -[#green]-> VERIFYING : 文件生成完成
+VERIFYING -[#blue]-> COMPLETED : 原校验成功
+VERIFYING -[#blue]-> FAILED : 原校验失败或超时
 RUNNING --> FAILED : 原生成失败或超时
 FAILED --> RUNNING : 原重试
 COMPLETED --> [*]

@@ -391,7 +391,24 @@ def review_sections(plan, bundle):
         if item["contracts"]:
             contracts.extend(detail["合约设计"])
         if item["model_visible"]:
-            models.extend(detail["数据模型"])
+            model = detail["数据模型"]
+            if any(lang and lang.lower() == "plantuml" for lang, _ in model):
+                # Execution prose stays in the downloadable source, outside the review.
+                json_section = False
+                for lang, body in model:
+                    if lang is None:
+                        lines = []
+                        for line in body.splitlines():
+                            if line.startswith("### "):
+                                json_section = line.startswith("### JSON结构")
+                                lines.append(line)
+                            elif json_section:
+                                lines.append(line)
+                        models.append((None, "\n".join(lines)))
+                    elif lang.lower() in {"plantuml", "sql", "json"}:
+                        models.append((lang, body))
+            else:
+                models.extend(model)
         if item["choice"] == "生成":
             sequences.extend([heading, *[(lang, body) for lang, body in detail["功能时序图"]
                                         if lang and lang.lower() == "plantuml"]])
@@ -407,6 +424,24 @@ def review_sections(plan, bundle):
         if content:
             result[name] = content
     return result
+
+
+def sql_html(source):
+    """Offline presentation only: preserve every character and escape before markup."""
+    keywords = set("ALTER TABLE ADD COLUMN CREATE INDEX UNIQUE ON COMMENT IS NOT NULL PRIMARY KEY REFERENCES DEFAULT CHECK CONSTRAINT DROP IF EXISTS UPDATE SET WHERE INSERT INTO VALUES DELETE FROM AS GENERATED ALWAYS IDENTITY TRUE FALSE AND OR SELECT USING FOREIGN CASCADE RENAME TO".split())
+    types = set("BIGINT INT INTEGER SMALLINT VARCHAR CHAR TEXT TIMESTAMP TIMESTAMPTZ DATE TIME BOOLEAN BOOL NUMERIC DECIMAL FLOAT DOUBLE PRECISION JSON JSONB UUID SERIAL BIGSERIAL".split())
+    tokens = re.finditer(r"--[^\n]*|/\*[\s\S]*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|`(?:``|[^`])*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][A-Za-z_0-9$]*\b|[\s\S]", source)
+    result = []
+    for match in tokens:
+        token = match.group()
+        scope = ("comment" if token.startswith(("--", "/*")) else
+                 "string" if token.startswith("'") else
+                 "number" if token[0].isdigit() else
+                 "keyword" if token.upper() in keywords else
+                 "type" if token.upper() in types else None)
+        escaped = html.escape(token)
+        result.append(f'<span class="sql-{scope}">{escaped}</span>' if scope else escaped)
+    return '<pre><code class="language-sql">' + "".join(result) + '</code></pre>'
 
 
 def validate_diagram(source):
@@ -555,6 +590,8 @@ def render(plan, output, template):
                 rendered.append(f'<figure><div class="diagram"><img src="{src}" alt="{html.escape(name)} {diagram_count}" /></div>'
                                 f'<details><summary>查看图表源码</summary>'
                                 f'<pre><code>{html.escape(body)}</code></pre></details></figure>')
+            elif lang.lower() == "sql":
+                rendered.append(sql_html(body))
             else:
                 rendered.append("<pre><code>" + html.escape(body) + "</code></pre>")
         rendered.append("</section>")
