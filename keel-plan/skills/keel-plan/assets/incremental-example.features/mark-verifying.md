@@ -14,16 +14,13 @@
 
 ```plantuml
 @startuml
-participant 导出任务 as Job
-participant 导出处理 as Service
-participant 文件校验 as Validator
+participant 导出服务 as Service
 database 导出任务库 as DB
-participant 超时扫描 as Timer
 par 文件校验路径
-  Job -> Service : 沿用任务领取与文件生成
+  Service -> Service : 沿用任务领取与文件生成
   Service -> DB : [新增] 条件更新 RUNNING → VERIFYING
   opt 状态更新成功
-    Service -> Validator : 校验文件
+    Service -> Service : 校验文件
     alt 校验成功
       Service -> DB : [修改] VERIFYING → COMPLETED
     else 校验失败
@@ -31,7 +28,7 @@ par 文件校验路径
     end
   end
 else 独立超时处理
-  Timer -> DB : [修改] 将 RUNNING、VERIFYING 中的超时任务标记失败
+  Service -> DB : [修改] 将 RUNNING、VERIFYING 中的超时任务标记失败
 end
 @enduml
 ```

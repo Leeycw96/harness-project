@@ -32,25 +32,22 @@ ALTER TABLE orders ADD COLUMN refund_requested_at TIMESTAMP NULL;
 ```plantuml
 @startuml
 actor 用户
-participant 订单接口 as API
 participant 订单服务 as Service
 database 订单库 as DB
-participant 退款派发 as Job
 participant 退款渠道 as Gateway
-用户 -> API : 申请取消订单
-API -> Service : 处理取消申请
+用户 -> Service : 申请取消订单
 Service -> DB : 沿用订单与取消条件校验
 alt 已有同一退款申请
-  Service --> API : 返回原申请结果
-  API --> 用户 : 当前退款状态
+  Service --> 用户 : 返回原申请的当前退款状态
 else 首次允许取消
 group 本地事务 [修改]
   Service -> DB : 标记待退款，保存申请时间与退款任务
 end
-  Service --> API : 返回退款申请结果
-  API --> 用户 : 退款处理中
-  Job -> DB : 读取已保存退款任务
-  Job -> Gateway : 沿用退款派发与重试
+  Service --> 用户 : 退款处理中
+  group 提交后异步派发（订单模块内）
+    Service -> DB : 读取已保存退款任务
+    Service -> Gateway : 沿用退款派发与重试
+  end
 end
 @enduml
 ```

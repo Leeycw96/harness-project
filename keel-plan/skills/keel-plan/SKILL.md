@@ -29,6 +29,8 @@ user-invocable: true
 
 涉及数据库模型时，起草任务提供 `.agents/skills/keel-plan/assets/data-model-example.html` 供 Planner 参考领域分组、图内字段/类型/中文注释及图下 SQL 的版式；内容维护在功能 MD，不直接编写审阅 HTML，不能照搬示例业务事实。
 
+生成时序图时，任务明确引用 `keel-proposal-spec#时序图标准`，提供 `.agents/skills/keel-plan/assets/plan-template.features/cancel-order.md`；涉及模块内异步或校验时另给 `.agents/skills/keel-plan/assets/incremental-example.features/mark-verifying.md`，供 Planner 参考按业务模块归并参与方，不照搬技术类调用链。
+
 ## 渲染
 
 收到当前 Planner 返回的源文档后，主会话直接在项目根运行：
