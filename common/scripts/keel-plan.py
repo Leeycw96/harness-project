@@ -81,7 +81,7 @@ def read_document(path, order, optional):
         raise ValueError(f"需要存在的 Markdown 计划: {path}")
     source = path.read_text(encoding="utf-8")
     if not source.strip() or source.lstrip().startswith("<"):
-        raise ValueError("需要完整 Markdown 内容；旧格式输入请重新运行 /keel-plan")
+        raise ValueError("需要完整 Markdown 内容，不支持空内容或旧格式输入")
     parts = blocks(source)
     prose = "\n".join(body for lang, body in parts if lang is None)
     titles = re.findall(r"^# (.+)$", prose, re.M)
